@@ -1,6 +1,6 @@
 # 📘 GAME DESIGN DOCUMENT : *APOGÉE*
 
-> **Version** 0.25 · 9 novembre 2026
+> **Version** 0.26 · 9 novembre 2026
 > **Statut** : Phase 2 (alpha) en cours
 > **Auteur** : GameForge, avec le concepteur
 > **Cible** : développeur senior solo, Go + Ebitengine
@@ -162,6 +162,8 @@ Bâtiment central de l'île, qui la maintient dans le ciel. **Sa destruction fai
 | **Ciel** | Toutes les îles, vagues et boss sous forme d'icônes | Vision stratégique |
 | **Île** | Une île entière, bâtiments et unités | Gestion courante |
 | **Détail** | Unités individuelles, animations | Plaisir de regarder |
+
+On peut **observer n'importe quelle île** de près : on n'en voit que ce qui se voit (bâtiments, habitants, défenseurs), jamais ses stocks, son gâteau ni sa chronique.
 
 Les trois niveaux sont des **niveaux de détail** progressifs dans une même scène, pas des écrans distincts. Le zoom se fait par **paliers entiers** (×1, ×2, ×3…) avec une transition animée entre deux paliers, et chaque vue correspond à un palier (12.3).
 
@@ -796,6 +798,23 @@ Le ciel offre des ressources visuelles que les jeux au sol n'ont pas :
 | **Pas de pop-ups dans le jeu** | Aucune fenêtre qui interrompt la scène : alertes et chronique s'intègrent à l'interface |
 | **UI dans le style du jeu** | Dessinée en pixel art, cohérente |
 
+## 13.1 bis Une île vivante
+
+| Élément | Application |
+|---|---|
+| **Croissance visible** | Une île naissante ne porte que son cœur et ses sites naturels. Le peuple mène jusqu'à **deux chantiers à la fois**, longs (de 30 min à plus d'une heure chacun), et la natalité est lente : l'île se remplit en une quinzaine d'heures 🔧 |
+| **Villageois** | Ils vont de leur maison aux chantiers, aux champs, aux carrières et aux bosquets, y travaillent un moment, puis rentrent. La nuit, ils restent davantage chez eux. Ils passent derrière ou devant les bâtiments selon leur profondeur |
+| **Défenseurs** | Ils patrouillent autour des tours et du cœur, sans jamais quitter l'île |
+| **Particules** | Feuilles qui tombent des bosquets, sciure sur les chantiers, éclats aux carrières, balle dorée sur les champs, étincelles d'Aether |
+| **Décor seulement** | Ces animations sont calculées par le client : la simulation ne connaît que les effectifs et les bâtiments |
+
+## 13.1 ter Accueil et tutoriel
+
+| Élément | Application |
+|---|---|
+| **Écran d'accueil** | Nom du dieu, continuer ou recommencer la partie solo, héberger un ciel sur le réseau (annoncé en mDNS), rejoindre un ciel découvert ou une adresse, quitter |
+| **Tutoriel** | Au premier lancement : dix étapes courtes, chacune encadrant l'élément dont elle parle (souffles, conviction, chronique, suppliques, ressources, ciel, autres îles, grandeur et chute). On peut le passer, le rouvrir avec H, ou le réactiver depuis l'accueil |
+
 ## 13.2 Éléments d'écran
 
 | Élément | Contenu |
@@ -920,6 +939,7 @@ le serveur intégré l'embarque dans le client desktop.
 | **Notifications** | ✅ | `notify-send` sous Linux, catégories au choix (`-notify`), seulement fenêtre sans focus |
 | **Critère de sortie de la Phase 1** | ⏳ | « A-t-on envie de laisser ça tourner ? » : à juger par une partie réelle |
 | **Critère de sortie de la Phase 2** | ⏳ | 3 machines, 8 h : à faire sur un vrai réseau. Un test d'endurance local est passé : 3 clients, temps ×200, environ 16 h de jeu, 870 états reçus, aucune erreur, 18 Mo de mémoire côté serveur, sauvegarde propre à l'arrêt |
+| **Île vivante, accueil, tutoriel, observation** | ✅ | Voir 13.1 bis et ter, 3.4 |
 | **Reporté** | | Couleur d'équipe par joueur, contour des unités, lumières de nuit (halos), ombres mobiles |
 
 ## 15.3 Priorités MVP (MoSCoW)
