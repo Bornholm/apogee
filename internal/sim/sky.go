@@ -75,6 +75,15 @@ func (s *Sky) AddIsland(name string, seed uint64, angle float64) IslandID {
 	return s.nextID
 }
 
+// AddIslandAt creates an island at a given distance from the portal, clamped
+// between the portal and the rim. It serves the demo rivals until the real
+// rival AIs exist (GDD section 9).
+func (s *Sky) AddIslandAt(name string, seed uint64, radius, angle float64) IslandID {
+	id := s.AddIsland(name, seed, angle)
+	s.Islands[len(s.Islands)-1].Radius = math.Min(math.Max(radius, PortalRadius), RimRadius)
+	return id
+}
+
 // Step advances the sky by one tick.
 func (s *Sky) Step() {
 	s.Tick++

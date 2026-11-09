@@ -7,10 +7,12 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"hash/fnv"
 	"io"
 	"log/slog"
 	"math"
+	"math/rand/v2"
 	"net"
 	"sync"
 	"time"
@@ -27,7 +29,12 @@ type Config struct {
 	Broadcast time.Duration
 	// HandshakeTimeout bounds the wait for a client's Hello.
 	HandshakeTimeout time.Duration
-	Logger           *slog.Logger
+	// DemoRivals adds that many placeholder islands at various distances
+	// from the portal, until the rival AIs exist (GDD section 9).
+	DemoRivals int
+	// Seed drives the placement of the demo rivals.
+	Seed   uint64
+	Logger *slog.Logger
 }
 
 func (c *Config) defaults() {
@@ -58,7 +65,13 @@ type Server struct {
 // New returns a server with an empty sky.
 func New(cfg Config) *Server {
 	cfg.defaults()
-	return &Server{cfg: cfg, keys: map[string]sim.IslandID{}, clients: map[*client]struct{}{}}
+	s := &Server{cfg: cfg, keys: map[string]sim.IslandID{}, clients: map[*client]struct{}{}}
+	r := rand.New(rand.NewPCG(cfg.Seed, 1))
+	for i := range cfg.DemoRivals {
+		radius := sim.RimRadius * (0.4 + 0.6*r.Float64())
+		s.sky.AddIslandAt(fmt.Sprintf("Rival %d", i+1), r.Uint64(), radius, r.Float64()*2*math.Pi)
+	}
+	return s
 }
 
 // client is one connection. Messages to it go through a buffered queue drained
@@ -191,7 +204,7 @@ func (s *Server) join(h *proto.Hello) sim.IslandID {
 	hs.Write([]byte(h.Key))
 	seed := hs.Sum64()
 	// Spread newcomers around the rim with the golden angle.
-	angle := float64(len(s.keys)) * math.Pi * (3 - math.Sqrt(5))
+	angle := float64(len(s.sky.Islands)) * math.Pi * (3 - math.Sqrt(5))
 	id := s.sky.AddIsland(h.Name, seed, angle)
 	s.keys[h.Key] = id
 	return id
