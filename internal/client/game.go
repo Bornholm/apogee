@@ -242,7 +242,6 @@ func (g *Game) homeIsland(st *proto.State) (sprite, bool) {
 	if sum.ID == 0 {
 		return sprite{}, false
 	}
-	g.purgeMiniatures(st.Islands)
 	if sig := signature(sum, st.Own); sig != g.homeSig || g.home.img == nil {
 		if g.home.img != nil {
 			g.home.img.Deallocate()
@@ -263,6 +262,9 @@ func (g *Game) Update() error {
 	if st := g.src.State(); st != nil && st.Tick != g.lastTick {
 		g.lastTick = st.Tick
 		g.dirty = true
+		// Free the miniatures of islands that fell or grew, whatever the
+		// zoom level.
+		g.purgeMiniatures(st.Islands)
 		if !g.drafting && st.Own != nil {
 			g.draft = st.Own.Pie
 		}
@@ -505,8 +507,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// Nearest-neighbour stretching: linear filtering would blend the one
 	// pixel wide gradient with the transparent void around it, leaving the
 	// sky half transparent over the previous frame.
+	light := g.daylight()
 	var sky ebiten.DrawImageOptions
 	sky.GeoM.Scale(float64(g.outW), float64(g.outH)/256)
+	sky.ColorScale = light
 	screen.DrawImage(g.sky, &sky)
 
 	// Virtual-pixel coordinates are relative to the screen centre; the
@@ -521,6 +525,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		op.GeoM.Scale(k, k)
 		op.GeoM.Translate(ox, oy)
 		op.ColorScale = cs
+		op.ColorScale.ScaleWithColorScale(light) // the time of day (GDD 12.5)
 		screen.DrawImage(img, &op)
 	}
 	at := func(img *ebiten.Image, x, y float64) { atScaled(img, x, y, ebiten.ColorScale{}) }
