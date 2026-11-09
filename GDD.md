@@ -1,6 +1,6 @@
 # 📘 GAME DESIGN DOCUMENT : *APOGÉE*
 
-> **Version** 0.21 · 9 novembre 2026
+> **Version** 0.22 · 9 novembre 2026
 > **Statut** : pré-production (Phase 0)
 > **Auteur** : GameForge, avec le concepteur
 > **Cible** : développeur senior solo, Go + Ebitengine
@@ -896,7 +896,15 @@ le serveur intégré l'embarque dans le client desktop.
 | **4. Lancement** | Distribution, contenus, boucle de retours | Binaire Linux stable |
 | **5. Autres plateformes** | **Android** : spike (build, découverte sur Wi-Fi, batterie), portage, interface tactile, notifications, tests sur appareils. **Windows et macOS** : compilation croisée, notifications, tests | Un téléphone, un poste Windows et un Mac jouent 8 h dans le même ciel |
 
-## 15.1 Priorités MVP (MoSCoW)
+## 15.1 Résultats de la Phase 0
+
+| Spike | Résultat | Mesure |
+|---|---|---|
+| **Rendu à facettes** | ✅ Validé techniquement, direction artistique en cours de retour | Générateur en Go pur (`internal/art`), sans dépendance, déterministe et testé. Aperçu sans fenêtre : `go run ./cmd/artpreview` |
+| **CPU du client** | ✅ Encourageant | Fenêtre ouverte, nuages en mouvement : **environ 2 % d'un cœur** sous Linux, en ne redessinant que lorsque l'image change. Reste à mesurer fenêtre sans focus et minimisée |
+| **Serveur et mDNS** | ✅ Validé sur le réseau de développement | `apogee-server` annoncé en mDNS, découvert et rejoint par `apogee-probe`, états reçus. Reste à tester sur un vrai réseau d'entreprise (risque n° 3) |
+
+## 15.2 Priorités MVP (MoSCoW)
 
 | Priorité | Éléments |
 |---|---|
