@@ -84,6 +84,12 @@ func (p painter) panel(r image.Rectangle) image.Rectangle {
 	return r.Inset(pad)
 }
 
+// strokeRect frames a rectangle with a line as thick as one interface pixel.
+func (p painter) strokeRect(r image.Rectangle, c color.Color) {
+	vector.StrokeRect(p.dst, float32(r.Min.X), float32(r.Min.Y), float32(r.Dx()), float32(r.Dy()),
+		float32(p.k), c, false)
+}
+
 // button draws a button and registers its action; a nil action draws it
 // disabled.
 func (p painter) button(r image.Rectangle, label string, action func()) {

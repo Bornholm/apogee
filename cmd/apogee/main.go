@@ -7,12 +7,8 @@ import (
 	"flag"
 	"image"
 	"image/png"
-	"io"
 	"log"
-	"log/slog"
-	"net"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -20,23 +16,24 @@ import (
 
 	"apogee/internal/client"
 	"apogee/internal/discovery"
-	"apogee/internal/netclient"
 	"apogee/internal/notify"
 	"apogee/internal/proto"
-	"apogee/internal/server"
 	"apogee/internal/sim"
 )
 
 var errDone = errors.New("done")
 
 func main() {
-	seed := flag.Uint64("seed", 7, "seed of the embedded sky and of the clouds")
-	connect := flag.String("connect", "", "join the sky at host:port instead of an embedded one")
-	discover := flag.Bool("discover", false, "join the first sky found on the local network")
-	name := flag.String("name", "Dieu", "player name")
+	seed := flag.Uint64("seed", 7, "seed of a new embedded sky and of the clouds")
+	solo := flag.Bool("solo", false, "skip the home screen: continue the solo game")
+	fresh := flag.Bool("fresh", false, "skip the home screen: start a new solo game")
+	host := flag.Bool("host", false, "skip the home screen: host a sky on the local network")
+	connect := flag.String("connect", "", "skip the home screen: join the sky at host:port")
+	discover := flag.Bool("discover", false, "skip the home screen: join the first sky found on the network")
 	rivals := flag.Int("rivals", 7, "rival AI gods in a new embedded sky")
-	speed := flag.Int("speed", 1, "simulation steps per tick of the embedded sky (1 is real time)")
-	fresh := flag.Bool("fresh", false, "start a new embedded sky instead of restoring the saved one")
+	speed := flag.Int("speed", 1, "simulation steps per tick of an embedded sky (1 is real time)")
+	tutorial := flag.Bool("tutorial", true, "show the tutorial when it has not been seen yet")
+	tutoStep := flag.Int("tutostep", 0, "open the tutorial at this step (1-based), for screenshots")
 	shot := flag.String("shot", "", "save a screenshot to this PNG file after -frames redraws, then quit")
 	frames := flag.Int("frames", 30, "redraws before the screenshot")
 	after := flag.Duration("after", 0, "with -shot, wait at least this long before the screenshot")
@@ -65,89 +62,69 @@ func main() {
 	ebiten.SetRunnableOnUnfocused(true)
 	ebiten.SetScreenClearedEveryFrame(false)
 
-	ctx := context.Background()
-	addr := *connect
-	if *discover {
-		servers, err := discovery.Browse(ctx, 3*time.Second)
+	start := time.Now()
+	var done error
+	notifier := notify.New()
+	app := client.NewApp(client.AppOptions{Seed: *seed, Rivals: *rivals, Speed: *speed})
+	defer app.Close() // the embedded sky is saved before the process ends
+
+	n := 0
+	onFrame := func(screen *ebiten.Image) {
+		n++
+		g := app.Game()
+		ready := n >= *frames && time.Since(start) >= *after && done == nil
+		if *onWave || *onPhase != "" || *zoom > 0 || *observe > 0 {
+			ready = ready && g != nil // those wait for the game itself
+		}
+		if g != nil {
+			ready = ready && (!*onWave || g.WaveVisible()) && (*onPhase == "" || g.Phase() == *onPhase)
+		}
+		if *shot != "" && ready {
+			if err := savePNG(*shot, screen); err != nil {
+				log.Print(err)
+			}
+			done = errDone
+		}
+	}
+	app.OnFrame = onFrame
+	app.Options.Configure = func(g *client.Game) {
+		g.SetZoom(*zoom)
+		g.ShowPanels(*culture, *annals)
+		g.Select(proto.IslandID(*selectID))
+		if *observe != 0 {
+			g.Observe(proto.IslandID(*observe))
+		}
+		if !*tutorial {
+			g.CloseTutorial()
+		}
+		if *tutoStep > 0 {
+			g.TutorialStep(*tutoStep - 1)
+		}
+		g.NotifyKinds = notifyKinds(*notifyFlag)
+		g.Notify = func(text string) { notifier.Send("Apogée", text) }
+		g.OnFrame = onFrame
+	}
+
+	switch {
+	case *fresh:
+		app.Start("fresh")
+	case *solo:
+		app.Start("solo")
+	case *host:
+		app.Start("host")
+	case *connect != "":
+		app.Start(*connect)
+	case *discover:
+		servers, err := discovery.Browse(context.Background(), 3*time.Second)
 		if err != nil || len(servers) == 0 {
 			log.Fatalf("no sky found on the network (%v): use -connect host:port", err)
 		}
-		addr = servers[0].Addr
-	}
-	if addr == "" {
-		// Solo play runs an embedded server on the loopback (GDD 10.3).
-		ln, err := net.Listen("tcp", "127.0.0.1:0")
-		if err != nil {
-			log.Fatal(err)
-		}
-		dir, err := os.UserConfigDir()
-		if err != nil {
-			log.Fatal(err)
-		}
-		data := filepath.Join(dir, "apogee", "solo.json")
-		if *fresh {
-			os.Remove(data)
-		}
-		srv, err := server.New(server.Config{
-			Name: "Ciel solo", Rivals: *rivals, Seed: *seed, Speed: *speed, DataFile: data,
-			Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
-		})
-		if err != nil {
-			log.Fatal(err)
-		}
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithCancel(ctx)
-		ran := make(chan struct{})
-		go func() {
-			defer close(ran)
-			srv.Run(ctx)
-		}()
-		go srv.Serve(ctx, ln)
-		// Closing the window stops the embedded sky after its last save.
-		defer func() {
-			cancel()
-			<-ran
-		}()
-		addr = ln.Addr().String()
-	}
-	key, err := netclient.PlayerKey()
-	if err != nil {
-		log.Fatal(err)
-	}
-	conn, err := netclient.Dial(ctx, addr, *name, key)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer conn.Close()
-
-	start := time.Now()
-	g := client.NewGame(client.Listen(conn), *seed)
-	g.SetZoom(*zoom)
-	g.ShowPanels(*culture, *annals)
-	g.Select(proto.IslandID(*selectID))
-	if *observe != 0 {
-		g.Observe(proto.IslandID(*observe))
-	}
-	g.NotifyKinds = notifyKinds(*notifyFlag)
-	notifier := notify.New()
-	g.Notify = func(text string) { notifier.Send("Apogée", text) }
-	var done error
-	if *shot != "" {
-		n := 0
-		g.OnFrame = func(screen *ebiten.Image) {
-			n++
-			if n >= *frames && time.Since(start) >= *after && done == nil && (!*onWave || g.WaveVisible()) && (*onPhase == "" || g.Phase() == *onPhase) {
-				if err := savePNG(*shot, screen); err != nil {
-					log.Print(err)
-				}
-				done = errDone
-			}
-		}
+		app.Start(servers[0].Addr)
 	}
 	if *cpu > 0 {
 		go logCPU(*cpu)
 	}
-	wrapped := &quitter{Game: g, stop: func() error {
+	wrapped := &quitter{App: app, stop: func() error {
 		if *quit > 0 && time.Since(start) > *quit {
 			return errDone
 		}
@@ -173,7 +150,7 @@ func notifyKinds(s string) map[sim.EntryKind]bool {
 
 // quitter ends the game loop once stop returns an error.
 type quitter struct {
-	*client.Game
+	*client.App
 	stop func() error
 }
 
@@ -181,7 +158,7 @@ func (q *quitter) Update() error {
 	if err := q.stop(); err != nil {
 		return err
 	}
-	return q.Game.Update()
+	return q.App.Update()
 }
 
 func savePNG(path string, screen *ebiten.Image) error {

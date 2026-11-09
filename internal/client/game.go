@@ -54,6 +54,15 @@ type Game struct {
 	// viewing is the other island shown in the island view, or 0 for one's
 	// own.
 	viewing proto.IslandID
+
+	// The tutorial (tutorial.go): whether it shows, its step, and whether
+	// the step already set its zoom level.
+	tutorial       bool
+	tutStep        int
+	tutZoomed      bool
+	onTutorialDone func()
+	// areas are the screen areas of the HUD panels, for the tutorial.
+	areas map[string]image.Rectangle
 	// home is the player's island at full size, rendered from the state and
 	// re-rendered only when its signature changes: the ground with its
 	// shadows, and each object apart, so that people can walk behind them.
@@ -400,6 +409,9 @@ func (g *Game) Update() error {
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) && g.viewing != 0 {
 		g.Observe(0)
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyH) {
+		g.OpenTutorial()
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyC) {
 		g.showCulture = !g.showCulture

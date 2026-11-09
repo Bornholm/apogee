@@ -73,8 +73,10 @@ func (g *Game) drawHUD(screen *ebiten.Image, st *proto.State) {
 		return
 	}
 	top := bar.Max.Y + gap
+	g.areas = map[string]image.Rectangle{}
 	pie := g.drawPie(p, image.Rect(gap, top, gap+230*k, top+0), o)
-	g.drawOuter(p, st, o, image.Rect(gap, pie.Max.Y+gap, gap+230*k, pie.Max.Y+gap))
+	g.areas["pie"] = pie
+	g.areas["outer"] = g.drawOuter(p, st, o, image.Rect(gap, pie.Max.Y+gap, gap+230*k, pie.Max.Y+gap))
 	if g.viewing != 0 && g.level > 0 {
 		g.drawObserving(p, st, bar.Max.Y+gap)
 	}
@@ -82,8 +84,8 @@ func (g *Game) drawHUD(screen *ebiten.Image, st *proto.State) {
 		msg = refusalText(msg)
 		p.text(msg, (g.outW-p.width(msg))/2, bar.Max.Y+gap, alertColor)
 	}
-	g.drawChronicle(p, image.Rect(g.outW-gap-300*k, top, g.outW-gap, top), o)
-	g.drawStock(p, o)
+	g.areas["chronicle"] = g.drawChronicle(p, image.Rect(g.outW-gap-300*k, top, g.outW-gap, top), o)
+	g.areas["stock"] = g.drawStock(p, o)
 	if o.Pending != nil {
 		g.drawSupplique(p, o.Pending)
 	}
@@ -94,10 +96,11 @@ func (g *Game) drawHUD(screen *ebiten.Image, st *proto.State) {
 		g.drawAnnals(p, st.Annals)
 	}
 	g.drawHelp(p)
+	g.drawTutorial(p)
 }
 
 func (g *Game) drawHelp(p painter) {
-	help := "Molette : zoom · Flèches : défiler · C : culture et savoir · A : Annales"
+	help := "Molette : zoom · Flèches : défiler · C : culture et savoir · A : Annales · H : tutoriel"
 	p.text(help, g.outW-p.width(help)-int(8*p.k), g.outH-p.line()-int(4*p.k), dimColor)
 }
 
@@ -186,7 +189,7 @@ func refusalText(msg string) string {
 // drawOuter shows the intention turned towards another island, the island
 // selected in the sky view, and what can be whispered towards it
 // (GDD 6.3).
-func (g *Game) drawOuter(p painter, st *proto.State, o *proto.Own, r image.Rectangle) {
+func (g *Game) drawOuter(p painter, st *proto.State, o *proto.Own, r image.Rectangle) image.Rectangle {
 	k := int(p.k)
 	name := func(id proto.IslandID) string {
 		for _, is := range st.Islands {
@@ -210,9 +213,10 @@ func (g *Game) drawOuter(p painter, st *proto.State, o *proto.Own, r image.Recta
 	}
 	if o.Outer == 0 && !away && target == nil {
 		if g.level == 0 {
-			p.text("Clique une île pour la viser.", r.Min.X, r.Min.Y, dimColor)
+			p.text("Clique une île pour la viser.", r.Min.X, r.Min.Y, textColor)
 		}
-		return
+		r.Max.Y = r.Min.Y + p.line()
+		return r
 	}
 	// Status line, then for a target four lines of description and two rows
 	// of buttons; the recall button closes the panel.
@@ -276,6 +280,7 @@ func (g *Game) drawOuter(p painter, st *proto.State, o *proto.Own, r image.Recta
 		recall = func() { g.src.Aim(sim.NoOuter, 0) }
 	}
 	p.button(image.Rect(in.Min.X, y, in.Max.X, y+bh), "Rappeler", recall)
+	return r
 }
 
 // adjust returns the action moving 10 % of the pie to or from intention i,
@@ -309,7 +314,7 @@ func (g *Game) adjust(i sim.Intention, d int) func() {
 }
 
 // drawChronicle draws the latest lines of the chronicle, newest first.
-func (g *Game) drawChronicle(p painter, r image.Rectangle, o *proto.Own) {
+func (g *Game) drawChronicle(p painter, r image.Rectangle, o *proto.Own) image.Rectangle {
 	k := int(p.k)
 	r.Max.Y = r.Min.Y + p.line()*14 + 12*k
 	in := p.panel(r)
@@ -326,10 +331,11 @@ func (g *Game) drawChronicle(p painter, r image.Rectangle, o *proto.Own) {
 		}
 		y += 2 * k
 	}
+	return r
 }
 
 // drawStock draws the resources with their cap, and the people.
-func (g *Game) drawStock(p painter, o *proto.Own) {
+func (g *Game) drawStock(p painter, o *proto.Own) image.Rectangle {
 	k := int(p.k)
 	lines := []string{
 		fmt.Sprintf("Bois %.0f · Pierre %.0f · Vivres %.0f · Aether %.0f  (stock max %.0f)",
@@ -346,6 +352,7 @@ func (g *Game) drawStock(p painter, o *proto.Own) {
 	for i, l := range lines {
 		p.text(l, in.Min.X, in.Min.Y+i*p.line(), textColor)
 	}
+	return r
 }
 
 // drawSupplique draws the question of the people and its answers
