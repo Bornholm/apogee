@@ -5,6 +5,7 @@ package client
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"math"
 	"sort"
 	"time"
@@ -76,8 +77,13 @@ type Game struct {
 	// life animates the people of the island in view; walkerArt holds the
 	// villager and defender sprites.
 	life      life
+	dust      particles
+	pixel     *ebiten.Image // one white pixel, tinted to draw particles
 	walkerArt [2]sprite
 	animTick  int
+	// atTinted draws an image in world coordinates with a colour, during a
+	// redraw.
+	atTinted func(img *ebiten.Image, x, y float64, c color.RGBA)
 
 	// heard is the tick of the newest chronicle entry already considered.
 	heard  uint64
@@ -221,6 +227,8 @@ func NewGame(src *Source, seed uint64) *Game {
 		v := cam.Render(art.Person(seed+uint64(i), mat))
 		g.walkerArt[i] = sprite{ebiten.NewImageFromImage(v.Img), v.Anchor}
 	}
+	g.pixel = ebiten.NewImage(1, 1)
+	g.pixel.Fill(color.White)
 	sw := cam.Render(art.Swarm(seed))
 	g.swarm = sprite{ebiten.NewImageFromImage(sw.Img), sw.Anchor}
 	for k, mat := range map[sim.Outer]art.Material{sim.Covet: art.Roof, sim.Annihilate: art.Blood} {
@@ -598,6 +606,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		screen.DrawImage(img, &op)
 	}
 	at := func(img *ebiten.Image, x, y float64) { atScaled(img, x, y, ebiten.ColorScale{}) }
+	g.atTinted = func(img *ebiten.Image, x, y float64, c color.RGBA) {
+		var cs ebiten.ColorScale
+		cs.ScaleWithColor(c)
+		atScaled(img, x, y, cs)
+	}
 
 	// Clouds drift below the islands, so they are drawn first.
 	for i := range g.clouds {
@@ -730,8 +743,24 @@ func (g *Game) animate() {
 	if g.level == 0 || st == nil || st.Own == nil {
 		return
 	}
-	g.life.sync(st.You, st.Own)
-	g.life.step(st.Own, 1.0/float64(ebiten.TPS()), st.Phase == "night")
+	var sum proto.IslandSummary
+	for _, is := range st.Islands {
+		if is.ID == st.You {
+			sum = is
+		}
+	}
+	if sum.ID == 0 {
+		return
+	}
+	g.life.sync(sum, st.Own)
+	dt := 1.0 / float64(ebiten.TPS())
+	g.life.step(st.Own, dt, st.Phase == "night")
+	for i := range g.life.walkers {
+		if w := &g.life.walkers[i]; w.busy() {
+			g.dust.emit(w, dt)
+		}
+	}
+	g.dust.step(dt)
 	g.animTick++
 	if g.animTick%4 == 0 && len(g.life.walkers) > 0 {
 		g.dirty = true
@@ -782,6 +811,11 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 		x, y := g.cam.Project(artV(it.x, it.y))
 		px, py := math.Round(x), math.Round(y)-it.lift
 		at(it.sp.img, px-float64(it.sp.anchor.X), py-float64(it.sp.anchor.Y))
+	}
+	// Particles float above everything, one virtual pixel each.
+	for _, q := range g.dust.ps {
+		x, y := g.cam.Project(art.V(q.x, q.y, q.z))
+		g.atTinted(g.pixel, math.Round(x), math.Round(y), q.col)
 	}
 }
 
