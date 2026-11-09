@@ -35,10 +35,12 @@ func main() {
 	frames := flag.Int("frames", 30, "redraws before the screenshot")
 	cpu := flag.Duration("cpulog", 0, "log the process CPU usage at this interval (e.g. 10s)")
 	quit := flag.Duration("quit", 0, "quit after this duration")
+	width := flag.Int("width", 1280, "initial window width")
+	height := flag.Int("height", 800, "initial window height")
 	flag.Parse()
 
 	ebiten.SetWindowTitle("Apogée")
-	ebiten.SetWindowSize(1280, 800)
+	ebiten.SetWindowSize(*width, *height)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	// The game lives on a second screen: keep running without focus, but only
 	// redraw when the picture changes (GDD 13.3).

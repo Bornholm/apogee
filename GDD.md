@@ -1,6 +1,6 @@
 # 📘 GAME DESIGN DOCUMENT : *APOGÉE*
 
-> **Version** 0.22 · 9 novembre 2026
+> **Version** 0.23 · 9 novembre 2026
 > **Statut** : pré-production (Phase 0)
 > **Auteur** : GameForge, avec le concepteur
 > **Cible** : développeur senior solo, Go + Ebitengine
@@ -788,6 +788,7 @@ Le ciel offre des ressources visuelles que les jeux au sol n'ont pas :
 |---|---|
 | **Compatible tactile** | Dès le MVP Linux : aucune information réservée au survol, glisser pour ajuster le gâteau d'intentions. À la phase Android : cibles d'au moins 48 dp, pincement pour zoomer |
 | **Écrans variés** | La résolution virtuelle s'adapte au format de l'écran, sans déformer les pixels (12.3) |
+| **Défilement** | Quand la fenêtre est trop petite pour toute la scène, les **flèches du clavier** la font défiler, sans jamais sortir de ses limites. Sur un axe où la scène tient, elle reste centrée |
 | **Orientation** | Non décidée sur Android, voir annexe A, décision n° 17 (à trancher en phase 5) |
 | **Discrétion** | Peut tourner dans une fenêtre réduite (desktop) ou sur un téléphone posé à côté |
 | **Lecture rapide** | L'état de l'île se saisit en un coup d'œil |

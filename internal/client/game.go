@@ -56,6 +56,10 @@ type Game struct {
 	phaseLeft int // seconds, as last displayed
 	dirty     bool
 
+	// pan scrolls the view with the arrow keys when the window is too small
+	// to show everything, in virtual pixels.
+	panX, panY float64
+
 	outW, outH int
 
 	// OnFrame, when set, is called after each redraw with the screen image.
@@ -195,7 +199,71 @@ func (g *Game) Update() error {
 			}
 		}
 	}
+	g.updatePan()
 	return nil
+}
+
+// panSpeed is the scrolling speed in screen pixels per tick.
+const panSpeed = 8
+
+// updatePan scrolls with the arrow keys, within the bounds of the scene.
+func (g *Game) updatePan() {
+	dx, dy := 0.0, 0.0
+	if ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
+		dx++
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
+		dx--
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
+		dy++
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
+		dy--
+	}
+	x, y := g.panX+dx*panSpeed/g.scale, g.panY+dy*panSpeed/g.scale
+	x, y = g.clampPan(x, y)
+	if x != g.panX || y != g.panY {
+		g.panX, g.panY = x, y
+		g.dirty = true
+	}
+}
+
+// sceneBounds returns the extent of the current scene around the screen
+// centre, in virtual pixels.
+func (g *Game) sceneBounds() image.Rectangle {
+	if g.level == 0 {
+		// The rim orbit plus room for the islands rising above it and their
+		// rocky undersides below.
+		w := int(rimPixels) + 50
+		h := int(rimPixels * math.Sin(g.cam.Pitch))
+		return image.Rect(-w, -h-60, w, h+70)
+	}
+	if g.home == nil {
+		return image.Rectangle{}
+	}
+	b := g.home.Bounds()
+	return image.Rect(-b.Dx()/2, -b.Dy()*2/5, b.Dx()-b.Dx()/2, b.Dy()-b.Dy()*2/5)
+}
+
+// clampPan keeps the scene edges from leaving the screen: on an axis where
+// the scene fits, it stays centred.
+func (g *Game) clampPan(x, y float64) (float64, float64) {
+	b := g.sceneBounds()
+	if b.Empty() || g.outW == 0 {
+		return 0, 0
+	}
+	halfW, halfH := float64(g.outW)/2/g.scale, float64(g.outH)/2/g.scale
+	clamp := func(v float64, lo, hi int, half float64) float64 {
+		// Scrolling by +v moves the scene right: its left edge lo+v must stay
+		// at or left of -half, its right edge hi+v at or right of +half.
+		minV, maxV := half-float64(hi), -half-float64(lo)
+		if minV > maxV {
+			return 0
+		}
+		return math.Min(math.Max(v, minV), maxV)
+	}
+	return clamp(x, b.Min.X, b.Max.X, halfW), clamp(y, b.Min.Y, b.Max.Y, halfH)
 }
 
 func (g *Game) orbitPixel(is sim.Island) image.Point {
@@ -237,7 +305,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	// Virtual-pixel coordinates are relative to the screen centre; the
 	// origin is snapped to whole screen pixels for crisp output.
-	ox, oy := math.Round(float64(g.outW)/2), math.Round(float64(g.outH)/2)
+	g.panX, g.panY = g.clampPan(g.panX, g.panY)
+	ox := math.Round(float64(g.outW)/2 + g.panX*g.scale)
+	oy := math.Round(float64(g.outH)/2 + g.panY*g.scale)
 	at := func(img *ebiten.Image, x, y float64) {
 		var op ebiten.DrawImageOptions
 		op.GeoM.Translate(x, y)
