@@ -99,10 +99,11 @@ type Annal struct {
 
 // Rebirth is a civilisation waiting for the next dawn to rise at the rim.
 type Rebirth struct {
-	Owner  string
-	Name   string
-	Legend Family
-	Count  int
+	Owner   string
+	Name    string
+	Legend  Family
+	Count   int
+	Profile Profile
 }
 
 func (s *Sky) rng(salt uint64) *rand.Rand {
@@ -279,6 +280,7 @@ func (s *Sky) falls(dt float64) {
 				})
 				s.Waiting = append(s.Waiting, Rebirth{
 					Owner: is.Owner, Name: is.OwnerName, Legend: is.Civ.Dominant(), Count: is.Generation + 1,
+					Profile: is.Profile,
 				})
 				continue
 			}
@@ -297,6 +299,7 @@ func (s *Sky) rebirths() {
 		id := s.Found(w.Owner, w.Name, h.Sum64(), s.rng(uint64(w.Count)).Float64()*2*math.Pi)
 		is := s.island(id)
 		is.Generation = w.Count
+		is.Profile = w.Profile
 		is.Civ.Culture[w.Legend] += legendBonus
 		is.Civ.chronicle(s.Tick, "Des nuages émerge une île nouvelle. Ton peuple garde la légende de ses ancêtres, qui vénéraient les %s.", w.Legend.Name())
 	}

@@ -62,6 +62,8 @@ type Island struct {
 	// once its heart broke; 0 otherwise.
 	Falling float64
 	Cause   string
+	// Profile is the personality of a rival AI god (GDD 9.4).
+	Profile Profile
 }
 
 // Sky is the whole simulated world.
@@ -163,6 +165,7 @@ func (s *Sky) Step() {
 		}
 	}
 	s.lifecycle(dt, phase)
+	s.rivals()
 }
 
 // AngularSpeed is the orbital speed in radians per second at a distance from
