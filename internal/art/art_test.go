@@ -2,6 +2,7 @@ package art
 
 import (
 	"bytes"
+	"image"
 	"testing"
 )
 
@@ -108,5 +109,34 @@ func TestIslandTopIsGround(t *testing.T) {
 	}
 	if n == 0 {
 		t.Fatal("the island top must be marked as ground for shadows")
+	}
+}
+
+func TestComposeOnOffsetDestination(t *testing.T) {
+	// A destination whose origin is not (0, 0), like an atlas cell, must get
+	// the same pixels as a fresh image.
+	cam := DefaultCamera
+	scene := DemoIsland(cam, 3, 30)
+	plain := image.NewRGBA(image.Rect(0, 0, 120, 100))
+	scene.Compose(cam, plain, 60, 40)
+
+	atlas := image.NewRGBA(image.Rect(0, 0, 300, 300))
+	cell := atlas.SubImage(image.Rect(100, 150, 220, 250)).(*image.RGBA)
+	scene.Compose(cam, cell, 160, 190)
+	for y := range 100 {
+		for x := range 120 {
+			if plain.RGBAAt(x, y) != cell.RGBAAt(100+x, 150+y) {
+				t.Fatalf("pixel (%d,%d) differs on an offset destination", x, y)
+			}
+		}
+	}
+}
+
+func TestUpscaleTreatsSmallFactorsAsOne(t *testing.T) {
+	src := image.NewRGBA(image.Rect(0, 0, 3, 2))
+	for _, k := range []int{0, -2} {
+		if got := Upscale(src, k).Rect.Size(); got != image.Pt(3, 2) {
+			t.Errorf("Upscale(k=%d) size %v, want 3×2", k, got)
+		}
 	}
 }

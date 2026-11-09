@@ -1,6 +1,6 @@
 # 📘 GAME DESIGN DOCUMENT : *APOGÉE*
 
-> **Version** 0.23 · 9 novembre 2026
+> **Version** 0.24 · 9 novembre 2026
 > **Statut** : pré-production (Phase 0)
 > **Auteur** : GameForge, avec le concepteur
 > **Cible** : développeur senior solo, Go + Ebitengine
@@ -901,7 +901,7 @@ le serveur intégré l'embarque dans le client desktop.
 
 | Spike | Résultat | Mesure |
 |---|---|---|
-| **Rendu à facettes** | ✅ Validé techniquement, direction artistique en cours de retour | Générateur en Go pur (`internal/art`), sans dépendance, déterministe et testé. Aperçu sans fenêtre : `go run ./cmd/artpreview` |
+| **Rendu à facettes** | ✅ Validé, direction artistique approuvée | Générateur en Go pur (`internal/art`), sans dépendance, déterministe et testé. Aperçu sans fenêtre : `go run ./cmd/artpreview`. Différé à la vertical slice : couleur d'équipe par joueur (les unités utilisent une couleur unique), contour léger des unités, orientations des bâtiments autres que les maisons |
 | **CPU du client** | ✅ Encourageant | Fenêtre ouverte, nuages en mouvement : **environ 2 % d'un cœur** sous Linux, en ne redessinant que lorsque l'image change. Reste à mesurer fenêtre sans focus et minimisée |
 | **Serveur et mDNS** | ✅ Validé sur le réseau de développement | `apogee-server` annoncé en mDNS, découvert et rejoint par `apogee-probe`, états reçus. Reste à tester sur un vrai réseau d'entreprise (risque n° 3) |
 

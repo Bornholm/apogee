@@ -12,7 +12,6 @@ import (
 	"log/slog"
 	"net"
 	"os"
-	"syscall"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -38,6 +37,9 @@ func main() {
 	width := flag.Int("width", 1280, "initial window width")
 	height := flag.Int("height", 800, "initial window height")
 	flag.Parse()
+	if *shot != "" && *frames < 1 {
+		log.Fatal("-frames must be at least 1 with -shot")
+	}
 
 	ebiten.SetWindowTitle("Apogée")
 	ebiten.SetWindowSize(*width, *height)
@@ -142,12 +144,4 @@ func logCPU(every time.Duration) {
 		log.Printf("cpu: %.1f%% of one core, %.0f fps", 100*(now-last).Seconds()/at.Sub(lastAt).Seconds(), ebiten.ActualFPS())
 		last, lastAt = now, at
 	}
-}
-
-func cpuTime() time.Duration {
-	var ru syscall.Rusage
-	if err := syscall.Getrusage(syscall.RUSAGE_SELF, &ru); err != nil {
-		return 0
-	}
-	return time.Duration(ru.Utime.Nano() + ru.Stime.Nano())
 }

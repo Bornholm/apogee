@@ -36,9 +36,13 @@ func (s IslandScene) Compose(cam Camera, dst *image.RGBA, cx, cy int) {
 	}
 	ground := image.NewAlpha(dst.Rect)
 	orMask(ground, s.Island.Ground, cx-s.Island.Anchor.X, cy-s.Island.Anchor.Y)
-	for i := range shadow.Pix {
-		if shadow.Pix[i] != 0 && ground.Pix[i] != 0 {
-			o := 4 * i
+	b := dst.Rect
+	for y := b.Min.Y; y < b.Max.Y; y++ {
+		for x := b.Min.X; x < b.Max.X; x++ {
+			if shadow.Pix[shadow.PixOffset(x, y)] == 0 || ground.Pix[ground.PixOffset(x, y)] == 0 {
+				continue
+			}
+			o := dst.PixOffset(x, y)
 			for c, v := range [3]uint8{ShadowTint.R, ShadowTint.G, ShadowTint.B} {
 				dst.Pix[o+c] = mix(dst.Pix[o+c], v, ShadowAlpha)
 			}
@@ -124,8 +128,10 @@ func lerp8(a, b uint8, t float64) uint8 {
 }
 
 // Upscale returns src enlarged by an integer factor with nearest-neighbour
-// sampling, which keeps pixels crisp (GDD 12.3).
+// sampling, which keeps pixels crisp (GDD 12.3). A factor below 1 is treated
+// as 1.
 func Upscale(src *image.RGBA, k int) *image.RGBA {
+	k = max(k, 1)
 	b := src.Rect
 	dst := image.NewRGBA(image.Rect(0, 0, b.Dx()*k, b.Dy()*k))
 	for y := range dst.Rect.Dy() {

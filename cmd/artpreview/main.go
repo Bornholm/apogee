@@ -20,6 +20,9 @@ func main() {
 	seed := flag.Uint64("seed", 7, "seed")
 	scale := flag.Int("scale", 0, "integer upscale factor (default: 4 for island, 2 for sky)")
 	flag.Parse()
+	if *scale < 0 {
+		log.Fatal("-scale must be positive")
+	}
 
 	var canvas *image.RGBA
 	switch *view {

@@ -79,6 +79,20 @@ type cloud struct {
 	lastDraw int     // x position at last redraw, to detect pixel moves
 }
 
+// pixel is the virtual-pixel column where the cloud is drawn. The same value
+// decides redraws, so a cloud never moves on screen without a redraw.
+func (c *cloud) pixel() int { return int(math.Floor(c.x)) }
+
+// drift moves the cloud by one tick, wrapping it around beyond limit, and
+// reports whether its drawn position changed.
+func (c *cloud) drift(limit float64) bool {
+	c.x += c.speed
+	if c.x > limit {
+		c.x = -limit
+	}
+	return c.pixel() != c.lastDraw
+}
+
 // NewGame prepares the static art; islands are rendered when they appear.
 func NewGame(src *Source, seed uint64) *Game {
 	cam := art.DefaultCamera
@@ -166,13 +180,11 @@ func (g *Game) Update() error {
 		g.dirty = true
 	}
 
+	// Clouds wrap around once fully out of sight, whatever the window size,
+	// zoom level or scrolling.
+	limit := float64(g.outW)/(2*g.scale) + math.Abs(g.panX) + 48
 	for i := range g.clouds {
-		c := &g.clouds[i]
-		c.x += c.speed
-		if c.x > 360 {
-			c.x = -360
-		}
-		if int(c.x) != c.lastDraw {
+		if g.clouds[i].drift(limit) {
 			g.dirty = true
 		}
 	}
@@ -319,8 +331,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// Clouds drift below the islands, so they are drawn first.
 	for i := range g.clouds {
 		c := &g.clouds[i]
-		c.lastDraw = int(c.x)
-		at(c.img, math.Floor(c.x), c.y)
+		c.lastDraw = c.pixel()
+		at(c.img, float64(c.lastDraw), c.y)
 	}
 
 	islands := g.src.Islands(time.Now())
@@ -353,8 +365,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 }
 
-// Layout uses the window size in device pixels, so that the integer scale is
-// applied to real pixels.
+// Layout returns the screen size it is given. Ebitengine calls LayoutF, which
+// converts to physical pixels first.
 func (g *Game) Layout(outW, outH int) (int, int) {
 	if outW != g.outW || outH != g.outH {
 		g.outW, g.outH = outW, outH
@@ -363,8 +375,14 @@ func (g *Game) Layout(outW, outH int) (int, int) {
 	return outW, outH
 }
 
-// LayoutF keeps Ebitengine from rescaling the screen on high-DPI monitors.
+// LayoutF receives the window size in device-independent pixels and returns
+// it in physical pixels, so that the integer zoom lands on real pixels and
+// stays crisp on high-DPI monitors.
 func (g *Game) LayoutF(outW, outH float64) (float64, float64) {
-	w, h := g.Layout(int(outW), int(outH))
+	f := 1.0
+	if m := ebiten.Monitor(); m != nil {
+		f = m.DeviceScaleFactor()
+	}
+	w, h := g.Layout(int(math.Round(outW*f)), int(math.Round(outH*f)))
 	return float64(w), float64(h)
 }
