@@ -48,19 +48,17 @@ func PortalFrame(cam Camera, radius float64, arms int, t float64) Sprite {
 }
 
 // Flatten composes an island scene into a single sprite, anchored on the
-// island centre. The sky view uses it to draw whole islands at once.
+// island centre. The sky view uses it to draw whole islands at once. The
+// canvas covers the island and every object, whichever side they overflow.
 func (s IslandScene) Flatten(cam Camera) Sprite {
-	b := s.Island.Img.Rect
-	// Objects can rise above the island's top edge: leave exactly the room
-	// the highest one needs.
-	pad := 0
+	bounds := s.Island.Img.Rect.Sub(s.Island.Anchor)
 	for _, o := range s.Objects {
-		_, y := cam.Project(o.Pos)
-		top := s.Island.Anchor.Y + int(math.Round(y)) - o.Sprite.Anchor.Y
-		pad = max(pad, -top)
+		x, y := cam.Project(o.Pos)
+		at := image.Pt(int(math.Round(x)), int(math.Round(y)))
+		bounds = bounds.Union(o.Sprite.Img.Rect.Sub(o.Sprite.Anchor).Add(at))
 	}
-	img := image.NewRGBA(image.Rect(0, 0, b.Dx(), b.Dy()+pad))
-	cx, cy := s.Island.Anchor.X, s.Island.Anchor.Y+pad
+	img := image.NewRGBA(image.Rect(0, 0, bounds.Dx(), bounds.Dy()))
+	cx, cy := -bounds.Min.X, -bounds.Min.Y
 	s.Compose(cam, img, cx, cy)
 	return trim(Sprite{Img: img, Anchor: image.Pt(cx, cy)})
 }

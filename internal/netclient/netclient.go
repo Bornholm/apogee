@@ -16,11 +16,17 @@ import (
 	"apogee/internal/proto"
 )
 
+// StateTimeout is how long a client waits for the next state before it
+// declares the connection lost. Servers broadcast about once a second.
+const StateTimeout = 10 * time.Second
+
 // Conn is an established session with a server.
 type Conn struct {
 	Welcome proto.Welcome
-	conn    net.Conn
-	dec     *proto.Decoder
+	// ReadTimeout bounds the wait for each message; StateTimeout by default.
+	ReadTimeout time.Duration
+	conn        net.Conn
+	dec         *proto.Decoder
 }
 
 // Dial connects to addr and performs the handshake.
@@ -52,12 +58,15 @@ func Dial(ctx context.Context, addr, name, key string) (*Conn, error) {
 		c.Close()
 		return nil, errors.New("server did not welcome us")
 	}
-	return &Conn{Welcome: *m.Welcome, conn: c, dec: dec}, nil
+	return &Conn{Welcome: *m.Welcome, ReadTimeout: StateTimeout, conn: c, dec: dec}, nil
 }
 
-// Next blocks until the next state snapshot.
+// Next blocks until the next state snapshot. A server that stays silent for
+// ReadTimeout, or a half-open connection, ends in an error rather than a
+// frozen sky.
 func (c *Conn) Next() (*proto.State, error) {
 	for {
+		c.conn.SetReadDeadline(time.Now().Add(c.ReadTimeout))
 		m, err := c.dec.Decode()
 		if err != nil {
 			return nil, err

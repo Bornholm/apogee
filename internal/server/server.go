@@ -33,8 +33,11 @@ type Config struct {
 	// from the portal, until the rival AIs exist (GDD section 9).
 	DemoRivals int
 	// Seed drives the placement of the demo rivals.
-	Seed   uint64
-	Logger *slog.Logger
+	Seed uint64
+	// MaxIslands caps the population of the sky, humans and AIs together
+	// (GDD 9.5). Unknown player keys are refused once it is reached.
+	MaxIslands int
+	Logger     *slog.Logger
 }
 
 func (c *Config) defaults() {
@@ -49,6 +52,9 @@ func (c *Config) defaults() {
 	}
 	if c.Logger == nil {
 		c.Logger = slog.Default()
+	}
+	if c.MaxIslands <= 0 {
+		c.MaxIslands = 10
 	}
 }
 
@@ -150,7 +156,12 @@ func (s *Server) handle(ctx context.Context, conn net.Conn) {
 	}
 	conn.SetReadDeadline(time.Time{})
 
-	id := s.join(m.Hello)
+	id, ok := s.join(m.Hello)
+	if !ok {
+		log.Info("sky full, player refused", "name", m.Hello.Name)
+		enc.Encode(proto.Msg{Error: &proto.Error{Message: "the sky is full"}})
+		return
+	}
 	c := &client{conn: conn, out: make(chan proto.Msg, 16)}
 	c.out <- proto.Msg{Welcome: &proto.Welcome{Version: proto.Version, Island: id, Sky: s.cfg.Name}}
 	c.out <- proto.Msg{State: s.snapshot()}
@@ -194,12 +205,18 @@ func (s *Server) handle(ctx context.Context, conn net.Conn) {
 }
 
 // join returns the island of the player's key, founding one if needed. The
-// island lives on whether the player is connected or not (GDD pilier 3).
-func (s *Server) join(h *proto.Hello) sim.IslandID {
+// island lives on whether the player is connected or not (GDD pilier 3). It
+// reports false when a new island would exceed MaxIslands: keys are not
+// authenticated on a LAN, so the cap is what bounds the state a peer can make
+// the server broadcast.
+func (s *Server) join(h *proto.Hello) (sim.IslandID, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if id, ok := s.keys[h.Key]; ok {
-		return id
+		return id, true
+	}
+	if len(s.sky.Islands) >= s.cfg.MaxIslands {
+		return 0, false
 	}
 	hs := fnv.New64a()
 	hs.Write([]byte(h.Key))
@@ -208,7 +225,7 @@ func (s *Server) join(h *proto.Hello) sim.IslandID {
 	angle := float64(len(s.sky.Islands)) * math.Pi * (3 - math.Sqrt(5))
 	id := s.sky.AddIsland(h.Name, seed, angle)
 	s.keys[h.Key] = id
-	return id
+	return id, true
 }
 
 func (s *Server) snapshot() *proto.State {

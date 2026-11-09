@@ -163,3 +163,24 @@ func TestFlattenKeepsTheTallestObject(t *testing.T) {
 		t.Fatalf("flattened sprite has %d opaque pixels, want %d: something was cropped", got, want)
 	}
 }
+
+func TestFlattenKeepsObjectsOverflowingSideways(t *testing.T) {
+	cam := DefaultCamera
+	scene := DemoIsland(cam, 11, 16)
+	var wall Mesh
+	box(&wall, Stone, -2, -2, 0, 30, 2, 4) // juts far out to the east
+	scene.Objects = append(scene.Objects, Placed{Sprite: cam.Render(wall), Pos: V(10, 0, 0)})
+	ref := image.NewRGBA(image.Rect(0, 0, 400, 400))
+	scene.Compose(cam, ref, 200, 250)
+	n := func(img *image.RGBA) (k int) {
+		for i := 3; i < len(img.Pix); i += 4 {
+			if img.Pix[i] != 0 {
+				k++
+			}
+		}
+		return k
+	}
+	if got, want := n(scene.Flatten(cam).Img), n(ref); got != want {
+		t.Fatalf("flattened sprite has %d opaque pixels, want %d", got, want)
+	}
+}

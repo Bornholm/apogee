@@ -137,3 +137,32 @@ func TestSilentClientIsDropped(t *testing.T) {
 		t.Fatal("the server kept a client that never said hello")
 	}
 }
+
+func TestFullSkyRefusesNewcomersButNotReturningPlayers(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	srv := New(Config{MaxIslands: 2, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	go srv.Serve(ctx, ln)
+	addr := ln.Addr().String()
+
+	for _, k := range []string{"a", "b"} {
+		c, err := netclient.Dial(ctx, addr, k, k)
+		if err != nil {
+			t.Fatalf("player %s refused: %v", k, err)
+		}
+		c.Close()
+	}
+	if c, err := netclient.Dial(ctx, addr, "c", "c"); err == nil {
+		c.Close()
+		t.Fatal("a third island was founded in a sky capped at two")
+	}
+	c, err := netclient.Dial(ctx, addr, "a", "a")
+	if err != nil {
+		t.Fatalf("a returning player was refused: %v", err)
+	}
+	c.Close()
+}
