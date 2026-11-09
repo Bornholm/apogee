@@ -17,6 +17,9 @@ const (
 // tierCost is the knowledge needed to reach each tier of an axis.
 var tierCost = [TiersPerAxis]float64{300, 900}
 
+// TierCost returns the knowledge needed to reach a tier (0-based).
+func TierCost(tier int) float64 { return tierCost[tier] }
+
 // Mods are the effects of discoveries, added together.
 type Mods struct {
 	Prod              [NumResources]float64 // extra share of production

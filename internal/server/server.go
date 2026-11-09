@@ -1,11 +1,12 @@
 // Package server runs the authoritative sky (GDD 10.3): it steps the
-// simulation at a fixed rate and broadcasts snapshots to connected clients.
-// The same package backs the dedicated `apogee-server` and the server embedded
-// in the desktop client.
+// simulation at a fixed rate, applies the gods' whispers and broadcasts
+// snapshots to connected clients. The same package backs the dedicated
+// `apogee-server` and the server embedded in the desktop client.
 package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"hash/fnv"
@@ -14,8 +15,12 @@ import (
 	"math"
 	"math/rand/v2"
 	"net"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"apogee/internal/proto"
 	"apogee/internal/sim"
@@ -29,15 +34,22 @@ type Config struct {
 	Broadcast time.Duration
 	// HandshakeTimeout bounds the wait for a client's Hello.
 	HandshakeTimeout time.Duration
-	// DemoRivals adds that many placeholder islands at various distances
-	// from the portal, until the rival AIs exist (GDD section 9).
-	DemoRivals int
-	// Seed drives the placement of the demo rivals.
+	// Rivals is the number of rival AI gods in a new sky (GDD section 9).
+	Rivals int
+	// Seed drives a new sky: its rivals, its waves.
 	Seed uint64
 	// MaxIslands caps the population of the sky, humans and AIs together
 	// (GDD 9.5). Unknown player keys are refused once it is reached.
 	MaxIslands int
-	Logger     *slog.Logger
+	// Speed runs that many simulation steps per tick, to watch days go by
+	// in minutes while testing. 1 is real time.
+	Speed int
+	// DataFile is where the sky is saved and restored (GDD 11.1). Empty
+	// keeps the sky in memory only.
+	DataFile string
+	// SaveEvery is the interval between two saves.
+	SaveEvery time.Duration
+	Logger    *slog.Logger
 }
 
 func (c *Config) defaults() {
@@ -56,6 +68,12 @@ func (c *Config) defaults() {
 	if c.MaxIslands <= 0 {
 		c.MaxIslands = 10
 	}
+	if c.Speed <= 0 {
+		c.Speed = 1
+	}
+	if c.SaveEvery <= 0 {
+		c.SaveEvery = time.Minute
+	}
 }
 
 // Server owns the sky and its client connections.
@@ -64,20 +82,7 @@ type Server struct {
 
 	mu      sync.Mutex
 	sky     sim.Sky
-	keys    map[string]sim.IslandID // player key → island
 	clients map[*client]struct{}
-}
-
-// New returns a server with an empty sky.
-func New(cfg Config) *Server {
-	cfg.defaults()
-	s := &Server{cfg: cfg, keys: map[string]sim.IslandID{}, clients: map[*client]struct{}{}}
-	r := rand.New(rand.NewPCG(cfg.Seed, 1))
-	for i := range cfg.DemoRivals {
-		radius := sim.RimRadius * (0.4 + 0.6*r.Float64())
-		s.sky.AddIslandAt(fmt.Sprintf("Rival %d", i+1), r.Uint64(), radius, r.Float64()*2*math.Pi)
-	}
-	return s
 }
 
 // client is one connection. Messages to it go through a buffered queue drained
@@ -85,27 +90,105 @@ func New(cfg Config) *Server {
 type client struct {
 	conn net.Conn
 	out  chan proto.Msg
+	key  string
 	dead bool // dropped for being too slow; guarded by Server.mu
 }
 
-// Run steps the simulation and broadcasts snapshots until ctx is done.
+// rivalNames name the rival AI gods.
+var rivalNames = []string{"Morgal", "Aubépine", "Ysolde", "Corvin", "Thessa", "Ferrand", "Liriel", "Oskar", "Brume"}
+
+// New returns a server, restoring the sky from cfg.DataFile when it exists.
+func New(cfg Config) (*Server, error) {
+	cfg.defaults()
+	s := &Server{cfg: cfg, clients: map[*client]struct{}{}}
+	if cfg.DataFile != "" {
+		data, err := os.ReadFile(cfg.DataFile)
+		switch {
+		case err == nil:
+			if err := json.Unmarshal(data, &s.sky); err != nil {
+				return nil, fmt.Errorf("restoring %s: %w", cfg.DataFile, err)
+			}
+			cfg.Logger.Info("sky restored", "file", cfg.DataFile, "islands", len(s.sky.Islands))
+			return s, nil
+		case !errors.Is(err, os.ErrNotExist):
+			return nil, err
+		}
+	}
+	s.sky.Seed = cfg.Seed
+	r := rand.New(rand.NewPCG(cfg.Seed, 1))
+	for i := range min(cfg.Rivals, cfg.MaxIslands-1) {
+		name := rivalNames[i%len(rivalNames)]
+		id := s.sky.FoundRival(name, sim.Profile(i%int(sim.NumProfiles)), r.Uint64(), r.Float64()*2*math.Pi)
+		// Rivals of a new sky are at various stages of their descent, so the
+		// sky looks lived in from the start.
+		s.sky.Island(id).Radius = sim.RimRadius * (0.5 + 0.5*r.Float64())
+	}
+	return s, nil
+}
+
+// Run steps the simulation, broadcasts snapshots and saves the sky until ctx
+// is done; it saves one last time before returning.
 func (s *Server) Run(ctx context.Context) {
 	step := time.NewTicker(sim.TickDuration)
 	defer step.Stop()
 	bcast := time.NewTicker(s.cfg.Broadcast)
 	defer bcast.Stop()
+	save := time.NewTicker(s.cfg.SaveEvery)
+	defer save.Stop()
 	for {
 		select {
 		case <-ctx.Done():
+			s.save()
 			return
 		case <-step.C:
 			s.mu.Lock()
-			s.sky.Step()
+			for range s.cfg.Speed {
+				s.sky.Step()
+			}
 			s.mu.Unlock()
 		case <-bcast.C:
 			s.broadcast()
+		case <-save.C:
+			s.save()
 		}
 	}
+}
+
+// save writes the sky to cfg.DataFile, atomically: a crash mid-write leaves
+// the previous save intact.
+func (s *Server) save() {
+	if s.cfg.DataFile == "" {
+		return
+	}
+	s.mu.Lock()
+	data, err := json.Marshal(&s.sky)
+	s.mu.Unlock()
+	if err == nil {
+		err = writeAtomic(s.cfg.DataFile, data)
+	}
+	if err != nil {
+		s.cfg.Logger.Error("saving the sky", "err", err)
+	}
+}
+
+func writeAtomic(path string, data []byte) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".sky-*.json")
+	if err != nil {
+		return err
+	}
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		os.Remove(tmp.Name())
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmp.Name())
+		return err
+	}
+	return os.Rename(tmp.Name(), path)
 }
 
 // Serve accepts connections on ln until ctx is done or ln fails.
@@ -132,6 +215,37 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 	}
 }
 
+// validKey accepts the keys clients generate: short, plain, and never in the
+// namespace of the rival AIs.
+func validKey(k string) bool {
+	if k == "" || len(k) > 64 || strings.HasPrefix(k, sim.AIPrefix) {
+		return false
+	}
+	for _, r := range k {
+		if !(r >= '0' && r <= '9' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r == '-' || r == '_') {
+			return false
+		}
+	}
+	return true
+}
+
+// cleanName keeps a player name short and printable.
+func cleanName(n string) string {
+	n = strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return -1
+		}
+		return r
+	}, strings.TrimSpace(n))
+	if utf8.RuneCountInString(n) > 24 {
+		n = string([]rune(n)[:24])
+	}
+	if n == "" {
+		n = "Dieu sans nom"
+	}
+	return n
+}
+
 func (s *Server) handle(ctx context.Context, conn net.Conn) {
 	log := s.cfg.Logger.With("remote", conn.RemoteAddr().String())
 	defer conn.Close()
@@ -150,26 +264,26 @@ func (s *Server) handle(ctx context.Context, conn net.Conn) {
 		enc.Encode(proto.Msg{Error: &proto.Error{Message: "incompatible version"}})
 		return
 	}
-	if m.Hello.Key == "" {
-		enc.Encode(proto.Msg{Error: &proto.Error{Message: "missing player key"}})
+	if !validKey(m.Hello.Key) {
+		enc.Encode(proto.Msg{Error: &proto.Error{Message: "invalid player key"}})
 		return
 	}
 	conn.SetReadDeadline(time.Time{})
 
-	id, ok := s.join(m.Hello)
+	key, name := m.Hello.Key, cleanName(m.Hello.Name)
+	id, ok := s.join(key, name)
 	if !ok {
-		log.Info("sky full, player refused", "name", m.Hello.Name)
+		log.Info("sky full, player refused", "name", name)
 		enc.Encode(proto.Msg{Error: &proto.Error{Message: "the sky is full"}})
 		return
 	}
-	c := &client{conn: conn, out: make(chan proto.Msg, 16)}
+	c := &client{conn: conn, out: make(chan proto.Msg, 16), key: key}
 	c.out <- proto.Msg{Welcome: &proto.Welcome{Version: proto.Version, Island: id, Sky: s.cfg.Name}}
-	c.out <- proto.Msg{State: s.snapshot()}
-
 	s.mu.Lock()
+	c.out <- proto.Msg{State: s.stateLocked(s.baseLocked(), key)}
 	s.clients[c] = struct{}{}
 	s.mu.Unlock()
-	log.Info("player joined", "name", m.Hello.Name, "island", id)
+	log.Info("player joined", "name", name, "island", id)
 
 	done := make(chan struct{})
 	go func() {
@@ -185,14 +299,16 @@ func (s *Server) handle(ctx context.Context, conn net.Conn) {
 		}
 	}()
 
-	// Clients will send intentions here; for now, reading only detects the
-	// end of the connection.
 	for {
-		if _, err := dec.Decode(); err != nil {
+		m, err := dec.Decode()
+		if err != nil {
 			if !errors.Is(err, io.EOF) && ctx.Err() == nil {
 				log.Info("connection lost", "err", err)
 			}
 			break
+		}
+		if err := s.apply(key, m); err != nil {
+			log.Info("refused a god's act", "err", err)
 		}
 	}
 
@@ -204,52 +320,77 @@ func (s *Server) handle(ctx context.Context, conn net.Conn) {
 	log.Info("player left", "island", id)
 }
 
-// join returns the island of the player's key, founding one if needed. The
-// island lives on whether the player is connected or not (GDD pilier 3). It
-// reports false when a new island would exceed MaxIslands: keys are not
-// authenticated on a LAN, so the cap is what bounds the state a peer can make
-// the server broadcast.
-func (s *Server) join(h *proto.Hello) (sim.IslandID, bool) {
+// apply carries out what a god sends: a whisper or an answer. Nothing else
+// can act on the sky (GDD pilier 4).
+func (s *Server) apply(key string, m proto.Msg) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if id, ok := s.keys[h.Key]; ok {
+	id, ok := s.sky.IslandOf(key)
+	if !ok {
+		return errors.New("no living island")
+	}
+	is := s.sky.Island(id)
+	switch {
+	case m.Whisper != nil:
+		return is.Civ.SetPie(m.Whisper.Pie)
+	case m.Answer != nil:
+		return is.Civ.Answer(m.Answer.ID, m.Answer.Option, s.sky.Tick)
+	}
+	return nil
+}
+
+// join returns the island of the player's key, founding one if needed. The
+// island lives on whether the player is connected or not (GDD pilier 3). The
+// island is 0 while a fallen people waits for the dawn. It reports false when
+// a new island would exceed MaxIslands: keys are not authenticated on a LAN,
+// so the cap is what bounds the state a peer can make the server broadcast.
+func (s *Server) join(key, name string) (sim.IslandID, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if id, ok := s.sky.IslandOf(key); ok {
 		return id, true
 	}
-	if len(s.sky.Islands) >= s.cfg.MaxIslands {
+	if s.sky.AwaitingRebirth(key) {
+		return 0, true
+	}
+	if len(s.sky.Islands)+s.sky.Rebirths() >= s.cfg.MaxIslands {
 		return 0, false
 	}
-	hs := fnv.New64a()
-	hs.Write([]byte(h.Key))
-	seed := hs.Sum64()
+	h := fnv.New64a()
+	h.Write([]byte(key))
 	// Spread newcomers around the rim with the golden angle.
-	angle := float64(len(s.sky.Islands)) * math.Pi * (3 - math.Sqrt(5))
-	id := s.sky.AddIsland(h.Name, seed, angle)
-	s.keys[h.Key] = id
-	return id, true
+	angle := float64(s.sky.NextID) * math.Pi * (3 - math.Sqrt(5))
+	return s.sky.Found(key, name, h.Sum64(), angle), true
 }
 
-func (s *Server) snapshot() *proto.State {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.snapshotLocked()
-}
-
-func (s *Server) snapshotLocked() *proto.State {
+// baseLocked builds the part of a state every player shares.
+func (s *Server) baseLocked() proto.State {
 	phase, left := s.sky.TimeOfDay()
-	return &proto.State{
+	st := proto.State{
 		Tick:        s.sky.Tick,
 		Phase:       phase.String(),
 		PhaseLeftMs: left.Milliseconds(),
-		Islands:     summaries(s.sky.Islands),
+		Islands:     make([]proto.IslandSummary, len(s.sky.Islands)),
+		Annals:      proto.Annals(&s.sky, 10),
+		BossInMs:    -1,
 	}
+	for i := range s.sky.Islands {
+		st.Islands[i] = proto.Summarize(&s.sky.Islands[i])
+	}
+	if b := s.sky.Boss; b != nil {
+		st.BossInMs = int64(b.In * 1000)
+	}
+	return st
 }
 
-func summaries(islands []sim.Island) []proto.IslandSummary {
-	out := make([]proto.IslandSummary, len(islands))
-	for i := range islands {
-		out[i] = proto.Summarize(&islands[i])
+// stateLocked completes the shared state with the player's own island.
+func (s *Server) stateLocked(base proto.State, key string) *proto.State {
+	st := base
+	if id, ok := s.sky.IslandOf(key); ok {
+		st.You = id
+		st.Own = proto.Detail(&s.sky, s.sky.Island(id))
 	}
-	return out
+	return &st
 }
 
 // broadcast queues a snapshot for every client. A client whose queue is full
@@ -260,13 +401,13 @@ func (s *Server) broadcast() {
 	if len(s.clients) == 0 {
 		return
 	}
-	st := s.snapshotLocked()
+	base := s.baseLocked()
 	for c := range s.clients {
 		if c.dead {
 			continue // its handler will remove it once its read loop ends
 		}
 		select {
-		case c.out <- proto.Msg{State: st}:
+		case c.out <- proto.Msg{State: s.stateLocked(base, c.key)}:
 		default:
 			c.dead = true
 			c.conn.Close()

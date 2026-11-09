@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"apogee/internal/proto"
@@ -27,6 +28,8 @@ type Conn struct {
 	ReadTimeout time.Duration
 	conn        net.Conn
 	dec         *proto.Decoder
+	enc         *proto.Encoder
+	wmu         sync.Mutex // serialises Send
 }
 
 // Dial connects to addr and performs the handshake.
@@ -58,7 +61,7 @@ func Dial(ctx context.Context, addr, name, key string) (*Conn, error) {
 		c.Close()
 		return nil, errors.New("server did not welcome us")
 	}
-	return &Conn{Welcome: *m.Welcome, ReadTimeout: StateTimeout, conn: c, dec: dec}, nil
+	return &Conn{Welcome: *m.Welcome, ReadTimeout: StateTimeout, conn: c, dec: dec, enc: enc}, nil
 }
 
 // Next blocks until the next state snapshot. A server that stays silent for
@@ -75,6 +78,14 @@ func (c *Conn) Next() (*proto.State, error) {
 			return m.State, nil
 		}
 	}
+}
+
+// Send writes a message to the server. It is safe for concurrent use.
+func (c *Conn) Send(m proto.Msg) error {
+	c.wmu.Lock()
+	defer c.wmu.Unlock()
+	c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	return c.enc.Encode(m)
 }
 
 // Close ends the session. The player's island lives on (GDD pilier 3).

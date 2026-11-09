@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -29,7 +30,9 @@ func main() {
 	connect := flag.String("connect", "", "join the sky at host:port instead of an embedded one")
 	discover := flag.Bool("discover", false, "join the first sky found on the local network")
 	name := flag.String("name", "Dieu", "player name")
-	rivals := flag.Int("rivals", 7, "demo rival islands in the embedded sky")
+	rivals := flag.Int("rivals", 7, "rival AI gods in a new embedded sky")
+	speed := flag.Int("speed", 1, "simulation steps per tick of the embedded sky (1 is real time)")
+	fresh := flag.Bool("fresh", false, "start a new embedded sky instead of restoring the saved one")
 	shot := flag.String("shot", "", "save a screenshot to this PNG file after -frames redraws, then quit")
 	frames := flag.Int("frames", 30, "redraws before the screenshot")
 	cpu := flag.Duration("cpulog", 0, "log the process CPU usage at this interval (e.g. 10s)")
@@ -64,12 +67,34 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		srv := server.New(server.Config{
-			Name: "Ciel solo", DemoRivals: *rivals, Seed: *seed,
+		dir, err := os.UserConfigDir()
+		if err != nil {
+			log.Fatal(err)
+		}
+		data := filepath.Join(dir, "apogee", "solo.json")
+		if *fresh {
+			os.Remove(data)
+		}
+		srv, err := server.New(server.Config{
+			Name: "Ciel solo", Rivals: *rivals, Seed: *seed, Speed: *speed, DataFile: data,
 			Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		})
-		go srv.Run(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithCancel(ctx)
+		ran := make(chan struct{})
+		go func() {
+			defer close(ran)
+			srv.Run(ctx)
+		}()
 		go srv.Serve(ctx, ln)
+		// Closing the window stops the embedded sky after its last save.
+		defer func() {
+			cancel()
+			<-ran
+		}()
 		addr = ln.Addr().String()
 	}
 	key, err := netclient.PlayerKey()

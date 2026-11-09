@@ -12,8 +12,9 @@ import (
 // Source keeps the latest state received from the server. The network runs in
 // its own goroutine; the game loop only reads snapshots.
 type Source struct {
-	Me  sim.IslandID
 	Sky string
+	// send writes a message to the server.
+	send func(proto.Msg) error
 
 	mu    sync.Mutex
 	state *proto.State
@@ -23,7 +24,7 @@ type Source struct {
 
 // Listen receives states from conn until it fails, then records the error.
 func Listen(conn *netclient.Conn) *Source {
-	s := &Source{Me: conn.Welcome.Island, Sky: conn.Welcome.Sky}
+	s := &Source{Sky: conn.Welcome.Sky, send: conn.Send}
 	go func() {
 		for {
 			st, err := conn.Next()
@@ -68,6 +69,32 @@ func (s *Source) Phase(now time.Time) (string, time.Duration, bool) {
 	}
 	left := time.Duration(s.state.PhaseLeftMs)*time.Millisecond - now.Sub(s.at)
 	return s.state.Phase, max(left, 0), true
+}
+
+// State returns the latest state, or nil before the first one. The caller
+// must not modify it.
+func (s *Source) State() *proto.State {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.state
+}
+
+// Me returns the player's island, 0 while their people wait for the dawn.
+func (s *Source) Me() sim.IslandID {
+	if st := s.State(); st != nil {
+		return st.You
+	}
+	return 0
+}
+
+// Whisper sends a new pie of intentions (GDD 6.2).
+func (s *Source) Whisper(p sim.Pie) error {
+	return s.send(proto.Msg{Whisper: &proto.Whisper{Pie: p}})
+}
+
+// Answer replies to the pending supplique (GDD 6.5).
+func (s *Source) Answer(id uint32, option int) error {
+	return s.send(proto.Msg{Answer: &proto.Answer{ID: id, Option: option}})
 }
 
 // Err returns the error that ended the connection, if any.

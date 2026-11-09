@@ -155,7 +155,7 @@ func (g *Game) homeIsland(islands []proto.IslandSummary) *ebiten.Image {
 		return g.home
 	}
 	for _, is := range islands {
-		if is.ID == g.src.Me {
+		if is.ID == g.src.Me() {
 			const w, h = 320, 240
 			canvas := image.NewRGBA(image.Rect(0, 0, w, h))
 			scene := art.DemoIsland(g.cam, is.Seed, 60)
@@ -377,7 +377,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		for _, is := range islands {
 			sp, p := g.miniature(is), g.orbitPixel(is)
 			at(sp.img, float64(p.X-sp.anchor.X), float64(p.Y-sp.anchor.Y))
-			if is.ID == g.src.Me {
+			if is.ID == g.src.Me() {
 				// Float the beacon above the island's highest point.
 				top := p.Y - sp.anchor.Y - 4
 				at(g.beacon.img, float64(p.X-g.beacon.anchor.X), float64(top-g.beacon.anchor.Y))

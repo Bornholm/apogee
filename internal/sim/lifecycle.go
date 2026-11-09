@@ -306,5 +306,15 @@ func (s *Sky) rebirths() {
 	s.Waiting = s.Waiting[:0]
 }
 
+// AwaitingRebirth reports whether an owner's people wait for the dawn.
+func (s *Sky) AwaitingRebirth(owner string) bool {
+	for _, w := range s.Waiting {
+		if w.Owner == owner {
+			return true
+		}
+	}
+	return false
+}
+
 // Rebirths reports how many fallen peoples wait for the dawn.
 func (s *Sky) Rebirths() int { return len(s.Waiting) }

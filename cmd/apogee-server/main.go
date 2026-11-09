@@ -20,6 +20,10 @@ func main() {
 	addr := flag.String("addr", fmt.Sprintf(":%d", proto.DefaultPort), "TCP listen address")
 	name := flag.String("name", "Apogée", "name of the sky, shown to players")
 	mdns := flag.Bool("mdns", true, "announce the server on the local network")
+	data := flag.String("data", "sky.json", "file where the sky is saved and restored")
+	rivals := flag.Int("rivals", 5, "rival AI gods in a new sky")
+	seed := flag.Uint64("seed", 1, "seed of a new sky")
+	speed := flag.Int("speed", 1, "simulation steps per tick (1 is real time)")
 	flag.Parse()
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
@@ -44,9 +48,22 @@ func main() {
 		}
 	}
 
-	srv := server.New(server.Config{Name: *name, Logger: log})
-	go srv.Run(ctx)
-	if err := srv.Serve(ctx, ln); err != nil {
+	srv, err := server.New(server.Config{
+		Name: *name, Logger: log, DataFile: *data, Rivals: *rivals, Seed: *seed, Speed: *speed,
+	})
+	if err != nil {
+		log.Error("opening the sky", "err", err)
+		os.Exit(1)
+	}
+	ran := make(chan struct{})
+	go func() {
+		defer close(ran)
+		srv.Run(ctx)
+	}()
+	err = srv.Serve(ctx, ln)
+	stop()
+	<-ran // the last save happens when Run ends
+	if err != nil {
 		log.Error("serve", "err", err)
 		os.Exit(1)
 	}
