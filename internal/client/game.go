@@ -130,6 +130,12 @@ func (g *Game) WaveVisible() bool {
 	return ok && g.level == 0
 }
 
+// Phase returns the current time of day ("dawn", "day", "dusk", "night").
+func (g *Game) Phase() string {
+	phase, _, _ := g.src.Phase(time.Now())
+	return phase
+}
+
 // Select picks the island the god looks at, as a click would.
 func (g *Game) Select(id proto.IslandID) {
 	g.selected = id

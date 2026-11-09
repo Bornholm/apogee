@@ -38,6 +38,7 @@ func main() {
 	frames := flag.Int("frames", 30, "redraws before the screenshot")
 	after := flag.Duration("after", 0, "with -shot, wait at least this long before the screenshot")
 	onWave := flag.Bool("onwave", false, "with -shot, wait for a wave to fly across the sky")
+	onPhase := flag.String("onphase", "", "with -shot, wait for this time of day (dawn, day, dusk, night)")
 	zoom := flag.Int("zoom", 0, "initial zoom level: 0 is the sky, higher levels show your island")
 	culture := flag.Bool("culture", false, "open the culture and knowledge panel at start")
 	annals := flag.Bool("annals", false, "open the Annals panel at start")
@@ -124,7 +125,7 @@ func main() {
 		n := 0
 		g.OnFrame = func(screen *ebiten.Image) {
 			n++
-			if n >= *frames && time.Since(start) >= *after && done == nil && (!*onWave || g.WaveVisible()) {
+			if n >= *frames && time.Since(start) >= *after && done == nil && (!*onWave || g.WaveVisible()) && (*onPhase == "" || g.Phase() == *onPhase) {
 				if err := savePNG(*shot, screen); err != nil {
 					log.Print(err)
 				}
