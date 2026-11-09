@@ -61,6 +61,9 @@ type Game struct {
 	panX, panY float64
 
 	outW, outH int
+	// dsf is the monitor's device scale factor: the screen is in physical
+	// pixels, so a zoom level covers level×dsf of them.
+	dsf float64
 
 	// OnFrame, when set, is called after each redraw with the screen image.
 	// The screenshot mode uses it.
@@ -182,7 +185,7 @@ func (g *Game) Update() error {
 
 	// Clouds wrap around once fully out of sight, whatever the window size,
 	// zoom level or scrolling.
-	limit := float64(g.outW)/(2*g.scale) + math.Abs(g.panX) + 48
+	limit := float64(g.outW)/(2*g.pixelScale()) + math.Abs(g.panX) + 48
 	for i := range g.clouds {
 		if g.clouds[i].drift(limit) {
 			g.dirty = true
@@ -215,6 +218,24 @@ func (g *Game) Update() error {
 	return nil
 }
 
+func (g *Game) dsfOr1() float64 {
+	if g.dsf <= 0 {
+		return 1
+	}
+	return g.dsf
+}
+
+// pixelScale is the number of physical pixels per virtual pixel. At rest it
+// is rounded to a whole number, so pixels stay crisp even with a fractional
+// device scale factor; during a zoom transition it follows the animation.
+func (g *Game) pixelScale() float64 {
+	k := g.scale * g.dsfOr1()
+	if g.anim == 0 {
+		k = math.Max(1, math.Round(k))
+	}
+	return k
+}
+
 // panSpeed is the scrolling speed in screen pixels per tick.
 const panSpeed = 8
 
@@ -233,7 +254,8 @@ func (g *Game) updatePan() {
 	if ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
 		dy--
 	}
-	x, y := g.panX+dx*panSpeed/g.scale, g.panY+dy*panSpeed/g.scale
+	k := g.pixelScale()
+	x, y := g.panX+dx*panSpeed*g.dsfOr1()/k, g.panY+dy*panSpeed*g.dsfOr1()/k
 	x, y = g.clampPan(x, y)
 	if x != g.panX || y != g.panY {
 		g.panX, g.panY = x, y
@@ -265,7 +287,8 @@ func (g *Game) clampPan(x, y float64) (float64, float64) {
 	if b.Empty() || g.outW == 0 {
 		return 0, 0
 	}
-	halfW, halfH := float64(g.outW)/2/g.scale, float64(g.outH)/2/g.scale
+	k := g.pixelScale()
+	halfW, halfH := float64(g.outW)/2/k, float64(g.outH)/2/k
 	clamp := func(v float64, lo, hi int, half float64) float64 {
 		// Scrolling by +v moves the scene right: its left edge lo+v must stay
 		// at or left of -half, its right edge hi+v at or right of +half.
@@ -318,12 +341,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// Virtual-pixel coordinates are relative to the screen centre; the
 	// origin is snapped to whole screen pixels for crisp output.
 	g.panX, g.panY = g.clampPan(g.panX, g.panY)
-	ox := math.Round(float64(g.outW)/2 + g.panX*g.scale)
-	oy := math.Round(float64(g.outH)/2 + g.panY*g.scale)
+	k := g.pixelScale()
+	ox := math.Round(float64(g.outW)/2 + g.panX*k)
+	oy := math.Round(float64(g.outH)/2 + g.panY*k)
 	at := func(img *ebiten.Image, x, y float64) {
 		var op ebiten.DrawImageOptions
 		op.GeoM.Translate(x, y)
-		op.GeoM.Scale(g.scale, g.scale)
+		op.GeoM.Scale(k, k)
 		op.GeoM.Translate(ox, oy)
 		screen.DrawImage(img, &op)
 	}
@@ -382,6 +406,10 @@ func (g *Game) LayoutF(outW, outH float64) (float64, float64) {
 	f := 1.0
 	if m := ebiten.Monitor(); m != nil {
 		f = m.DeviceScaleFactor()
+	}
+	if f != g.dsf {
+		g.dsf = f
+		g.dirty = true
 	}
 	w, h := g.Layout(int(math.Round(outW*f)), int(math.Round(outH*f)))
 	return float64(w), float64(h)
