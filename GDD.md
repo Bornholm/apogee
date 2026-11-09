@@ -1,6 +1,6 @@
 # 📘 GAME DESIGN DOCUMENT : *APOGÉE*
 
-> **Version** 0.20 · 9 novembre 2026
+> **Version** 0.21 · 9 novembre 2026
 > **Statut** : pré-production (Phase 0)
 > **Auteur** : GameForge, avec le concepteur
 > **Cible** : développeur senior solo, Go + Ebitengine
@@ -701,28 +701,29 @@ Les Annales donnent sa mesure au talent du joueur : il ne gagne pas, il marque l
 
 ## 12.2 Génération procédurale des assets
 
-Tous les sprites sont **générés par code**, par rastérisation de facettes.
+Tous les sprites sont **générés par code**, par rastérisation de facettes (paquet `internal/art`).
 
 ```
-Gabarit (polygones orientés) → Variation (graine) → Ton par facette (lumière + rampe)
-  → Rastérisation sans anticrénelage → Silhouette d'ombre projetée → Atlas en cache
+Gabarit (petit mesh 3D à facettes) → Variation (graine) → Projection oblique 3/4
+  → Ton par facette (normale · lumière → rampe) → Rastérisation sans anticrénelage
+  → Silhouette d'ombre projetée au sol → Atlas en cache
 ```
 
 | Règle | Détail |
 |---|---|
-| **Gabarits à facettes** | Un gabarit est une liste de polygones 2D, chacun avec une **orientation** (dessus, face éclairée, face à l'ombre) |
+| **Gabarits à facettes** | Un gabarit est un **petit mesh 3D** de quelques facettes planes (cônes, prismes, boîtes, toits). Il est projeté en vue oblique, les faces cachées sont éliminées et les autres peintes de l'arrière vers l'avant |
 | **Palette en rampes** | Environ 8 matières × 3 tons 🔧, plus une couleur d'ombre, plus les couleurs d'équipe |
-| **Ton par facette** | Choisi dans la rampe de la matière selon l'orientation de la facette et la lumière fixe |
+| **Ton par facette** | Choisi dans la rampe de la matière selon le produit scalaire entre la normale de la facette et la direction de la lumière fixe : dessus et faces ouest éclairés, faces sud moyennes, faces est sombres |
 | **Variations par graine** | Hauteur, largeur, nombre de facettes (un arbre est un cône aux proportions tirées au sort) |
 | **Ombre portée** | Chaque sprite produit aussi sa silhouette d'ombre, projetée dans la direction de la lumière |
 | **Contour** | Aucun sur le décor et les bâtiments. Un contour léger **sur les unités seulement**, pour la lisibilité au dézoom |
-| **Orientations** | **Aucune rotation** pour la vertical slice : tous les bâtiments font face à la caméra, car l'éclairage étant calculé dans le sprite, une rotation fausserait la lumière. Si l'île paraît trop rigide, le générateur produira ensuite **4 orientations**, chacune avec son propre éclairage 🔧 |
+| **Orientations** | Le mesh est tourné **avant** le calcul des tons : une rotation ne fausse donc jamais la lumière. La vertical slice utilise 4 orientations (quarts de tour) tirées par la graine ; d'autres angles restent possibles sans changer le pipeline 🔧 |
 | **Grilles de sprites** | Sprites de 8×8 à 32×32 pixels virtuels |
 | **Gabarits conçus à la main** | Les formes de base sont écrites à la main, la graine ne fait que les varier, pour éviter l'aspect « sans âme » du pur procédural |
 | **Graine par île** | Terrain et décors reproductibles sans transfert d'images |
 | **Cache** | Génération au premier lancement, stockage disque |
 
-> 💡 **Variante écartée pour l'instant** : modéliser des meshes low-poly en Go et les rastériser en logiciel au premier lancement. Rotations et éclairage exacts, mais beaucoup plus de code. À reconsidérer seulement si les facettes 2D manquent de volume.
+> 💡 **Choix d'implémentation** : la version initiale du GDD prévoyait des polygones 2D étiquetés à la main. Le spike de Phase 0 a montré qu'un mini-rastériseur 3D orthographique tient en quelques centaines de lignes et donne un éclairage exact. C'est donc l'approche retenue.
 
 ## 12.3 Rendu
 
@@ -946,7 +947,7 @@ Les décisions marquées ✅ sont tranchées et intégrées au corps du document
 | **6** | ~~Compte-t-on les joueurs par île ou par session ?~~ | ✅ **Tranché** : par île vivante (8.3) | |
 | **7** | ~~Nom définitif ?~~ | ✅ **Tranché** : **Apogée**, le sommet juste avant la chute. Disponibilité à vérifier (jeux existants, marques, noms de domaine). Identifiants techniques sans accent : `apogee` | |
 | **8** | ~~Qui décide *quoi* construire ?~~ | ✅ **Tranché** : le peuple, à partir des intentions (section 6) | |
-| **9** | ~~Orientations des bâtiments ?~~ | ✅ **Tranché** : aucune pour la vertical slice, 4 orientations ensuite si besoin (12.2) | |
+| **9** | ~~Orientations des bâtiments ?~~ | ✅ **Tranché** : rotation avant le calcul des tons, donc sans fausser la lumière ; 4 orientations dans la vertical slice (12.2) | |
 | **10** | ~~Mode de zoom ?~~ | ✅ **Tranché** : paliers entiers avec transition animée (3.4, 12.3) | |
 | **11** | ~~Cycle jour/nuit ?~~ | ✅ **Tranché** : rythme léger, cycle de 30 min commun au ciel (3.6) | |
 | **12** | ~~Qu'est-ce qu'un abandon ?~~ | ✅ **Tranché** : abandon explicite seulement, l'île devient des vestiges puis s'efface (11.2) | |
