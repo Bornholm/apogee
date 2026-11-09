@@ -123,7 +123,7 @@ func (s *Sky) lifecycle(dt float64, phase Phase) {
 		is.Radius = math.Max(PortalRadius, is.Radius-descentSpeed*(1+c.Power()/powerScale)*dt)
 		if is.Radius < DeclineRadius && !is.Declining {
 			is.Declining = true
-			c.chronicle(s.Tick, "Les anciens disent que le tourbillon nous appelle : notre déclin a commencé.")
+			c.chronicleAs(DeclineNews, s.Tick, "Les anciens disent que le tourbillon nous appelle : notre déclin a commencé.")
 		}
 		c.repairCore(dt)
 	}
@@ -223,10 +223,10 @@ func (s *Sky) attack(is *Island, factor float64, night bool, by string) {
 		c.CoreHealth = 0
 		is.Falling = fallDuration
 		is.Cause = "aspirée par le tourbillon sous les coups " + of(by)
-		c.chronicle(s.Tick, "Le cœur s'est brisé sous les coups %s. L'île sombre dans le tourbillon.", of(by))
+		c.chronicleAs(FallNews, s.Tick, "Le cœur s'est brisé sous les coups %s. L'île sombre dans le tourbillon.", of(by))
 		return
 	}
-	c.chronicle(s.Tick, "%s a frappé le cœur (%d %% de vigueur restante). %s",
+	c.chronicleAs(WaveNews, s.Tick, "%s a frappé le cœur (%d %% de vigueur restante). %s",
 		capitalize(by), int(math.Round(c.CoreHealth*100)), losses(lost))
 }
 

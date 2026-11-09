@@ -66,6 +66,17 @@ type Game struct {
 	// Panels shown on demand: culture and knowledge, the Annals.
 	showCulture, showAnnals bool
 
+	// Notify, when set, receives the chronicle entries the player chose to
+	// hear of while the window is not focused (GDD 13.1).
+	Notify func(text string)
+	// NotifyKinds are the kinds of entries worth a notification.
+	NotifyKinds map[sim.EntryKind]bool
+	// heard is the tick of the newest chronicle entry already considered.
+	heard  uint64
+	primed bool
+	// focused reports whether the window has the focus; tests replace it.
+	focused func() bool
+
 	level     int     // index in zoomLevels
 	scale     float64 // displayed scale, animated towards the level
 	fromScale float64
@@ -128,6 +139,33 @@ func (c *cloud) drift(limit float64) bool {
 func (g *Game) WaveVisible() bool {
 	_, ok := g.swarmPixel(g.src.Islands(time.Now()), time.Now())
 	return ok && g.level == 0
+}
+
+// notifyNews passes new chronicle entries of the chosen kinds to Notify,
+// only while the window is not focused: in front of the game, the chronicle
+// says it all. Entries older than the first state are never notified.
+func (g *Game) notifyNews(st *proto.State) {
+	if st.Own == nil {
+		return
+	}
+	newest := g.heard
+	for _, e := range st.Own.Chronicle {
+		if e.Tick <= g.heard && g.primed {
+			continue
+		}
+		newest = max(newest, e.Tick)
+		if g.primed && g.Notify != nil && g.NotifyKinds[e.Kind] && !g.isFocused() {
+			g.Notify(e.Text)
+		}
+	}
+	g.heard, g.primed = newest, true
+}
+
+func (g *Game) isFocused() bool {
+	if g.focused != nil {
+		return g.focused()
+	}
+	return ebiten.IsFocused()
 }
 
 // Phase returns the current time of day ("dawn", "day", "dusk", "night").
@@ -271,6 +309,7 @@ func (g *Game) Update() error {
 		// Free the miniatures of islands that fell or grew, whatever the
 		// zoom level.
 		g.purgeMiniatures(st.Islands)
+		g.notifyNews(st)
 		if !g.drafting && st.Own != nil {
 			g.draft = st.Own.Pie
 		}

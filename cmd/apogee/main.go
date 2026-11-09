@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -20,8 +21,10 @@ import (
 	"apogee/internal/client"
 	"apogee/internal/discovery"
 	"apogee/internal/netclient"
+	"apogee/internal/notify"
 	"apogee/internal/proto"
 	"apogee/internal/server"
+	"apogee/internal/sim"
 )
 
 var errDone = errors.New("done")
@@ -43,6 +46,7 @@ func main() {
 	culture := flag.Bool("culture", false, "open the culture and knowledge panel at start")
 	annals := flag.Bool("annals", false, "open the Annals panel at start")
 	selectID := flag.Uint("select", 0, "select this island at start, as a click would")
+	notifyFlag := flag.String("notify", "raid,wave,decline,fall", "desktop notifications while the window is hidden: raid, wave, decline, supplique, fall, or none")
 	cpu := flag.Duration("cpulog", 0, "log the process CPU usage at this interval (e.g. 10s)")
 	quit := flag.Duration("quit", 0, "quit after this duration")
 	width := flag.Int("width", 1280, "initial window width")
@@ -120,6 +124,9 @@ func main() {
 	g.SetZoom(*zoom)
 	g.ShowPanels(*culture, *annals)
 	g.Select(proto.IslandID(*selectID))
+	g.NotifyKinds = notifyKinds(*notifyFlag)
+	notifier := notify.New()
+	g.Notify = func(text string) { notifier.Send("Apogée", text) }
 	var done error
 	if *shot != "" {
 		n := 0
@@ -145,6 +152,19 @@ func main() {
 	if err := ebiten.RunGame(wrapped); err != nil && !errors.Is(err, errDone) {
 		log.Fatal(err)
 	}
+}
+
+// notifyKinds parses the -notify flag.
+func notifyKinds(s string) map[sim.EntryKind]bool {
+	names := map[string]sim.EntryKind{"raid": sim.RaidNews, "wave": sim.WaveNews,
+		"decline": sim.DeclineNews, "supplique": sim.SuppliqueNews, "fall": sim.FallNews}
+	kinds := map[sim.EntryKind]bool{}
+	for _, part := range strings.Split(s, ",") {
+		if k, ok := names[strings.TrimSpace(part)]; ok {
+			kinds[k] = true
+		}
+	}
+	return kinds
 }
 
 // quitter ends the game loop once stop returns an error.

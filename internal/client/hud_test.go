@@ -3,6 +3,7 @@ package client
 import (
 	"testing"
 
+	"apogee/internal/proto"
 	"apogee/internal/sim"
 )
 
@@ -49,5 +50,38 @@ func TestWrapKeepsFrenchPunctuationWithItsWord(t *testing.T) {
 				t.Fatalf("width %d: a line holds punctuation alone: %q", w, l)
 			}
 		}
+	}
+}
+
+func TestNotificationsOnlyForNewChosenNewsWhileAway(t *testing.T) {
+	var got []string
+	focused := false
+	g := &Game{
+		Notify:      func(s string) { got = append(got, s) },
+		NotifyKinds: map[sim.EntryKind]bool{sim.RaidNews: true},
+		focused:     func() bool { return focused },
+	}
+	state := func(entries ...sim.Entry) *proto.State {
+		return &proto.State{Own: &proto.Own{Chronicle: entries}}
+	}
+	old := sim.Entry{Tick: 5, Text: "un vieux raid", Kind: sim.RaidNews}
+	g.notifyNews(state(old))
+	if len(got) != 0 {
+		t.Fatalf("notified history at start: %v", got)
+	}
+	raid := sim.Entry{Tick: 9, Text: "un raid", Kind: sim.RaidNews}
+	info := sim.Entry{Tick: 9, Text: "une maison", Kind: sim.Info}
+	g.notifyNews(state(old, raid, info))
+	if len(got) != 1 || got[0] != "un raid" {
+		t.Fatalf("notifications %v, want only the new raid", got)
+	}
+	g.notifyNews(state(old, raid, info))
+	if len(got) != 1 {
+		t.Fatalf("the same entry was notified twice: %v", got)
+	}
+	focused = true
+	g.notifyNews(state(old, raid, info, sim.Entry{Tick: 12, Text: "encore", Kind: sim.RaidNews}))
+	if len(got) != 1 {
+		t.Fatalf("notified while the player looks at the game: %v", got)
 	}
 }

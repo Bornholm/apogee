@@ -113,9 +113,9 @@ func (s *Sky) Whisper(from IslandID, kind Outer, target IslandID) error {
 	is.Civ.Outer = OuterIntent{Kind: kind, Target: target}
 	switch kind {
 	case Covet:
-		t.Civ.chronicle(s.Tick, "%s nous regarde avec envie.", is.Name)
+		t.Civ.chronicleAs(RaidNews, s.Tick, "%s nous regarde avec envie.", is.Name)
 	case Annihilate:
-		t.Civ.chronicle(s.Tick, "%s prépare notre anéantissement : sa bannière de guerre se dresse vers nous.", is.Name)
+		t.Civ.chronicleAs(RaidNews, s.Tick, "%s prépare notre anéantissement : sa bannière de guerre se dresse vers nous.", is.Name)
 		for i := range s.Islands {
 			if o := &s.Islands[i]; o.ID != t.ID && o.ID != is.ID {
 				o.Civ.chronicle(s.Tick, "%s a juré la perte de %s.", is.Name, t.Name)
@@ -225,7 +225,7 @@ func (s *Sky) launch(from, to *Island, kind RaidKind, units float64) {
 	s.NextRaid++
 	s.Raids = append(s.Raids, Raid{ID: s.NextRaid, Kind: kind, From: from.ID, To: to.ID, Units: units})
 	verb := map[RaidKind]string{Pillage: "lance un raid", Assault: "lance l'assaut final", Relief: "envoie des renforts"}[kind]
-	to.Civ.chronicle(s.Tick, "%s %s vers nous : %.0f %s traversent le ciel.", from.Name, verb, units, plural(units, "guerrier", "guerriers"))
+	to.Civ.chronicleAs(RaidNews, s.Tick, "%s %s vers nous : %.0f %s traversent le ciel.", from.Name, verb, units, plural(units, "guerrier", "guerriers"))
 	from.Civ.chronicle(s.Tick, "Ton peuple %s vers %s.", verb, to.Name)
 }
 
@@ -309,11 +309,11 @@ func (s *Sky) clash(from, to *Island, r *Raid) {
 			to.Civ.CoreHealth = 0
 			to.Falling = fallDuration
 			to.Cause = "aspirée par le tourbillon sous l'assaut de " + from.Name
-			to.Civ.chronicle(s.Tick, "Les guerriers de %s ont brisé le cœur. L'île sombre dans le tourbillon.", from.Name)
+			to.Civ.chronicleAs(FallNews, s.Tick, "Les guerriers de %s ont brisé le cœur. L'île sombre dans le tourbillon.", from.Name)
 			from.Civ.chronicle(s.Tick, "Tes guerriers ont achevé %s.", to.Name)
 			return
 		}
-		to.Civ.chronicle(s.Tick, "L'assaut de %s a frappé le cœur (%d %% de vigueur restante).", from.Name, int(math.Round(to.Civ.CoreHealth*100)))
+		to.Civ.chronicleAs(RaidNews, s.Tick, "L'assaut de %s a frappé le cœur (%d %% de vigueur restante).", from.Name, int(math.Round(to.Civ.CoreHealth*100)))
 		return
 	}
 	// Pillage is limited (GDD 7.4): a share of the stock, less against a much
@@ -337,7 +337,7 @@ func (s *Sky) clash(from, to *Island, r *Raid) {
 		r.Loot[res] += take
 	}
 	to.ShieldFrom, to.ShieldLeft = from.ID, shieldTime
-	to.Civ.chronicle(s.Tick, "Les pillards de %s nous ont dépouillés de %.0f ressources.", from.Name, total*k)
+	to.Civ.chronicleAs(RaidNews, s.Tick, "Les pillards de %s nous ont dépouillés de %.0f ressources.", from.Name, total*k)
 }
 
 // relief adds up the defenders other islands sent to help this one.

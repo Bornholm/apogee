@@ -43,7 +43,22 @@ var (
 type Entry struct {
 	Tick uint64
 	Text string
+	// Kind lets the player choose which entries reach them as desktop
+	// notifications (GDD 13.1).
+	Kind EntryKind `json:",omitempty"`
 }
+
+// EntryKind sorts the chronicle's entries.
+type EntryKind int
+
+const (
+	Info          EntryKind = iota
+	RaidNews                // an attack from another island, or its announcement
+	WaveNews                // a wave or the colossus struck the heart
+	DeclineNews             // the island entered its decline
+	SuppliqueNews           // the people ask their god
+	FallNews                // the heart broke
+)
 
 // Civ is the civilisation living on an island: its people, economy and
 // buildings. It is the same for humans and rival AIs (GDD 9.2).
@@ -245,7 +260,12 @@ func (c *Civ) familyConviction() [NumFamilies]float64 {
 }
 
 func (c *Civ) chronicle(tick uint64, format string, args ...any) {
-	c.Chronicle = append(c.Chronicle, Entry{Tick: tick, Text: fmt.Sprintf(format, args...)})
+	c.chronicleAs(Info, tick, format, args...)
+}
+
+// chronicleAs writes an entry of a given kind.
+func (c *Civ) chronicleAs(kind EntryKind, tick uint64, format string, args ...any) {
+	c.Chronicle = append(c.Chronicle, Entry{Tick: tick, Text: fmt.Sprintf(format, args...), Kind: kind})
 	if len(c.Chronicle) > chronicleSize {
 		c.Chronicle = append(c.Chronicle[:0:0], c.Chronicle[len(c.Chronicle)-chronicleSize:]...)
 	}

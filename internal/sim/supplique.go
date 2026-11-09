@@ -51,6 +51,7 @@ func (c *Civ) ask(s Supplique, tick uint64) {
 	s.ID = c.NextSupplique
 	s.Left = suppliqueTimeout
 	c.Pending = &s
+	c.chronicleAs(SuppliqueNews, tick, "Ton peuple s'adresse à toi : %s", s.Question)
 	if s.Kind != AskDiscovery {
 		c.SinceSupplique = 0
 	}
