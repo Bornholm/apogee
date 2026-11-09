@@ -97,13 +97,3 @@ func islandScene(cam art.Camera, sum proto.IslandSummary, own *proto.Own) art.Is
 	// (see life.go).
 	return sc
 }
-
-// recolor swaps a material of a mesh, to dress villagers apart from soldiers.
-func recolor(m art.Mesh, from, to art.Material) art.Mesh {
-	for i := range m.Faces {
-		if m.Faces[i].Mat == from {
-			m.Faces[i].Mat = to
-		}
-	}
-	return m
-}

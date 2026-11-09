@@ -77,12 +77,13 @@ func (g *Game) drawHUD(screen *ebiten.Image, st *proto.State) {
 	pie := g.drawPie(p, image.Rect(gap, top, gap+230*k, top+0), o)
 	g.areas["pie"] = pie
 	g.areas["outer"] = g.drawOuter(p, st, o, image.Rect(gap, pie.Max.Y+gap, gap+230*k, pie.Max.Y+gap))
+	alertY := bar.Max.Y + gap
 	if g.viewing != 0 && g.level > 0 {
-		g.drawObserving(p, st, bar.Max.Y+gap)
+		alertY = g.drawObserving(p, st, bar.Max.Y+gap).Max.Y + gap // refusals go below
 	}
 	if msg := g.src.Refusal(6 * time.Second); msg != "" {
 		msg = refusalText(msg)
-		p.text(msg, (g.outW-p.width(msg))/2, bar.Max.Y+gap, alertColor)
+		p.text(msg, (g.outW-p.width(msg))/2, alertY, alertColor)
 	}
 	g.areas["chronicle"] = g.drawChronicle(p, image.Rect(g.outW-gap-300*k, top, g.outW-gap, top), o)
 	g.areas["stock"] = g.drawStock(p, o)
@@ -149,7 +150,7 @@ func (g *Game) drawPie(p painter, r image.Rectangle, o *proto.Own) image.Rectang
 }
 
 // drawObserving shows whose island the god is looking at, and the way back.
-func (g *Game) drawObserving(p painter, st *proto.State, top int) {
+func (g *Game) drawObserving(p painter, st *proto.State, top int) image.Rectangle {
 	k := int(p.k)
 	name := "une île disparue"
 	for _, is := range st.Islands {
@@ -167,6 +168,7 @@ func (g *Game) drawObserving(p painter, st *proto.State, top int) {
 	in := p.panel(r)
 	p.text(label, in.Min.X+(in.Dx()-p.width(label))/2, in.Min.Y, goldColor)
 	p.button(image.Rect(in.Min.X, in.Min.Y+p.line()+2*k, in.Max.X, in.Max.Y), back, func() { g.Observe(0) })
+	return r
 }
 
 // refusals translates the server's refusals for the player.

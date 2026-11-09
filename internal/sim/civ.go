@@ -526,5 +526,8 @@ func (c *Civ) building() bool {
 			sites++
 		}
 	}
-	return sites >= MaxSites || c.Expanding > 0
+	if c.Expanding > 0 {
+		sites++ // pushing the edges takes hands too
+	}
+	return sites >= MaxSites
 }

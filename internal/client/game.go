@@ -385,6 +385,9 @@ func (g *Game) Update() error {
 		// zoom level.
 		g.purgeMiniatures(st.Islands)
 		g.notifyNews(st)
+		if g.viewing != 0 && g.viewing == st.You {
+			g.Observe(0) // asked to observe one's own island before knowing it
+		}
 		if !g.drafting && st.Own != nil {
 			g.draft = st.Own.Pie
 		}
@@ -797,9 +800,9 @@ func (g *Game) animate() {
 	if !ok {
 		return
 	}
-	g.life.sync(sum, view)
+	g.life.sync(sum, view, signature(sum, view))
 	dt := 1.0 / float64(ebiten.TPS())
-	g.life.step(view, dt, st.Phase == "night")
+	g.life.step(dt, st.Phase == "night")
 	for i := range g.life.walkers {
 		if w := &g.life.walkers[i]; w.busy() {
 			g.dust.emit(w, dt)

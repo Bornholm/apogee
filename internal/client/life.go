@@ -62,6 +62,10 @@ type walker struct {
 	state  walkerState
 	wait   float64 // seconds left resting or working
 	work   spot
+	// via is set while the walker heads for a waypoint; fx, fy is then its
+	// final target.
+	via    bool
+	fx, fy float64
 	guard  bool
 	// Guards circle a post.
 	post          geo.Vec2
@@ -96,10 +100,25 @@ type life struct {
 	walkers []walker
 	shore   shore
 	r       *rand.Rand
+	// The places and the shore are cached until the island changes.
+	sig          uint64
+	sites, works []spot
+	homes        []geo.Vec2
 }
 
-// featureJob is what villagers do at each natural site.
-var featureJob = [...]job{sim.NoFeature: idle, sim.Grove: felling, sim.Rock: quarrying, sim.Crystal: channel}
+// featureJob returns what villagers do at a natural site. Kinds come from
+// the wire: an unknown one is simply idle.
+func featureJob(k sim.FeatureKind) job {
+	switch k {
+	case sim.Grove:
+		return felling
+	case sim.Rock:
+		return quarrying
+	case sim.Crystal:
+		return channel
+	}
+	return idle
+}
 
 func jobOf(k sim.Kind) job {
 	switch k {
@@ -124,6 +143,9 @@ func (l *life) places(own *proto.Own) (sites, works []spot, homes []geo.Vec2) {
 			centre: geo.Vec2{X: x, Y: y}, radius: radius}
 	}
 	for _, b := range own.Buildings {
+		if b.Kind < 0 || b.Kind >= sim.NumKinds {
+			continue // from the wire: never index with an unknown kind
+		}
 		r := sim.Specs[b.Kind].Radius
 		switch {
 		case b.Progress < 1:
@@ -135,19 +157,24 @@ func (l *life) places(own *proto.Own) (sites, works []spot, homes []geo.Vec2) {
 		}
 	}
 	for _, f := range own.Features {
-		works = append(works, front(f.X, f.Y, f.Radius, featureJob[f.Kind]))
+		works = append(works, front(f.X, f.Y, f.Radius, featureJob(f.Kind)))
 	}
 	return sites, works, homes
 }
 
 // sync matches the walkers to the island: as many villagers as the people
 // (up to maxWalkers) and guards as the defenders.
-func (l *life) sync(sum proto.IslandSummary, own *proto.Own) {
+func (l *life) sync(sum proto.IslandSummary, own *proto.Own, sig uint64) {
 	if l.r == nil || l.island != sum.ID {
 		*l = life{island: sum.ID, r: rand.New(rand.NewPCG(uint64(sum.ID), 0x11fe))}
 	}
-	l.shore = shore{geo.Outline(sum.Seed), sum.Size}
-	_, _, homes := l.places(own)
+	if sig != l.sig || l.shore.outline == nil {
+		// The island changed: new shore, new places. Otherwise reuse them.
+		l.sig = sig
+		l.shore = shore{geo.Outline(sum.Seed), sum.Size}
+		l.sites, l.works, l.homes = l.places(own)
+	}
+	homes := l.homes
 	if len(homes) == 0 {
 		homes = []geo.Vec2{{}}
 	}
@@ -205,8 +232,8 @@ func (l *life) patrol(post geo.Vec2, radius float64) float64 {
 }
 
 // step moves everyone by dt seconds. At night, villagers linger at home.
-func (l *life) step(own *proto.Own, dt float64, night bool) {
-	sites, works, _ := l.places(own)
+func (l *life) step(dt float64, night bool) {
+	sites, works := l.sites, l.works
 	for i := range l.walkers {
 		w := &l.walkers[i]
 		if w.guard {
@@ -232,10 +259,14 @@ func (l *life) step(own *proto.Own, dt float64, night bool) {
 			// Spread along the front, never into the footprint nor off the
 			// island.
 			t := l.shore.inside(geo.Vec2{X: w.work.p.X + (l.r.Float64()*2-1)*3, Y: w.work.p.Y + l.r.Float64()*1.5})
-			w.tx, w.ty = t.X, t.Y
+			l.route(w, t)
 			w.state = going
 		case going, returning:
-			if w.walk(dt) {
+			if w.walk(dt) && w.via {
+				// Reached the waypoint: on to the real target.
+				w.via = false
+				w.tx, w.ty = w.fx, w.fy
+			} else if !w.via && w.arrived() {
 				if w.state == going {
 					w.state, w.wait = working, 8+l.r.Float64()*14
 				} else {
@@ -248,12 +279,42 @@ func (l *life) step(own *proto.Own, dt float64, night bool) {
 		case working:
 			if w.wait -= dt; w.wait <= 0 {
 				t := l.shore.inside(geo.Vec2{X: w.home.X + (l.r.Float64()*2-1)*2, Y: w.home.Y + l.r.Float64()})
-				w.tx, w.ty = t.X, t.Y
+				l.route(w, t)
 				w.state = returning
 			}
 		}
 	}
 }
+
+// route sets a walker's target. The island is not convex: a straight line
+// between two points on it may cross a bay, so a path that leaves the island
+// goes through a waypoint closer to the centre.
+func (l *life) route(w *walker, t geo.Vec2) {
+	w.via = false
+	w.tx, w.ty = t.X, t.Y
+	if l.shore.outline == nil || l.clear(geo.Vec2{X: w.x, Y: w.y}, t) {
+		return
+	}
+	mid := l.shore.inside(geo.Vec2{X: (w.x + t.X) / 2 * 0.5, Y: (w.y + t.Y) / 2 * 0.5})
+	w.via, w.fx, w.fy = true, t.X, t.Y
+	w.tx, w.ty = mid.X, mid.Y
+}
+
+// clear reports whether the straight path between two points stays on the
+// island.
+func (l *life) clear(a, b geo.Vec2) bool {
+	for k := 1; k < 8; k++ {
+		t := float64(k) / 8
+		p := geo.Vec2{X: a.X + (b.X-a.X)*t, Y: a.Y + (b.Y-a.Y)*t}
+		if geo.EdgeDistance(l.shore.outline, l.shore.size, p) < 1 {
+			return false
+		}
+	}
+	return true
+}
+
+// arrived reports whether the walker stands on its target.
+func (w *walker) arrived() bool { return w.x == w.tx && w.y == w.ty }
 
 // walk moves the walker towards its target and reports its arrival.
 func (w *walker) walk(dt float64) bool {

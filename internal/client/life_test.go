@@ -18,7 +18,7 @@ func TestWalkersFollowThePeopleAndStandBesideBuildings(t *testing.T) {
 		},
 	}
 	var l life
-	l.sync(proto.IslandSummary{ID: 1, Seed: 3, Size: 50}, own)
+	l.sync(proto.IslandSummary{ID: 1, Seed: 3, Size: 50}, own, 1)
 	people, guards := 0, 0
 	for _, w := range l.walkers {
 		if w.guard {
@@ -31,7 +31,7 @@ func TestWalkersFollowThePeopleAndStandBesideBuildings(t *testing.T) {
 		t.Fatalf("%d villagers and %d guards, want %d and 3", people, guards, maxWalkers)
 	}
 	for range 600 { // ten seconds of walking
-		l.step(own, 1.0/60, false)
+		l.step(1.0/60, false)
 	}
 	for _, w := range l.walkers {
 		if w.guard || w.state != working {
@@ -45,15 +45,21 @@ func TestWalkersFollowThePeopleAndStandBesideBuildings(t *testing.T) {
 		}
 	}
 	own.Population = 5
-	l.sync(proto.IslandSummary{ID: 1, Seed: 3, Size: 50}, own)
+	l.sync(proto.IslandSummary{ID: 1, Seed: 3, Size: 50}, own, 1)
 	if n := len(l.walkers) - 3; n != 5 {
 		t.Fatalf("%d villagers after the people shrank to 5", n)
 	}
 }
 
 func TestNobodyWalksOffTheIsland(t *testing.T) {
+	for seed := uint64(1); seed <= 12; seed++ {
+		nobodyWalksOff(t, seed)
+	}
+}
+
+func nobodyWalksOff(t *testing.T, seed uint64) {
 	// A tower right by the cliff and a grove near the rim.
-	outline := geo.Outline(3)
+	outline := geo.Outline(seed)
 	edge := outline[0].Scale(50 * 0.92)
 	own := &proto.Own{
 		Population: 24, Defenders: 8,
@@ -64,13 +70,24 @@ func TestNobodyWalksOffTheIsland(t *testing.T) {
 		Features: []sim.Feature{{Kind: sim.Grove, X: edge.X * 0.9, Y: -edge.Y, Radius: 7}},
 	}
 	var l life
-	l.sync(proto.IslandSummary{ID: 1, Seed: 3, Size: 50}, own)
+	l.sync(proto.IslandSummary{ID: 1, Seed: seed, Size: 50}, own, 1)
 	for range 60 * 120 { // two minutes
-		l.step(own, 1.0/60, false)
+		l.step(1.0/60, false)
 		for _, w := range l.walkers {
 			if !geo.Inside(outline, 50, geo.Vec2{X: w.x, Y: w.y}) {
-				t.Fatalf("a %s stands off the island at (%.1f, %.1f)", map[bool]string{true: "guard", false: "villager"}[w.guard], w.x, w.y)
+				t.Fatalf("seed %d: a %s stands off the island at (%.1f, %.1f)", seed, map[bool]string{true: "guard", false: "villager"}[w.guard], w.x, w.y)
 			}
 		}
+	}
+}
+
+func TestUnknownKindsFromTheWireAreIgnored(t *testing.T) {
+	own := &proto.Own{Population: 5,
+		Buildings: []sim.Building{{ID: 1, Kind: sim.Core, Progress: 1}, {ID: 2, Kind: 99, Progress: 1}, {ID: 3, Kind: -1}},
+		Features:  []sim.Feature{{Kind: 42, X: 5, Radius: 3}}}
+	var l life
+	l.sync(proto.IslandSummary{ID: 1, Seed: 3, Size: 50}, own, 1)
+	for range 600 {
+		l.step(1.0/60, false)
 	}
 }

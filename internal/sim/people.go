@@ -18,7 +18,7 @@ const (
 
 // decide is the people's interpretation of the god's intentions (GDD 6.4):
 // a utility score picks what to build next, then where. It runs every few
-// seconds and only starts one project at a time.
+// seconds and starts a project when fewer than MaxSites are underway.
 func (c *Civ) decide(tick uint64) {
 	if c.building() {
 		return
@@ -44,7 +44,7 @@ func (c *Civ) decide(tick uint64) {
 	}
 	// An expansion the people cannot afford yet does not stop them from
 	// building what they can.
-	if s := c.expandScore(); s > bestScore && c.Stock.Covers(expandCost) {
+	if s := c.expandScore(); s > bestScore && c.Expanding == 0 && c.Stock.Covers(expandCost) {
 		c.Stock = c.Stock.Sub(expandCost)
 		c.Expanding = expandTime
 		c.chronicle(tick, "%s, ton peuple repousse les bords de l'île.", Expand.motive())
