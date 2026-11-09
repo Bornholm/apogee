@@ -75,8 +75,12 @@ type State struct {
 	// Own details the player's island; nil while it does not exist.
 	Own *Own `json:"own,omitempty"`
 	// BossInMs is the time before the next boss strikes the whole sky.
-	BossInMs int64   `json:"bossInMs"`
-	Annals   []Annal `json:"annals,omitempty"`
+	BossInMs int64 `json:"bossInMs"`
+	// WaveTarget and WaveInMs announce the next wave to everyone: the whole
+	// sky sees it coming (GDD pilier 2).
+	WaveTarget IslandID `json:"waveTarget"`
+	WaveInMs   int64    `json:"waveInMs"`
+	Annals     []Annal  `json:"annals,omitempty"`
 }
 
 // IslandID is re-exported for the clients.

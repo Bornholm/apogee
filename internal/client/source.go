@@ -54,9 +54,24 @@ func (s *Source) Islands(now time.Time) []proto.IslandSummary {
 	out := make([]proto.IslandSummary, len(st.Islands))
 	for i, is := range st.Islands {
 		is.Angle += sim.AngularSpeed(is.Radius) * dt
+		if is.FallingMs > 0 {
+			is.FallingMs = max(1, is.FallingMs-int64(dt*1000))
+		}
 		out[i] = is
 	}
 	return out
+}
+
+// Wave returns the next wave's target and the time before it strikes,
+// counted down locally.
+func (s *Source) Wave(now time.Time) (proto.IslandID, time.Duration, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.state == nil || s.state.WaveInMs < 0 {
+		return 0, 0, false
+	}
+	left := time.Duration(s.state.WaveInMs)*time.Millisecond - now.Sub(s.at)
+	return s.state.WaveTarget, max(left, 0), true
 }
 
 // Phase returns the time of day of the latest state and the time left before

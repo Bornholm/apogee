@@ -43,6 +43,8 @@ type Game struct {
 
 	islandSprites map[miniKey]sprite // sky view miniatures
 	beacon        sprite             // marks the player's island
+	swarm         sprite             // a wave of monsters
+	swarmAt       image.Point        // its position at the last redraw
 	// home is the player's island at full size, rendered from the state and
 	// re-rendered only when its signature changes.
 	home    sprite
@@ -117,6 +119,12 @@ func (c *cloud) drift(limit float64) bool {
 	return c.pixel() != c.lastDraw
 }
 
+// WaveVisible reports whether a wave is flying across the sky view.
+func (g *Game) WaveVisible() bool {
+	_, ok := g.swarmPixel(g.src.Islands(time.Now()), time.Now())
+	return ok && g.level == 0
+}
+
 // ShowPanels opens the culture and Annals panels, for screenshots.
 func (g *Game) ShowPanels(culture, annals bool) {
 	g.showCulture, g.showAnnals = culture, annals
@@ -146,6 +154,8 @@ func NewGame(src *Source, seed uint64) *Game {
 	g.scale = float64(zoomLevels[g.level])
 	b := cam.Render(art.Beacon())
 	g.beacon = sprite{ebiten.NewImageFromImage(b.Img), b.Anchor}
+	sw := cam.Render(art.Swarm(seed))
+	g.swarm = sprite{ebiten.NewImageFromImage(sw.Img), sw.Anchor}
 	for i := range portalFrames {
 		sp := art.PortalFrame(cam, portalPixels, 3, float64(i)/portalFrames)
 		g.portal = append(g.portal, ebiten.NewImageFromImage(sp.Img))
@@ -184,6 +194,20 @@ func (g *Game) miniature(is proto.IslandSummary) sprite {
 	return sp
 }
 
+// purgeMiniatures frees the miniatures of islands that left the sky or grew.
+func (g *Game) purgeMiniatures(islands []proto.IslandSummary) {
+	keep := make(map[miniKey]bool, len(islands))
+	for _, is := range islands {
+		keep[miniKey{is.ID, int(is.Size)}] = true
+	}
+	for k, sp := range g.islandSprites {
+		if !keep[k] {
+			sp.img.Deallocate()
+			delete(g.islandSprites, k)
+		}
+	}
+}
+
 // homeIsland returns the player's island at full size, as the simulation
 // describes it (GDD 3.5), re-rendering it only when something changed.
 func (g *Game) homeIsland(st *proto.State) (sprite, bool) {
@@ -199,6 +223,7 @@ func (g *Game) homeIsland(st *proto.State) (sprite, bool) {
 	if sum.ID == 0 {
 		return sprite{}, false
 	}
+	g.purgeMiniatures(st.Islands)
 	if sig := signature(sum, st.Own); sig != g.homeSig || g.home.img == nil {
 		if g.home.img != nil {
 			g.home.img.Deallocate()
@@ -283,12 +308,17 @@ func (g *Game) Update() error {
 			g.dirty = true
 		}
 		// Orbits are slow: redraw only when an island moves by a pixel.
-		for _, is := range g.src.Islands(now) {
+		islands := g.src.Islands(now)
+		for _, is := range islands {
 			p := g.orbitPixel(is)
 			if g.positions[is.ID] != p {
 				g.positions[is.ID] = p
 				g.dirty = true
 			}
+		}
+		if p, ok := g.swarmPixel(islands, now); ok && p != g.swarmAt {
+			g.swarmAt = p
+			g.dirty = true
 		}
 	}
 	g.updatePan()
@@ -377,10 +407,41 @@ func (g *Game) clampPan(x, y float64) (float64, float64) {
 	return clamp(x, b.Min.X, b.Max.X, halfW), clamp(y, b.Min.Y, b.Max.Y, halfH)
 }
 
+// fallDuration matches the simulation's: the time the whirlpool takes to
+// swallow an island, in milliseconds.
+const fallDuration = 30_000.0
+
 func (g *Game) orbitPixel(is proto.IslandSummary) image.Point {
 	d := is.Radius / sim.RimRadius * rimPixels
-	x, y := g.cam.Project(art.V(d*math.Cos(is.Angle), d*math.Sin(is.Angle), 0))
+	a := is.Angle
+	if is.FallingMs > 0 {
+		// Swallowed by the whirlpool: the island spirals into the portal
+		// (GDD 12.6).
+		f := float64(is.FallingMs) / fallDuration
+		d *= f
+		a += (1 - f) * 4 * math.Pi
+	}
+	x, y := g.cam.Project(art.V(d*math.Cos(a), d*math.Sin(a), 0))
 	return image.Pt(int(math.Round(x)), int(math.Round(y)))
+}
+
+// swarmWarning is how long before striking a wave shows, flying from the
+// portal to its target.
+const swarmWarning = 40 * time.Second
+
+func (g *Game) swarmPixel(islands []proto.IslandSummary, now time.Time) (image.Point, bool) {
+	target, left, ok := g.src.Wave(now)
+	if !ok || left > swarmWarning {
+		return image.Point{}, false
+	}
+	for _, is := range islands {
+		if is.ID == target {
+			t := 1 - float64(left)/float64(swarmWarning)
+			p := g.orbitPixel(is)
+			return image.Pt(int(float64(p.X)*t), int(float64(p.Y)*t)), true
+		}
+	}
+	return image.Point{}, false
 }
 
 func (g *Game) zoomBy(d int) {
@@ -423,13 +484,15 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	k := g.pixelScale()
 	ox := math.Round(float64(g.outW)/2 + g.panX*k)
 	oy := math.Round(float64(g.outH)/2 + g.panY*k)
-	at := func(img *ebiten.Image, x, y float64) {
+	atScaled := func(img *ebiten.Image, x, y float64, cs ebiten.ColorScale) {
 		var op ebiten.DrawImageOptions
 		op.GeoM.Translate(x, y)
 		op.GeoM.Scale(k, k)
 		op.GeoM.Translate(ox, oy)
+		op.ColorScale = cs
 		screen.DrawImage(img, &op)
 	}
+	at := func(img *ebiten.Image, x, y float64) { atScaled(img, x, y, ebiten.ColorScale{}) }
 
 	// Clouds drift below the islands, so they are drawn first.
 	for i := range g.clouds {
@@ -447,12 +510,22 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		})
 		for _, is := range islands {
 			sp, p := g.miniature(is), g.orbitPixel(is)
-			at(sp.img, float64(p.X-sp.anchor.X), float64(p.Y-sp.anchor.Y))
-			if is.ID == g.src.Me() {
+			var cs ebiten.ColorScale
+			switch {
+			case is.FallingMs > 0:
+				cs.ScaleAlpha(float32(float64(is.FallingMs) / fallDuration))
+			case is.Declining:
+				cs.Scale(0.8, 0.75, 0.95, 1) // ternished by the decline
+			}
+			atScaled(sp.img, float64(p.X-sp.anchor.X), float64(p.Y-sp.anchor.Y), cs)
+			if is.ID == g.src.Me() && is.FallingMs == 0 {
 				// Float the beacon above the island's highest point.
 				top := p.Y - sp.anchor.Y - 4
 				at(g.beacon.img, float64(p.X-g.beacon.anchor.X), float64(top-g.beacon.anchor.Y))
 			}
+		}
+		if p, ok := g.swarmPixel(islands, time.Now()); ok {
+			at(g.swarm.img, float64(p.X-g.swarm.anchor.X), float64(p.Y-g.swarm.anchor.Y))
 		}
 	} else if home, ok := g.homeIsland(g.src.State()); ok {
 		at(home.img, -float64(home.anchor.X), -float64(home.anchor.Y))

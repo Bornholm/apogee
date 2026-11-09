@@ -380,6 +380,10 @@ func (s *Server) baseLocked() proto.State {
 	if b := s.sky.Boss; b != nil {
 		st.BossInMs = int64(b.In * 1000)
 	}
+	st.WaveInMs = -1
+	if w := s.sky.Wave; w != nil {
+		st.WaveTarget, st.WaveInMs = w.Target, int64(w.In*1000)
+	}
 	return st
 }
 

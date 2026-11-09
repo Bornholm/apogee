@@ -259,3 +259,24 @@ func Beacon() Mesh {
 	m.OrientOutward(V(0, 0, 6))
 	return m
 }
+
+// Swarm is a wave of monsters out of the portal: a cluster of dark shards.
+func Swarm(seed uint64) Mesh {
+	r := Rng(seed)
+	var m Mesh
+	for i := range 7 {
+		var shard Mesh
+		a := float64(i) * 2.4
+		d := between(r, 0, 8)
+		c := V(d*math.Cos(a), d*math.Sin(a), between(r, 3, 9))
+		rim := ring(r, 3, between(r, 1.6, 2.4), 0.2, c.Z, r.Float64()*math.Pi)
+		for j := range rim {
+			rim[j] = rim[j].Add(V(c.X, c.Y, 0))
+		}
+		fan(&shard, Monster, rim, c.Add(V(0, 0, between(r, 2.5, 4))))
+		fan(&shard, Monster, rim, c.Add(V(0, 0, -between(r, 2.5, 4))))
+		shard.OrientOutward(c)
+		m.Merge(shard)
+	}
+	return m
+}
