@@ -108,10 +108,10 @@ func TestTheCapForgetsTheNeglectedAxis(t *testing.T) {
 
 func TestDominantFamilyBuildsCheaper(t *testing.T) {
 	c := NewCiv(4) // Industry dominates
-	if got, full := c.Cost(House)[Wood], Specs[House].Cost[Wood]; got >= full {
+	if got, full := c.Cost(House)[Wood], Specs[House].Cost[Wood]*CostScale; got >= full {
 		t.Errorf("house costs %v wood, full price %v: no culture bonus", got, full)
 	}
-	if got, full := c.Cost(Tower)[Stone], Specs[Tower].Cost[Stone]; got != full {
+	if got, full := c.Cost(Tower)[Stone], Specs[Tower].Cost[Stone]*CostScale; got != full {
 		t.Errorf("tower costs %v stone, want the full %v", got, full)
 	}
 }
@@ -151,7 +151,7 @@ func TestNoExpansionPledgeBeyondTheMaximum(t *testing.T) {
 		t.Fatal("a pledge was made for an island that cannot grow")
 	}
 	c.ExpandPledge = true // even a stale pledge must not be paid
-	c.Stock = Stock{Wood: 100, Stone: 100, Food: 100}
+	c.Stock = Stock{Wood: 200, Stone: 200, Food: 100}
 	c.decide(1)
 	if c.Expanding > 0 || c.ExpandPledge {
 		t.Fatal("an expansion was paid for an island at its maximum")

@@ -54,7 +54,7 @@ func TestConvictionFollowsThePieSlowly(t *testing.T) {
 func TestDefaultCivilisationGrows(t *testing.T) {
 	c := NewCiv(7)
 	pop := c.Population
-	run(&c, 3600)
+	run(&c, 4*3600)
 	if c.Population <= pop {
 		t.Errorf("population %v after an hour, started at %v", c.Population, pop)
 	}
@@ -78,7 +78,7 @@ func TestIntentionsShapeWhatIsBuilt(t *testing.T) {
 	for _, tc := range cases {
 		c := NewCiv(3)
 		c.SetPie(tc.pie)
-		run(&c, 2*3600)
+		run(&c, 8*3600)
 		if c.Count(tc.kind) == 0 {
 			t.Errorf("pie %v built no %s: %+v", tc.pie, Specs[tc.kind].Name, kinds(&c))
 		}
@@ -142,7 +142,7 @@ func TestAnUnaffordableExpansionDoesNotStopBuilding(t *testing.T) {
 	}
 	// Enough for a house, not for an expansion; the people are not cramped,
 	// so expanding scores higher than the house.
-	c.Stock = Stock{Wood: 30, Stone: 10, Food: 60}
+	c.Stock = Stock{Wood: 90, Stone: 25, Food: 60}
 	c.Population = 2
 	if c.expandScore() <= c.score(House) {
 		t.Fatalf("setup: expand %.2f must outscore a house %.2f", c.expandScore(), c.score(House))
@@ -198,7 +198,7 @@ func TestHungerBuildsAnAffordableFarmBeforeAnUnaffordableTower(t *testing.T) {
 	for i := range c.Conviction {
 		c.Conviction[i] = float64(c.Pie[i]) / 100
 	}
-	c.Stock = Stock{Wood: 20, Stone: 10} // a farm, not a tower
+	c.Stock = Stock{Wood: 70, Stone: 10} // a farm, not a tower
 	c.Population = 20                    // far more mouths than the core feeds
 	if c.score(Tower) <= c.score(Farm) {
 		t.Fatalf("setup: tower %.2f must outscore the farm %.2f", c.score(Tower), c.score(Farm))
@@ -222,7 +222,7 @@ func TestAgreedExpansionIsKeptOnceAffordable(t *testing.T) {
 	if !c.ExpandPledge || c.Expanding > 0 {
 		t.Fatalf("pledge %v, expanding %v: the people cannot pay yet", c.ExpandPledge, c.Expanding)
 	}
-	c.Stock = Stock{Wood: 100, Stone: 100, Food: 100}
+	c.Stock = Stock{Wood: 200, Stone: 200, Food: 100}
 	c.decide(1)
 	if c.Expanding == 0 || c.ExpandPledge {
 		t.Fatal("the promised expansion did not start once affordable")

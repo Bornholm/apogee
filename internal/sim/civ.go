@@ -13,29 +13,41 @@ const (
 	startSize        = 50.0 // island radius at birth, in island units
 	maxSize          = 85.0
 	expandStep       = 6.0
-	baseStorage      = 100.0
+	baseStorage      = 300.0
 	convictionTau    = 90.0 // seconds for the conviction to cover ~63 % of a change
 	cultureTau       = 3 * 3600.0
-	resistance       = 0.7  // conviction speed outside the dominant family
-	nightProduction  = 0.6  // production factor at night (GDD 3.6)
-	foodPerPerson    = 0.02 // per second
-	foodPerSoldier   = 0.03 // per second
-	growthPerSecond  = 0.02 // people born per second while fed and housed
-	decisionInterval = 5.0  // seconds between two decisions of the people
-	trainInterval    = 10.0 // seconds to train one soldier
-	farFromFeature   = 0.5  // output factor of a producer far from its site
-	featureReach     = 16.0 // distance at which a producer works its site
+	resistance       = 0.7    // conviction speed outside the dominant family
+	nightProduction  = 0.6    // production factor at night (GDD 3.6)
+	foodPerPerson    = 0.02   // per second
+	foodPerSoldier   = 0.03   // per second
+	growthPerSecond  = 0.0012 // people born per second while fed and housed
+	decisionInterval = 5.0    // seconds between two decisions of the people
+	trainInterval    = 60.0   // seconds to train one soldier
+	farFromFeature   = 0.5    // output factor of a producer far from its site
+	featureReach     = 16.0   // distance at which a producer works its site
 	chronicleSize    = 40
-	famineLoss       = 0.002 // share of the people lost per second of famine
-	militaryShare    = 0.35  // at most this share of the people under arms
+	expandTime       = 20 * 60.0 // seconds to push the edges of the island
+	famineLoss       = 0.002     // share of the people lost per second of famine
+	militaryShare    = 0.35      // at most this share of the people under arms
 	// dayAverage is the mean production factor over a day/night cycle:
 	// 21 minutes at full rate, 9 at night rate (GDD 3.6).
 	dayAverage = (21 + 9*nightProduction) / 30
 )
 
+// BuildPace stretches the construction times of Specs: a civilisation grows
+// over its first day, so that the god sees it rise (GDD 2.1).
+const BuildPace = 80.0
+
+// MaxSites is how many buildings the people raise at once.
+const MaxSites = 2
+
+// CostScale makes buildings expensive enough that resources pace the first
+// hours, before the stores fill up.
+const CostScale = 4.0
+
 var (
 	trainCost  = Stock{Food: 5, Wood: 3}
-	expandCost = Stock{Wood: 40, Stone: 40}
+	expandCost = Stock{Wood: 160, Stone: 160}
 	coreOutput = Stock{Wood: 0.05, Stone: 0.05, Food: 0.1, Aether: 0.01}
 )
 
@@ -437,7 +449,7 @@ func (c *Civ) build(dt float64, night bool, tick uint64) {
 		if b.Done() {
 			continue
 		}
-		b.Progress += dt / Specs[b.Kind].BuildTime * f
+		b.Progress += dt / (Specs[b.Kind].BuildTime * BuildPace) * f
 		if b.Done() {
 			b.Progress = 1
 			c.chronicle(tick, "Ton peuple a achevé %s.", Specs[b.Kind].Name)
@@ -505,11 +517,14 @@ func (c *Civ) hasDone(k Kind) bool {
 	return false
 }
 
+// building reports whether the people are busy: an expansion, or as many
+// building sites as they can run at once.
 func (c *Civ) building() bool {
+	sites := 0
 	for _, b := range c.Buildings {
 		if !b.Done() {
-			return true
+			sites++
 		}
 	}
-	return c.Expanding > 0
+	return sites >= MaxSites || c.Expanding > 0
 }

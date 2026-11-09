@@ -107,7 +107,7 @@ func (c *Civ) resolve(option int, byGod bool, tick uint64) {
 		switch {
 		case option == 0 && c.Expanding == 0 && c.Size < maxSize && c.Stock.Covers(expandCost):
 			c.Stock = c.Stock.Sub(expandCost)
-			c.Expanding = 60
+			c.Expanding = expandTime
 		case option == 0 && c.Size >= maxSize:
 			c.chronicle(tick, "L'île a atteint sa plus grande étendue : elle ne peut plus grandir.")
 		case option == 0 && c.Expanding > 0:

@@ -5,6 +5,7 @@ import (
 	"hash/fnv"
 	"math"
 	"math/rand/v2"
+	"strings"
 )
 
 // Rise and fall (GDD 1.3 bis, 3.1, 7.5, 8, 11.5): islands drift towards the
@@ -208,10 +209,10 @@ func (s *Sky) attack(is *Island, factor float64, night bool, by string) {
 	}
 	m := c.Tech.Mods()
 	// Defenders fall in proportion to the strength they faced.
-	lost := math.Min(c.Defenders, strength*0.1/(1+m.DefenderStrength))
+	lost := math.Min(c.Defenders, strength*0.03/(1+m.DefenderStrength))
 	c.Defenders -= lost
 	if defense >= strength {
-		c.chronicle(s.Tick, "Ton peuple a repoussé %s. %s", by, losses(lost))
+		c.chronicle(s.Tick, "%s", strings.TrimSpace("Ton peuple a repoussé "+by+". "+losses(lost)))
 		return
 	}
 	harm := (strength - defense) / strength * 0.35 / (1 + m.CoreArmor)
@@ -226,8 +227,8 @@ func (s *Sky) attack(is *Island, factor float64, night bool, by string) {
 		c.chronicleAs(FallNews, s.Tick, "Le cœur s'est brisé sous les coups %s. L'île sombre dans le tourbillon.", of(by))
 		return
 	}
-	c.chronicleAs(WaveNews, s.Tick, "%s a frappé le cœur (%d %% de vigueur restante). %s",
-		capitalize(by), int(math.Round(c.CoreHealth*100)), losses(lost))
+	c.chronicleAs(WaveNews, s.Tick, "%s", strings.TrimSpace(fmt.Sprintf("%s a frappé le cœur (%d %% de vigueur restante). %s",
+		capitalize(by), int(math.Round(c.CoreHealth*100)), losses(lost))))
 }
 
 func losses(n float64) string {

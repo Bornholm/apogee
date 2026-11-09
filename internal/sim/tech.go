@@ -7,11 +7,12 @@ package sim
 // Tech tunables (GDD 🔧).
 const (
 	TiersPerAxis   = 2
-	TechCap        = 3    // tiers a people can master in all (GDD 5.3)
-	baseKnowledge  = 0.01 // per second, the people's own curiosity
-	aetherPerPoint = 1.0  // aether burnt per point of knowledge from study
-	nightKnowledge = 1.3  // the scholars stay up (GDD 3.6)
-	cultureBonus   = 0.15 // cost reduction for the dominant family
+	TechCap        = 3     // tiers a people can master in all (GDD 5.3)
+	baseKnowledge  = 0.01  // per second, the people's own curiosity
+	aetherPerPoint = 1.0   // aether burnt per point of knowledge from study
+	nightKnowledge = 1.3   // the scholars stay up (GDD 3.6)
+	cultureBonus   = 0.15  // cost reduction for the dominant family
+	aetherReserve  = 100.0 // aether the scholars never burn
 )
 
 // tierCost is the knowledge needed to reach each tier of an axis.
@@ -172,6 +173,9 @@ func FamilyOf(k Kind) Family {
 // builds its own buildings cheaper (GDD 6.6).
 func (c *Civ) Cost(k Kind) Stock {
 	cost := Specs[k].Cost
+	for r := range cost {
+		cost[r] *= CostScale
+	}
 	if FamilyOf(k) == c.Dominant() {
 		for r := range cost {
 			cost[r] *= 1 - cultureBonus
@@ -186,7 +190,9 @@ func (c *Civ) research(dt float64, night bool, libs float64, tick uint64) {
 	m := c.Tech.Mods()
 	gain := baseKnowledge
 	// Study burns aether into knowledge (GDD 5.3).
-	burn := min(c.Stock[Aether], 0.02*c.Conviction[Study]*dt)
+	// Only the aether above a reserve is burnt: the scholars leave enough to
+	// build libraries and extractors.
+	burn := min(max(c.Stock[Aether]-aetherReserve, 0), 0.02*c.Conviction[Study]*dt)
 	c.Stock[Aether] -= burn
 	gain += burn / aetherPerPoint / dt
 	gain *= (1 + c.Conviction[Study]) * (1 + m.Knowledge)

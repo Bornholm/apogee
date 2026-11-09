@@ -60,7 +60,7 @@ var Specs = [NumKinds]Spec{
 		Jobs: 2, Produces: Aether, Output: 0.03, Near: Crystal,
 		Affinity: [NumIntentions]float64{Study: 0.7, Expand: 0.4}},
 	Warehouse: {Name: "un entrepôt", Cost: Stock{Wood: 25, Stone: 15}, BuildTime: 35, Radius: 4.5,
-		Storage: 100, Affinity: [NumIntentions]float64{Prosper: 0.4}},
+		Storage: 300, Affinity: [NumIntentions]float64{Prosper: 0.4}},
 	Tower: {Name: "une tour", Cost: Stock{Wood: 10, Stone: 30}, BuildTime: 45, Radius: 3,
 		Defense: 6, Affinity: [NumIntentions]float64{Fortify: 1}},
 	Barracks: {Name: "une caserne", Cost: Stock{Wood: 30, Stone: 20}, BuildTime: 50, Radius: 5,

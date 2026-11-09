@@ -38,7 +38,7 @@ func (c *Civ) decide(tick uint64) {
 	if c.ExpandPledge && c.Expanding == 0 && c.Stock.Covers(expandCost) {
 		c.ExpandPledge = false
 		c.Stock = c.Stock.Sub(expandCost)
-		c.Expanding = 60
+		c.Expanding = expandTime
 		c.chronicle(tick, "Comme son dieu l'a voulu, ton peuple repousse les bords de l'île.")
 		return
 	}
@@ -46,7 +46,7 @@ func (c *Civ) decide(tick uint64) {
 	// building what they can.
 	if s := c.expandScore(); s > bestScore && c.Stock.Covers(expandCost) {
 		c.Stock = c.Stock.Sub(expandCost)
-		c.Expanding = 60
+		c.Expanding = expandTime
 		c.chronicle(tick, "%s, ton peuple repousse les bords de l'île.", Expand.motive())
 		return
 	}
