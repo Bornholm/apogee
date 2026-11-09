@@ -309,6 +309,15 @@ func (s *Server) handle(ctx context.Context, conn net.Conn) {
 		}
 		if err := s.apply(key, m); err != nil {
 			log.Info("refused a god's act", "err", err)
+			// Tell the god why, without closing the connection.
+			s.mu.Lock()
+			if !c.dead {
+				select {
+				case c.out <- proto.Msg{Error: &proto.Error{Message: err.Error()}}:
+				default:
+				}
+			}
+			s.mu.Unlock()
 		}
 	}
 
@@ -335,6 +344,11 @@ func (s *Server) apply(key string, m proto.Msg) error {
 		return is.Civ.SetPie(m.Whisper.Pie)
 	case m.Answer != nil:
 		return is.Civ.Answer(m.Answer.ID, m.Answer.Option, s.sky.Tick)
+	case m.Aim != nil:
+		if m.Aim.Kind < 0 || m.Aim.Kind >= sim.NumOuter {
+			return errors.New("unknown outer intention")
+		}
+		return s.sky.Whisper(id, m.Aim.Kind, m.Aim.Target)
 	}
 	return nil
 }
@@ -375,8 +389,9 @@ func (s *Server) baseLocked() proto.State {
 		BossInMs:    -1,
 	}
 	for i := range s.sky.Islands {
-		st.Islands[i] = proto.Summarize(&s.sky.Islands[i])
+		st.Islands[i] = proto.Summarize(&s.sky, &s.sky.Islands[i])
 	}
+	st.Raids = proto.Raids(&s.sky)
 	if b := s.sky.Boss; b != nil {
 		st.BossInMs = int64(b.In * 1000)
 	}

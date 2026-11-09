@@ -45,6 +45,11 @@ type Game struct {
 	beacon        sprite             // marks the player's island
 	swarm         sprite             // a wave of monsters
 	swarmAt       image.Point        // its position at the last redraw
+	banners       [sim.NumOuter]sprite
+	warbands      [3]sprite // by raid kind
+	// selected is the island the god looks at in the sky view, to whisper
+	// an outer intention towards it (GDD 6.3).
+	selected proto.IslandID
 	// home is the player's island at full size, rendered from the state and
 	// re-rendered only when its signature changes.
 	home    sprite
@@ -125,6 +130,12 @@ func (g *Game) WaveVisible() bool {
 	return ok && g.level == 0
 }
 
+// Select picks the island the god looks at, as a click would.
+func (g *Game) Select(id proto.IslandID) {
+	g.selected = id
+	g.dirty = true
+}
+
 // ShowPanels opens the culture and Annals panels, for screenshots.
 func (g *Game) ShowPanels(culture, annals bool) {
 	g.showCulture, g.showAnnals = culture, annals
@@ -156,6 +167,14 @@ func NewGame(src *Source, seed uint64) *Game {
 	g.beacon = sprite{ebiten.NewImageFromImage(b.Img), b.Anchor}
 	sw := cam.Render(art.Swarm(seed))
 	g.swarm = sprite{ebiten.NewImageFromImage(sw.Img), sw.Anchor}
+	for k, mat := range map[sim.Outer]art.Material{sim.Covet: art.Roof, sim.Annihilate: art.Blood} {
+		b := cam.Render(art.Banner(mat))
+		g.banners[k] = sprite{ebiten.NewImageFromImage(b.Img), b.Anchor}
+	}
+	for k, mat := range map[sim.RaidKind]art.Material{sim.Pillage: art.Team, sim.Assault: art.Blood, sim.Relief: art.Plaster} {
+		w := cam.Render(art.Warband(seed+uint64(k), mat))
+		g.warbands[k] = sprite{ebiten.NewImageFromImage(w.Img), w.Anchor}
+	}
 	for i := range portalFrames {
 		sp := art.PortalFrame(cam, portalPixels, 3, float64(i)/portalFrames)
 		g.portal = append(g.portal, ebiten.NewImageFromImage(sp.Img))
@@ -250,12 +269,20 @@ func (g *Game) Update() error {
 	}
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		x, y := ebiten.CursorPosition()
-		for _, b := range g.buttons {
-			if image.Pt(x, y).In(b.r) {
+		// The interface is drawn over the world: its buttons, registered
+		// last, are tried first.
+		hit := false
+		for i := len(g.buttons) - 1; i >= 0; i-- {
+			if b := g.buttons[i]; image.Pt(x, y).In(b.r) {
 				b.action()
 				g.dirty = true
+				hit = true
 				break
 			}
+		}
+		if !hit && g.selected != 0 {
+			g.selected = 0 // a click in the void clears the selection
+			g.dirty = true
 		}
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyC) {
@@ -319,6 +346,9 @@ func (g *Game) Update() error {
 		if p, ok := g.swarmPixel(islands, now); ok && p != g.swarmAt {
 			g.swarmAt = p
 			g.dirty = true
+		}
+		if st := g.src.State(); st != nil && len(st.Raids) > 0 {
+			g.dirty = true // warbands are on the move
 		}
 	}
 	g.updatePan()
@@ -469,6 +499,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		return
 	}
 	g.dirty = false
+	g.buttons = g.buttons[:0]
 	screen.Clear()
 
 	// Nearest-neighbour stretching: linear filtering would blend the one
@@ -518,6 +549,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 				cs.Scale(0.8, 0.75, 0.95, 1) // ternished by the decline
 			}
 			atScaled(sp.img, float64(p.X-sp.anchor.X), float64(p.Y-sp.anchor.Y), cs)
+			if is.Banner != 0 && is.FallingMs == 0 {
+				b := g.banners[is.Banner]
+				top := p.Y - sp.anchor.Y + 6
+				at(b.img, float64(p.X+sp.anchor.X/3-b.anchor.X), float64(top-b.anchor.Y))
+			}
 			if is.ID == g.src.Me() && is.FallingMs == 0 {
 				// Float the beacon above the island's highest point.
 				top := p.Y - sp.anchor.Y - 4
@@ -527,6 +563,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		if p, ok := g.swarmPixel(islands, time.Now()); ok {
 			at(g.swarm.img, float64(p.X-g.swarm.anchor.X), float64(p.Y-g.swarm.anchor.Y))
 		}
+		g.drawRaids(at, islands)
+		g.registerIslands(islands, k, ox, oy)
 	} else if home, ok := g.homeIsland(g.src.State()); ok {
 		at(home.img, -float64(home.anchor.X), -float64(home.anchor.Y))
 	}
@@ -561,4 +599,46 @@ func (g *Game) LayoutF(outW, outH float64) (float64, float64) {
 	}
 	w, h := g.Layout(int(math.Round(outW*f)), int(math.Round(outH*f)))
 	return float64(w), float64(h)
+}
+
+// drawRaids draws the groups crossing the sky, between the islands they
+// left and the ones they head for (GDD 7.2: visible to all).
+func (g *Game) drawRaids(at func(*ebiten.Image, float64, float64), islands []proto.IslandSummary) {
+	st := g.src.State()
+	if st == nil {
+		return
+	}
+	where := map[proto.IslandID]image.Point{}
+	for _, is := range islands {
+		where[is.ID] = g.orbitPixel(is)
+	}
+	for _, r := range st.Raids {
+		a, okA := where[r.From]
+		b, okB := where[r.To]
+		if !okA || !okB {
+			continue
+		}
+		t := min(max(r.Progress, 0), 1)
+		x := float64(a.X) + float64(b.X-a.X)*t
+		y := float64(a.Y) + float64(b.Y-a.Y)*t - 12 // they fly above the islands
+		w := g.warbands[r.Kind]
+		at(w.img, x-float64(w.anchor.X), y-float64(w.anchor.Y))
+	}
+}
+
+// registerIslands makes the islands of the sky view clickable: a click
+// selects one, to whisper an outer intention towards it.
+func (g *Game) registerIslands(islands []proto.IslandSummary, k, ox, oy float64) {
+	for _, is := range islands {
+		if is.ID == g.src.Me() || is.FallingMs > 0 {
+			continue
+		}
+		sp, p := g.miniature(is), g.orbitPixel(is)
+		b := sp.img.Bounds()
+		x0 := ox + float64(p.X-sp.anchor.X)*k
+		y0 := oy + float64(p.Y-sp.anchor.Y)*k
+		r := image.Rect(int(x0), int(y0), int(x0+float64(b.Dx())*k), int(y0+float64(b.Dy())*k))
+		id := is.ID
+		g.buttons = append(g.buttons, button{r, func() { g.selected = id }})
+	}
 }

@@ -29,6 +29,7 @@ const (
 	Self
 	Crop
 	Monster
+	Blood
 	Cloud
 	materialCount
 )
@@ -58,6 +59,7 @@ var Palette = [materialCount]Ramp{
 	Self:      {hex(0xffe48c), hex(0xf2b134), hex(0xbf7a22)},
 	Crop:      {hex(0xecd065), hex(0xcda843), hex(0x9c7d30)},
 	Monster:   {hex(0xf08cff), hex(0xa83fd0), hex(0x4a1468)},
+	Blood:     {hex(0xf0675a), hex(0xbf3b36), hex(0x7f2228)},
 	Cloud:     {hex(0xf6f8fa), hex(0xdfe7ef), hex(0xc3cfdd)},
 }
 

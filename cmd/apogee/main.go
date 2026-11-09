@@ -20,6 +20,7 @@ import (
 	"apogee/internal/client"
 	"apogee/internal/discovery"
 	"apogee/internal/netclient"
+	"apogee/internal/proto"
 	"apogee/internal/server"
 )
 
@@ -40,6 +41,7 @@ func main() {
 	zoom := flag.Int("zoom", 0, "initial zoom level: 0 is the sky, higher levels show your island")
 	culture := flag.Bool("culture", false, "open the culture and knowledge panel at start")
 	annals := flag.Bool("annals", false, "open the Annals panel at start")
+	selectID := flag.Uint("select", 0, "select this island at start, as a click would")
 	cpu := flag.Duration("cpulog", 0, "log the process CPU usage at this interval (e.g. 10s)")
 	quit := flag.Duration("quit", 0, "quit after this duration")
 	width := flag.Int("width", 1280, "initial window width")
@@ -116,6 +118,7 @@ func main() {
 	g := client.NewGame(client.Listen(conn), *seed)
 	g.SetZoom(*zoom)
 	g.ShowPanels(*culture, *annals)
+	g.Select(proto.IslandID(*selectID))
 	var done error
 	if *shot != "" {
 		n := 0

@@ -13,7 +13,7 @@ import (
 )
 
 // Version is bumped on every incompatible change of the messages.
-const Version = 2
+const Version = 3
 
 // DefaultPort is the single TCP port of a server (GDD 10.6).
 const DefaultPort = 47110
@@ -35,6 +35,16 @@ type Msg struct {
 	// to act (GDD pilier 4).
 	Whisper *Whisper `json:"whisper,omitempty"`
 	Answer  *Answer  `json:"answer,omitempty"`
+	Aim     *Aim     `json:"aim,omitempty"`
+}
+
+// Aim whispers an intention turned towards another island (GDD 6.3).
+// Kind 0 is Rappeler: every unit comes home. The server answers a refused aim
+// (a protected island, for instance) with an Error, without closing the
+// connection.
+type Aim struct {
+	Kind   sim.Outer `json:"kind"`
+	Target IslandID  `json:"target"`
 }
 
 // Whisper sets the pie of intentions of the player's island (GDD 6.2).
@@ -75,7 +85,8 @@ type State struct {
 	// Own details the player's island; nil while it does not exist.
 	Own *Own `json:"own,omitempty"`
 	// BossInMs is the time before the next boss strikes the whole sky.
-	BossInMs int64 `json:"bossInMs"`
+	BossInMs int64      `json:"bossInMs"`
+	Raids    []RaidView `json:"raids,omitempty"`
 	// WaveTarget and WaveInMs announce the next wave to everyone: the whole
 	// sky sees it coming (GDD pilier 2).
 	WaveTarget IslandID `json:"waveTarget"`
@@ -100,15 +111,48 @@ type IslandSummary struct {
 	Declining bool     `json:"declining,omitempty"`
 	FallingMs int64    `json:"fallingMs,omitempty"`
 	Heart     float64  `json:"heart"` // core health, 0 to 1
+	// Banner shows a coveting or annihilating island's intent to the whole
+	// sky (GDD 7.2); Punir leaves no sign.
+	Banner       sim.Outer `json:"banner,omitempty"`
+	BannerTarget IslandID  `json:"bannerTarget,omitempty"`
+	// Protected marks a newcomer no one may raid (GDD 11.3).
+	Protected bool    `json:"protected,omitempty"`
+	Power     float64 `json:"power"`
+}
+
+// RaidView is a group crossing the sky, as everyone sees it.
+type RaidView struct {
+	ID        uint32       `json:"id"`
+	Kind      sim.RaidKind `json:"kind"`
+	From      IslandID     `json:"from"`
+	To        IslandID     `json:"to"`
+	Units     float64      `json:"units"`
+	Progress  float64      `json:"progress"`
+	Returning bool         `json:"returning,omitempty"`
 }
 
 // Summarize copies the public part of an island.
-func Summarize(is *sim.Island) IslandSummary {
-	return IslandSummary{
+func Summarize(sky *sim.Sky, is *sim.Island) IslandSummary {
+	sum := IslandSummary{
 		ID: is.ID, Name: is.Name, Seed: is.Seed, Radius: is.Radius, Angle: is.Angle,
 		Size: is.Civ.Size, AI: is.IsAI(), Culture: int(is.Civ.Dominant()),
 		Declining: is.Declining, FallingMs: int64(is.Falling * 1000), Heart: is.Civ.CoreHealth,
+		Protected: sky.Protected(is), Power: is.Civ.Power(),
 	}
+	if o := is.Civ.Outer; o.Kind == sim.Covet || o.Kind == sim.Annihilate {
+		sum.Banner, sum.BannerTarget = o.Kind, o.Target
+	}
+	return sum
+}
+
+// Raids copies the groups crossing the sky.
+func Raids(sky *sim.Sky) []RaidView {
+	out := make([]RaidView, len(sky.Raids))
+	for i, r := range sky.Raids {
+		out[i] = RaidView{ID: r.ID, Kind: r.Kind, From: r.From, To: r.To, Units: r.Units,
+			Progress: r.Progress, Returning: r.Returning}
+	}
+	return out
 }
 
 // Own is everything the god sees of their own island.
@@ -137,6 +181,9 @@ type Own struct {
 	// WaveInMs is the time before the next wave, when it aims at this island
 	// (GDD 8.2), or -1.
 	WaveInMs int64 `json:"waveInMs"`
+	// Outer is the intention the god turned towards another island.
+	Outer       sim.Outer `json:"outer,omitempty"`
+	OuterTarget IslandID  `json:"outerTarget,omitempty"`
 }
 
 // Supplique is a question of the people waiting for an answer.
@@ -175,6 +222,7 @@ func Detail(sky *sim.Sky, is *sim.Island) *Own {
 		Power: c.Power(), Defense: c.Defense(),
 		Axis:     int(c.Dominant()),
 		WaveInMs: -1,
+		Outer:    c.Outer.Kind, OuterTarget: c.Outer.Target,
 	}
 	for f := range sim.NumFamilies {
 		o.Tiers[f] = c.Tech.Tier(f)

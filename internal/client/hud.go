@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -28,7 +29,6 @@ func clock(ms int64) string {
 func (g *Game) uiScale() float64 { return math.Max(1, math.Round(g.dsfOr1())) }
 
 func (g *Game) drawHUD(screen *ebiten.Image, st *proto.State) {
-	g.buttons = g.buttons[:0]
 	p := painter{dst: screen, k: g.uiScale(), buttons: &g.buttons}
 	k := int(p.k)
 	gap := 8 * k
@@ -73,7 +73,12 @@ func (g *Game) drawHUD(screen *ebiten.Image, st *proto.State) {
 		return
 	}
 	top := bar.Max.Y + gap
-	g.drawPie(p, image.Rect(gap, top, gap+230*k, top+0), o)
+	pie := g.drawPie(p, image.Rect(gap, top, gap+230*k, top+0), o)
+	g.drawOuter(p, st, o, image.Rect(gap, pie.Max.Y+gap, gap+230*k, pie.Max.Y+gap))
+	if msg := g.src.Refusal(6 * time.Second); msg != "" {
+		msg = refusalText(msg)
+		p.text(msg, (g.outW-p.width(msg))/2, bar.Max.Y+gap, alertColor)
+	}
 	g.drawChronicle(p, image.Rect(g.outW-gap-300*k, top, g.outW-gap, top), o)
 	g.drawStock(p, o)
 	if o.Pending != nil {
@@ -95,7 +100,7 @@ func (g *Game) drawHelp(p painter) {
 
 // drawPie draws the pie of intentions the player composes and whispers
 // (GDD 6.2): target slices, and the people's actual conviction under each.
-func (g *Game) drawPie(p painter, r image.Rectangle, o *proto.Own) {
+func (g *Game) drawPie(p painter, r image.Rectangle, o *proto.Own) image.Rectangle {
 	k := int(p.k)
 	rows := int(sim.NumIntentions)
 	// Title, one line and a gauge per intention, the buttons, the padding.
@@ -134,6 +139,114 @@ func (g *Game) drawPie(p painter, r image.Rectangle, o *proto.Own) {
 		}
 	}
 	p.button(image.Rect(in.Max.X-half, y, in.Max.X, y+p.line()+4*k), "Annuler", cancel)
+	return r
+}
+
+// refusals translates the server's refusals for the player.
+var refusals = map[string]string{
+	"this young civilisation is still protected":   "Cette jeune civilisation est encore protégée.",
+	"only a declining island can be annihilated":   "Seule une île en déclin peut être anéantie.",
+	"this island was pillaged by you a moment ago": "Ton peuple vient de piller cette île : il faut attendre.",
+	"a people cannot raid its own island":          "Un peuple ne peut pas attaquer sa propre île.",
+	"no such island":                               "Cette île n'existe plus.",
+	"no living island":                             "Ton peuple attend l'aube pour renaître.",
+}
+
+func refusalText(msg string) string {
+	if t, ok := refusals[msg]; ok {
+		return t
+	}
+	return "Le ciel refuse : " + msg
+}
+
+// drawOuter shows the intention turned towards another island, the island
+// selected in the sky view, and what can be whispered towards it
+// (GDD 6.3).
+func (g *Game) drawOuter(p painter, st *proto.State, o *proto.Own, r image.Rectangle) {
+	k := int(p.k)
+	name := func(id proto.IslandID) string {
+		for _, is := range st.Islands {
+			if is.ID == id {
+				return is.Name
+			}
+		}
+		return "une île disparue"
+	}
+	away := false
+	for _, rd := range st.Raids {
+		if rd.From == st.You {
+			away = true
+		}
+	}
+	var target *proto.IslandSummary
+	for i := range st.Islands {
+		if st.Islands[i].ID == g.selected {
+			target = &st.Islands[i]
+		}
+	}
+	if o.Outer == 0 && !away && target == nil {
+		if g.level == 0 {
+			p.text("Clique une île pour la viser.", r.Min.X, r.Min.Y, dimColor)
+		}
+		return
+	}
+	// Status line, then for a target four lines of description and two rows
+	// of buttons; the recall button closes the panel.
+	bh := p.line() + 4*k
+	h := p.line() + 2*k + bh + 12*k
+	if target != nil {
+		h += 4*p.line() + 4*k + 2*(bh+4*k)
+	}
+	r.Max.Y = r.Min.Y + h
+	in := p.panel(r)
+	y := in.Min.Y
+	status := "Vers les autres îles"
+	if o.Outer != 0 {
+		status = fmt.Sprintf("%s : %s", o.Outer.Name(), name(o.OuterTarget))
+	} else if away {
+		status = "Tes guerriers sont en route."
+	}
+	p.text(status, in.Min.X, y, goldColor)
+	y += p.line() + 2*k
+	if target != nil {
+		who := target.Name
+		if target.AI {
+			who += " (IA)"
+		}
+		p.text(who, in.Min.X, y, textColor)
+		y += p.line()
+		p.text(fmt.Sprintf("Culture %s · puissance %.0f", sim.Family(target.Culture).Name(), target.Power), in.Min.X, y, familyColor[target.Culture])
+		y += p.line()
+		p.text(fmt.Sprintf("Cœur %d %%", int(math.Round(target.Heart*100))), in.Min.X, y, textColor)
+		y += p.line()
+		switch {
+		case target.Protected:
+			p.text("Jeune civilisation : protégée.", in.Min.X, y, dimColor)
+		case target.Declining:
+			p.text("En déclin.", in.Min.X, y, alertColor)
+		}
+		y += p.line() + 4*k
+		half := (in.Dx() - 4*k) / 2
+		id := target.ID
+		aim := func(kind sim.Outer, ok bool) func() {
+			if !ok {
+				return nil
+			}
+			return func() { g.src.Aim(kind, id) }
+		}
+		raidable := !target.Protected
+		p.button(image.Rect(in.Min.X, y, in.Min.X+half, y+bh), "Convoiter", aim(sim.Covet, raidable))
+		p.button(image.Rect(in.Max.X-half, y, in.Max.X, y+bh), "Punir", aim(sim.Punish, raidable))
+		y += bh + 4*k
+		p.button(image.Rect(in.Min.X, y, in.Min.X+half, y+bh), "Anéantir", aim(sim.Annihilate, raidable && target.Declining))
+		p.button(image.Rect(in.Max.X-half, y, in.Max.X, y+bh), "Secourir", aim(sim.Rescue, true))
+		y += bh + 4*k
+	}
+	var recall func()
+	if o.Outer != 0 || away {
+		recall = func() { g.src.Aim(sim.NoOuter, 0) }
+	}
+	p.button(image.Rect(in.Min.X, y, in.Max.X, y+bh), "Rappeler", recall)
 }
 
 // adjust returns the action moving 10 % of the pie to or from intention i,

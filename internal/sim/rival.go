@@ -86,10 +86,47 @@ func (s *Sky) rivalThink(is *Island) {
 	if p != c.Pie {
 		c.SetPie(p)
 	}
+	s.rivalAim(is, r)
 	// An AI god answers the suppliques of its people like a human would,
 	// following its own leanings.
 	if c.Pending != nil {
 		c.Answer(c.Pending.ID, c.leaning(*c.Pending), s.Tick)
+	}
+}
+
+// rivalAim lets warlike and opportunist gods turn their people against a
+// neighbour, by the same outer intentions a human whispers (GDD 9.4).
+func (s *Sky) rivalAim(is *Island, r *rand.Rand) {
+	c := &is.Civ
+	if c.Outer.Kind != NoOuter || c.Assailants < 4 {
+		return
+	}
+	// The weakest island that may be raided.
+	var prey *Island
+	for i := range s.Islands {
+		t := &s.Islands[i]
+		if t.ID == is.ID || t.Falling > 0 || s.protected(t) || (t.ShieldFrom == is.ID && t.ShieldLeft > 0) {
+			continue
+		}
+		if prey == nil || t.Civ.Power() < prey.Civ.Power() {
+			prey = t
+		}
+	}
+	if prey == nil {
+		return
+	}
+	switch is.Profile {
+	case Warlike:
+		if prey.Declining && r.Float64() < 0.3 {
+			s.Whisper(is.ID, Annihilate, prey.ID)
+		} else if r.Float64() < 0.25 {
+			s.Whisper(is.ID, Covet, prey.ID)
+		}
+	case Opportunist:
+		// Strike while the sky is busy with the colossus (GDD 9.4).
+		if s.Boss != nil && s.Boss.In < 5*60 && r.Float64() < 0.5 {
+			s.Whisper(is.ID, Punish, prey.ID)
+		}
 	}
 }
 

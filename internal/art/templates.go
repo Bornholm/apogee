@@ -280,3 +280,26 @@ func Swarm(seed uint64) Mesh {
 	}
 	return m
 }
+
+// Banner is a war banner on a pole, raised above an island that covets or
+// means to annihilate a neighbour (GDD 7.2).
+func Banner(cloth Material) Mesh {
+	var m Mesh
+	box(&m, Wood, -0.4, -0.4, 0, 0.4, 0.4, 14)
+	box(&m, cloth, 0.4, -0.2, 8, 7, 0.2, 13.5)
+	return m
+}
+
+// Warband is a group of units crossing the sky: assailants in the team's
+// colour, relief forces in plaster white.
+func Warband(seed uint64, mat Material) Mesh {
+	r := Rng(seed)
+	var m Mesh
+	for i := range 5 {
+		a := float64(i) * 2.4
+		d := between(r, 0, 3)
+		x, y := d*math.Cos(a), d*math.Sin(a)
+		box(&m, mat, x-0.7, y-0.7, 0, x+0.7, y+0.7, between(r, 2.4, 3.2))
+	}
+	return m
+}

@@ -125,8 +125,10 @@ func (s *Sky) Whisper(from IslandID, kind Outer, target IslandID) error {
 	return nil
 }
 
-// protected reports whether a young civilisation is still shielded from
+// Protected reports whether a young civilisation is still shielded from
 // raids: during its first hours, unless it raided itself (GDD 11.3).
+func (s *Sky) Protected(is *Island) bool { return s.protected(is) }
+
 func (s *Sky) protected(is *Island) bool {
 	return !is.Aggressor && s.age(is) < newcomerShield
 }

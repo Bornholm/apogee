@@ -20,6 +20,9 @@ type Source struct {
 	state *proto.State
 	at    time.Time
 	err   error
+	// refusal is the last act the server refused, and when.
+	refusal   string
+	refusedAt time.Time
 }
 
 // Listen receives states from conn until it fails, then records the error.
@@ -27,14 +30,18 @@ func Listen(conn *netclient.Conn) *Source {
 	s := &Source{Sky: conn.Welcome.Sky, send: conn.Send}
 	go func() {
 		for {
-			st, err := conn.Next()
+			m, err := conn.NextMsg()
 			s.mu.Lock()
-			if err != nil {
+			switch {
+			case err != nil:
 				s.err = err
 				s.mu.Unlock()
 				return
+			case m.State != nil:
+				s.state, s.at = m.State, time.Now()
+			case m.Error != nil:
+				s.refusal, s.refusedAt = m.Error.Message, time.Now()
 			}
-			s.state, s.at = st, time.Now()
 			s.mu.Unlock()
 		}
 	}()
@@ -110,6 +117,22 @@ func (s *Source) Whisper(p sim.Pie) error {
 // Answer replies to the pending supplique (GDD 6.5).
 func (s *Source) Answer(id uint32, option int) error {
 	return s.send(proto.Msg{Answer: &proto.Answer{ID: id, Option: option}})
+}
+
+// Refusal returns the last act the server refused within the given time.
+func (s *Source) Refusal(within time.Duration) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if time.Since(s.refusedAt) > within {
+		return ""
+	}
+	return s.refusal
+}
+
+// Aim whispers an outer intention towards another island (GDD 6.3); kind 0
+// recalls every unit.
+func (s *Source) Aim(kind sim.Outer, target proto.IslandID) error {
+	return s.send(proto.Msg{Aim: &proto.Aim{Kind: kind, Target: target}})
 }
 
 // Err returns the error that ended the connection, if any.

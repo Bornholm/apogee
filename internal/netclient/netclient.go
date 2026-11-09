@@ -64,6 +64,12 @@ func Dial(ctx context.Context, addr, name, key string) (*Conn, error) {
 	return &Conn{Welcome: *m.Welcome, ReadTimeout: StateTimeout, conn: c, dec: dec, enc: enc}, nil
 }
 
+// NextMsg blocks until the next message from the server, whatever it is.
+func (c *Conn) NextMsg() (proto.Msg, error) {
+	c.conn.SetReadDeadline(time.Now().Add(c.ReadTimeout))
+	return c.dec.Decode()
+}
+
 // Next blocks until the next state snapshot. A server that stays silent for
 // ReadTimeout, or a half-open connection, ends in an error rather than a
 // frozen sky.
