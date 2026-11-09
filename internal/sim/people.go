@@ -13,6 +13,7 @@ const (
 	edgeMargin      = 2.0 // free space between a footprint and the cliff
 	placementTries  = 32
 	minScore        = 0.05 // below this, the people rather wait
+	survivalScore   = 0.3  // floor of a building the people need to survive
 )
 
 // decide is the people's interpretation of the god's intentions (GDD 6.4):
@@ -30,12 +31,12 @@ func (c *Civ) decide(tick uint64) {
 			bestKind, bestScore = k, s
 		}
 	}
-	if s := c.expandScore(); s > bestScore {
-		if c.Stock.Covers(expandCost) {
-			c.Stock = c.Stock.Sub(expandCost)
-			c.Expanding = 60
-			c.chronicle(tick, "%s, ton peuple repousse les bords de l'île.", Expand.motive())
-		}
+	// An expansion the people cannot afford yet does not stop them from
+	// building what they can.
+	if s := c.expandScore(); s > bestScore && c.Stock.Covers(expandCost) {
+		c.Stock = c.Stock.Sub(expandCost)
+		c.Expanding = 60
+		c.chronicle(tick, "%s, ton peuple repousse les bords de l'île.", Expand.motive())
 		return
 	}
 	if bestKind < 0 || !c.Stock.Covers(c.Cost(bestKind)) {
@@ -96,7 +97,13 @@ func (c *Civ) score(k Kind) float64 {
 		need *= 0.3 // nobody would work there
 	}
 	// Diminishing returns: each extra building of a kind is worth less.
-	return base * need / (1 + 0.5*float64(c.Count(k)))
+	score := base * need / (1 + 0.5*float64(c.Count(k)))
+	// Survival does not wait for the god's wishes: a hungry or cramped people
+	// builds farms and houses whatever the pie says.
+	if need >= 2.5 && (k == Farm || k == House) {
+		score = math.Max(score, survivalScore)
+	}
+	return score
 }
 
 func (c *Civ) expandScore() float64 {

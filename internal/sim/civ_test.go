@@ -117,6 +117,43 @@ func TestBuildingsNeverOverlapNorLeaveTheIsland(t *testing.T) {
 	}
 }
 
+func TestSurvivalOverridesTheGodsWishes(t *testing.T) {
+	for _, p := range []Pie{{Fortify: 100}, {Study: 100}, {Arm: 100}} {
+		c := NewCiv(8)
+		c.SetPie(p)
+		for i := range c.Conviction { // the people already share the wish
+			c.Conviction[i] = float64(p[i]) / 100
+		}
+		run(&c, 2*3600)
+		if c.Count(Farm) == 0 {
+			t.Errorf("pie %v: no farm in two hours, the people starve", p)
+		}
+		if c.Population < 6 {
+			t.Errorf("pie %v: population fell to %.1f", p, c.Population)
+		}
+	}
+}
+
+func TestAnUnaffordableExpansionDoesNotStopBuilding(t *testing.T) {
+	c := NewCiv(8)
+	c.SetPie(Pie{Expand: 100})
+	for i := range c.Conviction {
+		c.Conviction[i] = float64(c.Pie[i]) / 100
+	}
+	// Enough for a house, not for an expansion; the people are not cramped,
+	// so expanding scores higher than the house.
+	c.Stock = Stock{Wood: 30, Stone: 10, Food: 60}
+	c.Population = 2
+	if c.expandScore() <= c.score(House) {
+		t.Fatalf("setup: expand %.2f must outscore a house %.2f", c.expandScore(), c.score(House))
+	}
+	before := len(c.Buildings)
+	c.decide(0)
+	if len(c.Buildings) == before {
+		t.Fatal("the people waited for an expansion instead of building a house")
+	}
+}
+
 func TestFamineShrinksThePeople(t *testing.T) {
 	c := NewCiv(5)
 	c.Stock[Food] = 0
