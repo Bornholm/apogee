@@ -31,6 +31,14 @@ func (c *Civ) decide(tick uint64) {
 			bestKind, bestScore = k, s
 		}
 	}
+	// A promise made to the god comes first, as soon as it can be kept.
+	if c.ExpandPledge && c.Expanding == 0 && c.Stock.Covers(expandCost) {
+		c.ExpandPledge = false
+		c.Stock = c.Stock.Sub(expandCost)
+		c.Expanding = 60
+		c.chronicle(tick, "Comme son dieu l'a voulu, ton peuple repousse les bords de l'île.")
+		return
+	}
 	// An expansion the people cannot afford yet does not stop them from
 	// building what they can.
 	if s := c.expandScore(); s > bestScore && c.Stock.Covers(expandCost) {
@@ -39,8 +47,13 @@ func (c *Civ) decide(tick uint64) {
 		c.chronicle(tick, "%s, ton peuple repousse les bords de l'île.", Expand.motive())
 		return
 	}
-	if bestKind < 0 || !c.Stock.Covers(c.Cost(bestKind)) {
-		return // waiting for resources is a decision too
+	if bestKind >= 0 && !c.Stock.Covers(c.Cost(bestKind)) {
+		// Waiting for resources is a decision too, but not while hungry or
+		// cramped: a survival building that can be paid goes first.
+		bestKind = c.affordableSurvival()
+	}
+	if bestKind < 0 {
+		return
 	}
 	p, ok := c.place(bestKind, r)
 	if !ok {
@@ -55,6 +68,18 @@ func (c *Civ) decide(tick uint64) {
 	c.Buildings = append(c.Buildings, Building{ID: c.NextID, Kind: bestKind, X: p.X, Y: p.Y})
 	c.NextID++
 	c.chronicle(tick, "%s, ton peuple entreprend de bâtir %s.", c.motiveFor(bestKind).motive(), Specs[bestKind].Name)
+}
+
+// affordableSurvival returns a farm or a house the people need to survive
+// and can pay for now, or -1.
+func (c *Civ) affordableSurvival() Kind {
+	best, bestScore := Kind(-1), 0.0
+	for _, k := range []Kind{Farm, House} {
+		if s := c.score(k); s >= survivalScore && s > bestScore && c.Stock.Covers(c.Cost(k)) {
+			best, bestScore = k, s
+		}
+	}
+	return best
 }
 
 // score is the utility of building one more of kind k.

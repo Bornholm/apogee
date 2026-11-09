@@ -191,3 +191,40 @@ func TestCultureFollowsTheConvictionOverHours(t *testing.T) {
 		t.Errorf("after eight hours of S'armer, dominant culture is %s", c.Dominant().Name())
 	}
 }
+
+func TestHungerBuildsAnAffordableFarmBeforeAnUnaffordableTower(t *testing.T) {
+	c := NewCiv(8)
+	c.SetPie(Pie{Fortify: 100})
+	for i := range c.Conviction {
+		c.Conviction[i] = float64(c.Pie[i]) / 100
+	}
+	c.Stock = Stock{Wood: 20, Stone: 10} // a farm, not a tower
+	c.Population = 20                    // far more mouths than the core feeds
+	if c.score(Tower) <= c.score(Farm) {
+		t.Fatalf("setup: tower %.2f must outscore the farm %.2f", c.score(Tower), c.score(Farm))
+	}
+	c.decide(0)
+	if c.Count(Farm) == 0 {
+		t.Fatal("a starving people waited for a tower instead of building a farm")
+	}
+}
+
+func TestAgreedExpansionIsKeptOnceAffordable(t *testing.T) {
+	c := NewCiv(8)
+	c.Stock = Stock{Food: 80} // fed, but no wood nor stone to expand
+	c.Crowded = true
+	c.SinceSupplique = 3 * suppliqueGap
+	run(&c, 1)
+	if c.Pending == nil || c.Pending.Kind != AskRoom {
+		t.Fatal("no room supplique")
+	}
+	c.Answer(c.Pending.ID, 0, 0)
+	if !c.ExpandPledge || c.Expanding > 0 {
+		t.Fatalf("pledge %v, expanding %v: the people cannot pay yet", c.ExpandPledge, c.Expanding)
+	}
+	c.Stock = Stock{Wood: 100, Stone: 100, Food: 100}
+	c.decide(1)
+	if c.Expanding == 0 || c.ExpandPledge {
+		t.Fatal("the promised expansion did not start once affordable")
+	}
+}

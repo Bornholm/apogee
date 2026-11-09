@@ -103,10 +103,17 @@ func (c *Civ) resolve(option int, byGod bool, tick uint64) {
 		d := Discoveries[s.Axis][s.Tier][option]
 		c.chronicle(tick, "Les savants maîtrisent « %s » (%s).", d.Name, d.Text)
 	case AskRoom:
-		if option == 0 && c.Expanding == 0 && c.Size < maxSize && c.Stock.Covers(expandCost) {
+		switch {
+		case option == 0 && c.Expanding == 0 && c.Size < maxSize && c.Stock.Covers(expandCost):
 			c.Stock = c.Stock.Sub(expandCost)
 			c.Expanding = 60
-		} else if option == 1 {
+		case option == 0:
+			// Agreed but not affordable yet: the people promise to do it as
+			// soon as they can, and stop asking.
+			c.ExpandPledge = true
+			c.RoomCooldown = roomCooldown
+			c.chronicle(tick, "Ton peuple repoussera les bords de l'île dès que le bois et la pierre suffiront.")
+		case option == 1:
 			// The god said no: ask again later, and each time later still.
 			c.RoomRefusals++
 			c.RoomCooldown = roomCooldown * float64(int(1)<<min(c.RoomRefusals-1, 4))

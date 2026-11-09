@@ -90,6 +90,9 @@ type Civ struct {
 	RoomRefusals int
 	// Milestone is the largest population, in tens, the chronicle told.
 	Milestone int
+	// ExpandPledge is set when the god agreed to push the edges before the
+	// people could afford it: they will as soon as they can.
+	ExpandPledge bool
 
 	NextID uint32
 }

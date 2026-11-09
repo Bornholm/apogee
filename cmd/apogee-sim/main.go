@@ -66,6 +66,14 @@ func main() {
 			a.Name, a.Generation, clock(a.Born), clock(a.Fell), a.PeakPower, a.Tiers, a.Culture.Name(), a.Cause)
 	}
 
+	// The island may have fallen during the last hour: report on the living
+	// one, if any, never on a stale pointer.
+	id, alive := sky.IslandOf(owner)
+	if !alive {
+		fmt.Println("\nl'île est tombée ; son peuple attend l'aube.")
+		return
+	}
+	is = sky.Island(id)
 	c := &is.Civ
 	counts := map[string]int{}
 	for _, b := range c.Buildings {

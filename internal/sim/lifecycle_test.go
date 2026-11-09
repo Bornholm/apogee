@@ -16,7 +16,10 @@ func TestIslandsDescendFasterWhenPowerful(t *testing.T) {
 	var s Sky
 	weak := s.AddIsland("faible", 1, 0)
 	strong := s.AddIsland("forte", 2, 3)
-	s.Island(strong).Civ.Population = 400 // power through sheer numbers
+	// Power through knowledge: three tiers mastered, which do not fade.
+	tech := &s.Island(strong).Civ.Tech
+	tech.Chosen[Industry] = [TiersPerAxis]int8{0, 0}
+	tech.Chosen[Walls][0] = 0
 	steps(&s, 3600)
 	dw := RimRadius - s.Island(weak).Radius
 	ds := RimRadius - s.Island(strong).Radius
