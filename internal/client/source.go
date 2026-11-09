@@ -135,6 +135,11 @@ func (s *Source) Aim(kind sim.Outer, target proto.IslandID) error {
 	return s.send(proto.Msg{Aim: &proto.Aim{Kind: kind, Target: target}})
 }
 
+// Look asks the server for the public view of another island; 0 stops.
+func (s *Source) Look(id proto.IslandID) error {
+	return s.send(proto.Msg{Look: &proto.Look{Island: id}})
+}
+
 // Err returns the error that ended the connection, if any.
 func (s *Source) Err() error {
 	s.mu.Lock()

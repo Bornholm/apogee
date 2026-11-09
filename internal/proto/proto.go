@@ -13,7 +13,7 @@ import (
 )
 
 // Version is bumped on every incompatible change of the messages.
-const Version = 3
+const Version = 4
 
 // DefaultPort is the single TCP port of a server (GDD 10.6).
 const DefaultPort = 47110
@@ -36,6 +36,35 @@ type Msg struct {
 	Whisper *Whisper `json:"whisper,omitempty"`
 	Answer  *Answer  `json:"answer,omitempty"`
 	Aim     *Aim     `json:"aim,omitempty"`
+	Look    *Look    `json:"look,omitempty"`
+}
+
+// Look asks to see another island up close (GDD pilier 2: every island is
+// visible and zoomable). Island 0 stops looking.
+type Look struct {
+	Island IslandID `json:"island"`
+}
+
+// Seen is what anyone may see of an island up close: its buildings and
+// people, never its stores, its pie nor its chronicle.
+type Seen struct {
+	Island     IslandID       `json:"island"`
+	Buildings  []sim.Building `json:"buildings"`
+	Features   []sim.Feature  `json:"features"`
+	Population float64        `json:"population"`
+	Defenders  float64        `json:"defenders"`
+}
+
+// See copies the public view of an island. It must be called with the sky
+// locked.
+func See(is *sim.Island) *Seen {
+	c := &is.Civ
+	return &Seen{
+		Island:     is.ID,
+		Buildings:  append([]sim.Building(nil), c.Buildings...),
+		Features:   append([]sim.Feature(nil), c.Features...),
+		Population: c.Population, Defenders: c.Defenders,
+	}
 }
 
 // Aim whispers an intention turned towards another island (GDD 6.3).
@@ -84,6 +113,8 @@ type State struct {
 	You IslandID `json:"you"`
 	// Own details the player's island; nil while it does not exist.
 	Own *Own `json:"own,omitempty"`
+	// Seen is the island the player looks at, when it is not their own.
+	Seen *Seen `json:"seen,omitempty"`
 	// BossInMs is the time before the next boss strikes the whole sky.
 	BossInMs int64      `json:"bossInMs"`
 	Raids    []RaidView `json:"raids,omitempty"`

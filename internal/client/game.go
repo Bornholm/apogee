@@ -51,6 +51,9 @@ type Game struct {
 	// selected is the island the god looks at in the sky view, to whisper
 	// an outer intention towards it (GDD 6.3).
 	selected proto.IslandID
+	// viewing is the other island shown in the island view, or 0 for one's
+	// own.
+	viewing proto.IslandID
 	// home is the player's island at full size, rendered from the state and
 	// re-rendered only when its signature changes: the ground with its
 	// shadows, and each object apart, so that people can walk behind them.
@@ -291,29 +294,61 @@ func (g *Game) purgeMiniatures(islands []proto.IslandSummary) {
 	}
 }
 
+// viewed returns the island shown in the island view: the player's own, or
+// the one they observe (GDD pilier 2). An observed island is drawn from its
+// public view only: buildings and people.
+func (g *Game) viewed(st *proto.State) (proto.IslandSummary, *proto.Own, bool) {
+	if st == nil {
+		return proto.IslandSummary{}, nil, false
+	}
+	id, view := st.You, st.Own
+	if g.viewing != 0 {
+		if st.Seen == nil || st.Seen.Island != g.viewing {
+			return proto.IslandSummary{}, nil, false // not received yet
+		}
+		id = g.viewing
+		view = &proto.Own{Buildings: st.Seen.Buildings, Features: st.Seen.Features,
+			Population: st.Seen.Population, Defenders: st.Seen.Defenders}
+	}
+	if view == nil {
+		return proto.IslandSummary{}, nil, false
+	}
+	for _, is := range st.Islands {
+		if is.ID == id {
+			return is, view, true
+		}
+	}
+	return proto.IslandSummary{}, nil, false
+}
+
+// Observe looks at another island up close; 0 comes back home.
+func (g *Game) Observe(id proto.IslandID) {
+	if st := g.src.State(); st != nil && id == st.You {
+		id = 0
+	}
+	g.viewing = id
+	g.src.Look(id)
+	if id != 0 && g.level == 0 {
+		g.SetZoom(2)
+	}
+	g.dirty = true
+}
+
 // homeIsland returns the player's island at full size, as the simulation
 // describes it (GDD 3.5), re-rendering it only when something changed.
 func (g *Game) homeIsland(st *proto.State) (sprite, bool) {
-	if st == nil || st.Own == nil {
+	sum, view, ok := g.viewed(st)
+	if !ok {
 		return sprite{}, false
 	}
-	var sum proto.IslandSummary
-	for _, is := range st.Islands {
-		if is.ID == st.You {
-			sum = is
-		}
-	}
-	if sum.ID == 0 {
-		return sprite{}, false
-	}
-	if sig := signature(sum, st.Own); sig != g.homeSig || g.home.img == nil {
+	if sig := signature(sum, view); sig != g.homeSig || g.home.img == nil {
 		if g.home.img != nil {
 			g.home.img.Deallocate()
 		}
 		for _, o := range g.homeObjs {
 			o.img.Deallocate()
 		}
-		scene := islandScene(g.cam, sum, st.Own)
+		scene := islandScene(g.cam, sum, view)
 		ground := scene.FlattenGround(g.cam)
 		g.home = sprite{ebiten.NewImageFromImage(ground.Img), ground.Anchor}
 		g.homeObjs = g.homeObjs[:0]
@@ -362,6 +397,9 @@ func (g *Game) Update() error {
 			g.selected = 0 // a click in the void clears the selection
 			g.dirty = true
 		}
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) && g.viewing != 0 {
+		g.Observe(0)
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyC) {
 		g.showCulture = !g.showCulture
@@ -740,21 +778,16 @@ func (g *Game) registerIslands(islands []proto.IslandSummary, k, ox, oy float64)
 // about fifteen times a second while they walk (GDD: a living island).
 func (g *Game) animate() {
 	st := g.src.State()
-	if g.level == 0 || st == nil || st.Own == nil {
+	if g.level == 0 {
 		return
 	}
-	var sum proto.IslandSummary
-	for _, is := range st.Islands {
-		if is.ID == st.You {
-			sum = is
-		}
-	}
-	if sum.ID == 0 {
+	sum, view, ok := g.viewed(st)
+	if !ok {
 		return
 	}
-	g.life.sync(sum, st.Own)
+	g.life.sync(sum, view)
 	dt := 1.0 / float64(ebiten.TPS())
-	g.life.step(st.Own, dt, st.Phase == "night")
+	g.life.step(view, dt, st.Phase == "night")
 	for i := range g.life.walkers {
 		if w := &g.life.walkers[i]; w.busy() {
 			g.dust.emit(w, dt)

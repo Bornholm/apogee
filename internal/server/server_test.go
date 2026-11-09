@@ -271,3 +271,37 @@ func TestACorruptSaveIsAnError(t *testing.T) {
 		t.Fatal("a corrupt save was silently replaced by a new sky")
 	}
 }
+
+func TestLookingShowsOnlyThePublicView(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	srv, _ := New(Config{Rivals: 2, Broadcast: 50 * time.Millisecond, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	go srv.Run(ctx)
+	go srv.Serve(ctx, ln)
+	c, err := netclient.Dial(ctx, ln.Addr().String(), "Ada", "looker")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	c.Send(proto.Msg{Look: &proto.Look{Island: 1}}) // the first rival
+	for range 20 {
+		st, err := c.Next()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if st.Seen != nil {
+			if st.Seen.Island != 1 || len(st.Seen.Buildings) == 0 {
+				t.Fatalf("unexpected view %+v", st.Seen)
+			}
+			if st.Own == nil || st.Own.Pie == (sim.Pie{}) {
+				t.Fatal("looking elsewhere hid the player's own island")
+			}
+			return
+		}
+	}
+	t.Fatal("the server never sent the observed island")
+}

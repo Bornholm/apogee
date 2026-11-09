@@ -46,6 +46,7 @@ func main() {
 	culture := flag.Bool("culture", false, "open the culture and knowledge panel at start")
 	annals := flag.Bool("annals", false, "open the Annals panel at start")
 	selectID := flag.Uint("select", 0, "select this island at start, as a click would")
+	observe := flag.Uint("observe", 0, "observe this island at start")
 	notifyFlag := flag.String("notify", "raid,wave,decline,fall", "desktop notifications while the window is hidden: raid, wave, decline, supplique, fall, or none")
 	cpu := flag.Duration("cpulog", 0, "log the process CPU usage at this interval (e.g. 10s)")
 	quit := flag.Duration("quit", 0, "quit after this duration")
@@ -124,6 +125,9 @@ func main() {
 	g.SetZoom(*zoom)
 	g.ShowPanels(*culture, *annals)
 	g.Select(proto.IslandID(*selectID))
+	if *observe != 0 {
+		g.Observe(proto.IslandID(*observe))
+	}
 	g.NotifyKinds = notifyKinds(*notifyFlag)
 	notifier := notify.New()
 	g.Notify = func(text string) { notifier.Send("Apogée", text) }

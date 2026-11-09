@@ -92,6 +92,8 @@ type client struct {
 	out  chan proto.Msg
 	key  string
 	dead bool // dropped for being too slow; guarded by Server.mu
+	// look is the island the player looks at; guarded by Server.mu.
+	look sim.IslandID
 }
 
 // rivalNames name the rival AI gods.
@@ -280,7 +282,7 @@ func (s *Server) handle(ctx context.Context, conn net.Conn) {
 	c := &client{conn: conn, out: make(chan proto.Msg, 16), key: key}
 	c.out <- proto.Msg{Welcome: &proto.Welcome{Version: proto.Version, Island: id, Sky: s.cfg.Name}}
 	s.mu.Lock()
-	c.out <- proto.Msg{State: s.stateLocked(s.baseLocked(), key)}
+	c.out <- proto.Msg{State: s.stateLocked(s.baseLocked(), c)}
 	s.clients[c] = struct{}{}
 	s.mu.Unlock()
 	log.Info("player joined", "name", name, "island", id)
@@ -306,6 +308,12 @@ func (s *Server) handle(ctx context.Context, conn net.Conn) {
 				log.Info("connection lost", "err", err)
 			}
 			break
+		}
+		if m.Look != nil {
+			s.mu.Lock()
+			c.look = m.Look.Island
+			s.mu.Unlock()
+			continue
 		}
 		if err := s.apply(key, m); err != nil {
 			log.Info("refused a god's act", "err", err)
@@ -402,12 +410,18 @@ func (s *Server) baseLocked() proto.State {
 	return st
 }
 
-// stateLocked completes the shared state with the player's own island.
-func (s *Server) stateLocked(base proto.State, key string) *proto.State {
+// stateLocked completes the shared state with the player's own island and
+// the one they look at.
+func (s *Server) stateLocked(base proto.State, c *client) *proto.State {
 	st := base
-	if id, ok := s.sky.IslandOf(key); ok {
+	if id, ok := s.sky.IslandOf(c.key); ok {
 		st.You = id
 		st.Own = proto.Detail(&s.sky, s.sky.Island(id))
+	}
+	if c.look != 0 && c.look != st.You {
+		if is := s.sky.Island(c.look); is != nil {
+			st.Seen = proto.See(is)
+		}
 	}
 	return &st
 }
@@ -426,7 +440,7 @@ func (s *Server) broadcast() {
 			continue // its handler will remove it once its read loop ends
 		}
 		select {
-		case c.out <- proto.Msg{State: s.stateLocked(base, c.key)}:
+		case c.out <- proto.Msg{State: s.stateLocked(base, c)}:
 		default:
 			c.dead = true
 			c.conn.Close()

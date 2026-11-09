@@ -75,6 +75,9 @@ func (g *Game) drawHUD(screen *ebiten.Image, st *proto.State) {
 	top := bar.Max.Y + gap
 	pie := g.drawPie(p, image.Rect(gap, top, gap+230*k, top+0), o)
 	g.drawOuter(p, st, o, image.Rect(gap, pie.Max.Y+gap, gap+230*k, pie.Max.Y+gap))
+	if g.viewing != 0 && g.level > 0 {
+		g.drawObserving(p, st, bar.Max.Y+gap)
+	}
 	if msg := g.src.Refusal(6 * time.Second); msg != "" {
 		msg = refusalText(msg)
 		p.text(msg, (g.outW-p.width(msg))/2, bar.Max.Y+gap, alertColor)
@@ -142,6 +145,27 @@ func (g *Game) drawPie(p painter, r image.Rectangle, o *proto.Own) image.Rectang
 	return r
 }
 
+// drawObserving shows whose island the god is looking at, and the way back.
+func (g *Game) drawObserving(p painter, st *proto.State, top int) {
+	k := int(p.k)
+	name := "une île disparue"
+	for _, is := range st.Islands {
+		if is.ID == g.viewing {
+			name = is.Name
+			if is.AI {
+				name += " (IA)"
+			}
+		}
+	}
+	label := "Tu observes l'île de " + name
+	back := "Revenir à mon île (Échap)"
+	w := max(p.width(label), p.width(back)) + 24*k
+	r := image.Rect((g.outW-w)/2, top, (g.outW+w)/2, top+2*p.line()+20*k)
+	in := p.panel(r)
+	p.text(label, in.Min.X+(in.Dx()-p.width(label))/2, in.Min.Y, goldColor)
+	p.button(image.Rect(in.Min.X, in.Min.Y+p.line()+2*k, in.Max.X, in.Max.Y), back, func() { g.Observe(0) })
+}
+
 // refusals translates the server's refusals for the player.
 var refusals = map[string]string{
 	"this young civilisation is still protected":   "Cette jeune civilisation est encore protégée.",
@@ -195,7 +219,7 @@ func (g *Game) drawOuter(p painter, st *proto.State, o *proto.Own, r image.Recta
 	bh := p.line() + 4*k
 	h := p.line() + 2*k + bh + 12*k
 	if target != nil {
-		h += 4*p.line() + 4*k + 2*(bh+4*k)
+		h += 4*p.line() + 4*k + 3*(bh+4*k)
 	}
 	r.Max.Y = r.Min.Y + h
 	in := p.panel(r)
@@ -243,6 +267,8 @@ func (g *Game) drawOuter(p painter, st *proto.State, o *proto.Own, r image.Recta
 		y += bh + 4*k
 		p.button(image.Rect(in.Min.X, y, in.Min.X+half, y+bh), "Anéantir", aim(sim.Annihilate, raidable && target.Declining))
 		p.button(image.Rect(in.Max.X-half, y, in.Max.X, y+bh), "Secourir", aim(sim.Rescue, o.Defenders >= 3))
+		y += bh + 4*k
+		p.button(image.Rect(in.Min.X, y, in.Max.X, y+bh), "Observer cette île", func() { g.Observe(id) })
 		y += bh + 4*k
 	}
 	var recall func()
