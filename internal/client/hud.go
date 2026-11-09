@@ -215,7 +215,8 @@ func (g *Game) drawOuter(p painter, st *proto.State, o *proto.Own, r image.Recta
 		}
 		p.text(who, in.Min.X, y, textColor)
 		y += p.line()
-		p.text(fmt.Sprintf("Culture %s · puissance %.0f", sim.Family(target.Culture).Name(), target.Power), in.Min.X, y, familyColor[target.Culture])
+		culture := min(max(target.Culture, 0), int(sim.NumFamilies)-1)
+		p.text(fmt.Sprintf("Culture %s · puissance %.0f", sim.Family(culture).Name(), target.Power), in.Min.X, y, familyColor[culture])
 		y += p.line()
 		p.text(fmt.Sprintf("Cœur %d %%", int(math.Round(target.Heart*100))), in.Min.X, y, textColor)
 		y += p.line()
@@ -235,11 +236,13 @@ func (g *Game) drawOuter(p painter, st *proto.State, o *proto.Own, r image.Recta
 			return func() { g.src.Aim(kind, id) }
 		}
 		raidable := !target.Protected
+		// Punir leaves at once and Secourir lends spare defenders: both need
+		// someone to send. Convoiter and Anéantir prepare first.
 		p.button(image.Rect(in.Min.X, y, in.Min.X+half, y+bh), "Convoiter", aim(sim.Covet, raidable))
-		p.button(image.Rect(in.Max.X-half, y, in.Max.X, y+bh), "Punir", aim(sim.Punish, raidable))
+		p.button(image.Rect(in.Max.X-half, y, in.Max.X, y+bh), "Punir", aim(sim.Punish, raidable && o.Assailants >= 1))
 		y += bh + 4*k
 		p.button(image.Rect(in.Min.X, y, in.Min.X+half, y+bh), "Anéantir", aim(sim.Annihilate, raidable && target.Declining))
-		p.button(image.Rect(in.Max.X-half, y, in.Max.X, y+bh), "Secourir", aim(sim.Rescue, true))
+		p.button(image.Rect(in.Max.X-half, y, in.Max.X, y+bh), "Secourir", aim(sim.Rescue, o.Defenders >= 3))
 		y += bh + 4*k
 	}
 	var recall func()
@@ -395,7 +398,7 @@ func (g *Game) drawAnnals(p painter, annals []proto.Annal) {
 	for i := len(annals) - 1; i >= 0; i-- {
 		a := annals[i]
 		lines = append(lines, fmt.Sprintf("%s, génération %d : %.1f jours, apogée %.0f, %d paliers, culture %s.",
-			a.Name, a.Generation, a.DaysLived, a.PeakPower, a.Tiers, sim.Family(a.Culture).Name()))
+			a.Name, a.Generation, a.DaysLived, a.PeakPower, a.Tiers, sim.Family(min(max(a.Culture, 0), int(sim.NumFamilies)-1)).Name()))
 		lines = append(lines, "   "+a.Cause)
 	}
 	if len(lines) == 0 {

@@ -599,7 +599,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 				cs.Scale(0.8, 0.75, 0.95, 1) // ternished by the decline
 			}
 			atScaled(sp.img, float64(p.X-sp.anchor.X), float64(p.Y-sp.anchor.Y), cs)
-			if is.Banner != 0 && is.FallingMs == 0 {
+			// Values from the wire are bounded before indexing: a corrupt
+			// state must not crash the client.
+			if is.Banner > 0 && int(is.Banner) < len(g.banners) && g.banners[is.Banner].img != nil && is.FallingMs == 0 {
 				b := g.banners[is.Banner]
 				top := p.Y - sp.anchor.Y + 6
 				at(b.img, float64(p.X+sp.anchor.X/3-b.anchor.X), float64(top-b.anchor.Y))
@@ -666,6 +668,9 @@ func (g *Game) drawRaids(at func(*ebiten.Image, float64, float64), islands []pro
 		a, okA := where[r.From]
 		b, okB := where[r.To]
 		if !okA || !okB {
+			continue
+		}
+		if r.Kind < 0 || int(r.Kind) >= len(g.warbands) {
 			continue
 		}
 		t := min(max(r.Progress, 0), 1)

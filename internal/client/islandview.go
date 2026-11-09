@@ -140,6 +140,9 @@ func islandScene(cam art.Camera, sum proto.IslandSummary, own *proto.Own) art.Is
 			posts = append(posts, geo.Vec2{X: b.X, Y: b.Y})
 		}
 	}
+	if len(posts) == 0 {
+		posts = []geo.Vec2{{}} // the heart's place, should no post stand
+	}
 	scatter(min(int(own.Defenders), 16), true, func(k int) geo.Vec2 { return posts[k%len(posts)] }, 9)
 	return sc
 }

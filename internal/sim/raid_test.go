@@ -154,3 +154,15 @@ func TestOwnIslandAndUnknownTargetsAreRefused(t *testing.T) {
 		t.Errorf("raiding nowhere: %v", err)
 	}
 }
+
+func TestPunishingWithoutWarriorsIsExplained(t *testing.T) {
+	s, a, b := twoIslands(t)
+	a.Civ.Assailants = 0
+	if err := s.Whisper(a.ID, Punish, b.ID); err != nil {
+		t.Fatal(err)
+	}
+	untilNoRaids(s, 60)
+	if !strings.Contains(allText(a.Civ.Chronicle), "aucun guerrier") {
+		t.Fatal("the intention vanished without a word")
+	}
+}

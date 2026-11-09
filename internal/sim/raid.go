@@ -160,11 +160,15 @@ func (s *Sky) raids(dt float64) {
 			s.carryOut(is, dt)
 		}
 	}
-	kept := s.Raids[:0]
-	for _, r := range s.Raids {
+	// A fresh slice: clashes read s.Raids (relief) while the loop runs, so it
+	// must not be rewritten in place under them.
+	kept := make([]Raid, 0, len(s.Raids))
+	for i := range s.Raids {
+		r := s.Raids[i]
 		if s.advance(&r, dt) {
 			kept = append(kept, r)
 		}
+		s.Raids[i] = r // clashes later in this tick see the updated raid
 	}
 	s.Raids = kept
 }
@@ -191,6 +195,8 @@ func (s *Sky) carryOut(is *Island, dt float64) {
 	case Punish:
 		if c.Assailants >= 1 {
 			s.launch(is, t, Pillage, c.Assailants)
+		} else {
+			c.chronicle(s.Tick, "Ton peuple n'a aucun guerrier à envoyer contre %s.", t.Name)
 		}
 		*o = OuterIntent{}
 	case Annihilate:
@@ -205,6 +211,8 @@ func (s *Sky) carryOut(is *Island, dt float64) {
 	case Rescue:
 		if spare := c.Defenders - minimalGuard; spare >= 1 {
 			s.launch(is, t, Relief, math.Floor(spare))
+		} else {
+			c.chronicle(s.Tick, "Ton peuple n'a pas de défenseurs à prêter à %s.", t.Name)
 		}
 		*o = OuterIntent{}
 	}
