@@ -3,6 +3,8 @@ package art
 import (
 	"math"
 	"math/rand/v2"
+
+	"apogee/internal/geo"
 )
 
 // Rng returns the deterministic generator used by every template: the same
@@ -197,19 +199,15 @@ func Villager(seed uint64) Mesh {
 // irregular outline, a band of faceted earth cliffs and a rocky cone beneath.
 // It returns the mesh and the outline of its top, in world coordinates.
 func Island(seed uint64, radius float64) (Mesh, []Vec3) {
-	r := Rng(seed)
-	n := 18 + r.IntN(6)
-	var phases [3]float64
-	for i := range phases {
-		phases[i] = r.Float64() * 2 * math.Pi
-	}
+	// The outline is shared with the simulation, which places buildings
+	// inside it (internal/geo); the rest of the shape is decorative.
+	outline := geo.Outline(seed)
+	n := len(outline)
 	top := make([]Vec3, n)
-	for i := range top {
-		a := 2 * math.Pi * float64(i) / float64(n)
-		k := 1 + 0.12*math.Sin(2*a+phases[0]) + 0.08*math.Sin(3*a+phases[1]) +
-			0.05*math.Sin(5*a+phases[2]) + between(r, -0.04, 0.04)
-		top[i] = V(radius*k*math.Cos(a), radius*k*math.Sin(a), 0)
+	for i, p := range outline {
+		top[i] = V(p.X*radius, p.Y*radius, 0)
 	}
+	r := Rng(seed)
 
 	var m Mesh
 	m.Add(Grass, top...)

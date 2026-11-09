@@ -14,6 +14,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
 	"apogee/internal/art"
+	"apogee/internal/proto"
 	"apogee/internal/sim"
 )
 
@@ -139,7 +140,7 @@ func NewGame(src *Source, seed uint64) *Game {
 // islandRadius gives each island a size from its seed, in world units.
 func islandRadius(seed uint64) float64 { return 14 + float64(seed%7) }
 
-func (g *Game) miniature(is sim.Island) sprite {
+func (g *Game) miniature(is proto.IslandSummary) sprite {
 	if sp, ok := g.islandSprites[is.ID]; ok {
 		return sp
 	}
@@ -149,7 +150,7 @@ func (g *Game) miniature(is sim.Island) sprite {
 	return sp
 }
 
-func (g *Game) homeIsland(islands []sim.Island) *ebiten.Image {
+func (g *Game) homeIsland(islands []proto.IslandSummary) *ebiten.Image {
 	if g.home != nil {
 		return g.home
 	}
@@ -308,7 +309,7 @@ func (g *Game) clampPan(x, y float64) (float64, float64) {
 	return clamp(x, b.Min.X, b.Max.X, halfW), clamp(y, b.Min.Y, b.Max.Y, halfH)
 }
 
-func (g *Game) orbitPixel(is sim.Island) image.Point {
+func (g *Game) orbitPixel(is proto.IslandSummary) image.Point {
 	d := is.Radius / sim.RimRadius * rimPixels
 	x, y := g.cam.Project(art.V(d*math.Cos(is.Angle), d*math.Sin(is.Angle), 0))
 	return image.Pt(int(math.Round(x)), int(math.Round(y)))

@@ -240,8 +240,16 @@ func (s *Server) snapshotLocked() *proto.State {
 		Tick:        s.sky.Tick,
 		Phase:       phase.String(),
 		PhaseLeftMs: left.Milliseconds(),
-		Islands:     append([]sim.Island(nil), s.sky.Islands...),
+		Islands:     summaries(s.sky.Islands),
 	}
+}
+
+func summaries(islands []sim.Island) []proto.IslandSummary {
+	out := make([]proto.IslandSummary, len(islands))
+	for i := range islands {
+		out[i] = proto.Summarize(&islands[i])
+	}
+	return out
 }
 
 // broadcast queues a snapshot for every client. A client whose queue is full

@@ -50,10 +50,25 @@ type Welcome struct {
 
 // State is a snapshot of the sky, sent periodically.
 type State struct {
-	Tick        uint64       `json:"tick"`
-	Phase       string       `json:"phase"`
-	PhaseLeftMs int64        `json:"phaseLeftMs"`
-	Islands     []sim.Island `json:"islands"`
+	Tick        uint64          `json:"tick"`
+	Phase       string          `json:"phase"`
+	PhaseLeftMs int64           `json:"phaseLeftMs"`
+	Islands     []IslandSummary `json:"islands"`
+}
+
+// IslandSummary is what every player sees of an island from the sky.
+type IslandSummary struct {
+	ID     sim.IslandID `json:"id"`
+	Name   string       `json:"name"`
+	Seed   uint64       `json:"seed"`
+	Radius float64      `json:"radius"`
+	Angle  float64      `json:"angle"`
+	Size   float64      `json:"size"`
+}
+
+// Summarize copies the public part of an island.
+func Summarize(is *sim.Island) IslandSummary {
+	return IslandSummary{ID: is.ID, Name: is.Name, Seed: is.Seed, Radius: is.Radius, Angle: is.Angle, Size: is.Civ.Size}
 }
 
 // Error is sent before the server closes a connection it refuses.

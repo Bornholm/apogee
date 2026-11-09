@@ -47,6 +47,8 @@ type Island struct {
 	// Orbit around the portal (GDD 3.1): distance in sky units and angle.
 	Radius float64
 	Angle  float64
+	// Civ is the civilisation living on the island.
+	Civ Civ
 }
 
 // Sky is the whole simulated world.
@@ -71,6 +73,7 @@ func (s *Sky) AddIsland(name string, seed uint64, angle float64) IslandID {
 	s.Islands = append(s.Islands, Island{
 		ID: s.nextID, Name: name, Seed: seed,
 		Radius: RimRadius, Angle: math.Mod(angle, 2*math.Pi),
+		Civ: NewCiv(seed),
 	})
 	return s.nextID
 }
@@ -88,9 +91,11 @@ func (s *Sky) AddIslandAt(name string, seed uint64, radius, angle float64) Islan
 func (s *Sky) Step() {
 	s.Tick++
 	dt := TickDuration.Seconds()
+	phase, _ := s.TimeOfDay()
 	for i := range s.Islands {
 		is := &s.Islands[i]
 		is.Angle = math.Mod(is.Angle+AngularSpeed(is.Radius)*dt, 2*math.Pi)
+		is.Civ.Step(dt, phase == Night, s.Tick)
 	}
 }
 

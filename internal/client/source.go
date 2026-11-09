@@ -42,7 +42,7 @@ func Listen(conn *netclient.Conn) *Source {
 
 // Islands returns the islands of the latest state, with their orbits advanced
 // to now: states arrive about once a second, orbits must move smoothly.
-func (s *Source) Islands(now time.Time) []sim.Island {
+func (s *Source) Islands(now time.Time) []proto.IslandSummary {
 	s.mu.Lock()
 	st, at := s.state, s.at
 	s.mu.Unlock()
@@ -50,7 +50,7 @@ func (s *Source) Islands(now time.Time) []sim.Island {
 		return nil
 	}
 	dt := now.Sub(at).Seconds()
-	out := make([]sim.Island, len(st.Islands))
+	out := make([]proto.IslandSummary, len(st.Islands))
 	for i, is := range st.Islands {
 		is.Angle += sim.AngularSpeed(is.Radius) * dt
 		out[i] = is

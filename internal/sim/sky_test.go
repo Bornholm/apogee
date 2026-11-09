@@ -2,6 +2,7 @@ package sim
 
 import (
 	"math"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -57,7 +58,7 @@ func TestStepIsDeterministic(t *testing.T) {
 	}
 	a, b := run(), run()
 	for k := range a.Islands {
-		if a.Islands[k] != b.Islands[k] {
+		if !reflect.DeepEqual(a.Islands[k], b.Islands[k]) {
 			t.Fatalf("island %d differs: %+v vs %+v", k, a.Islands[k], b.Islands[k])
 		}
 	}
