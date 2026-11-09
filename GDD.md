@@ -1,7 +1,7 @@
 # 📘 GAME DESIGN DOCUMENT : *APOGÉE*
 
-> **Version** 0.24 · 9 novembre 2026
-> **Statut** : pré-production (Phase 0)
+> **Version** 0.25 · 9 novembre 2026
+> **Statut** : Phase 2 (alpha) en cours
 > **Auteur** : GameForge, avec le concepteur
 > **Cible** : développeur senior solo, Go + Ebitengine
 
@@ -905,7 +905,24 @@ le serveur intégré l'embarque dans le client desktop.
 | **CPU du client** | ✅ Encourageant | Fenêtre ouverte, nuages en mouvement : **environ 2 % d'un cœur** sous Linux, en ne redessinant que lorsque l'image change. Reste à mesurer fenêtre sans focus et minimisée |
 | **Serveur et mDNS** | ✅ Validé sur le réseau de développement | `apogee-server` annoncé en mDNS, découvert et rejoint par `apogee-probe`, états reçus. Reste à tester sur un vrai réseau d'entreprise (risque n° 3) |
 
-## 15.2 Priorités MVP (MoSCoW)
+## 15.2 État des Phases 1 et 2
+
+| Élément | État | Notes |
+|---|---|---|
+| **Peuple et intentions** | ✅ | Gâteau de 3 parts au plus, conviction à inertie (environ 90 s), interprétation par scores d'utilité, placement libre sur le contour partagé (`internal/geo`). La survie (fermes, maisons) passe avant les souhaits du dieu |
+| **Culture et technologie** | ✅ | 4 axes à 2 paliers, savoir tiré de l'Aether, plafond de 3 paliers et oubli. Paliers à 300 puis 900 points 🔧 : premier palier vers 8 h pour un peuple prospère, en 1 à 2 h pour un peuple studieux |
+| **Suppliques et chronique** | ✅ | Découvertes, manque de place, famine. Un refus de s'agrandir espace les demandes (2 h, puis le double à chaque refus). La chronique annonce chaque dizaine d'âmes une seule fois |
+| **Cycle de vie** | ✅ | Descente par l'âge et la puissance, déclin, vagues inexorables avec l'âge, colosse, ruine, chute, renaissance à l'aube suivante, Annales. Durées de vie observées en simulation : 2 à 4 jours selon le gâteau |
+| **Rivaux IA** | ✅ | 4 profils, mêmes règles que les humains, ils répondent aux suppliques et lancent des raids (belliqueux, opportuniste) |
+| **Serveur** | ✅ | Autoritaire, intégré ou dédié, sauvegarde atomique du ciel, accélération du temps pour les tests (`-speed`), plafond de 10 îles |
+| **PvP** | ✅ | Convoiter, Punir, Anéantir, Secourir, Rappeler. Pillage limité à 25 % et à la charge des guerriers, bouclier de 15 min, protection des nouveaux venus pendant 12 h sauf s'ils attaquent eux-mêmes |
+| **Interface** | ✅ | Vues « Ciel » et « Île » pilotées par l'état du serveur, HUD en pixel art (police bitmap, typographie française), panneau de cible, bannières, raids et vagues visibles, teinte jour/nuit |
+| **Notifications** | ✅ | `notify-send` sous Linux, catégories au choix (`-notify`), seulement fenêtre sans focus |
+| **Critère de sortie de la Phase 1** | ⏳ | « A-t-on envie de laisser ça tourner ? » : à juger par une partie réelle |
+| **Critère de sortie de la Phase 2** | ⏳ | 3 machines, 8 h : à faire sur un vrai réseau. Un test d'endurance local est passé : 3 clients, temps ×200, environ 16 h de jeu, 870 états reçus, aucune erreur, 18 Mo de mémoire côté serveur, sauvegarde propre à l'arrêt |
+| **Reporté** | | Couleur d'équipe par joueur, contour des unités, lumières de nuit (halos), ombres mobiles |
+
+## 15.3 Priorités MVP (MoSCoW)
 
 | Priorité | Éléments |
 |---|---|
