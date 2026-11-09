@@ -50,23 +50,25 @@ func DemoIsland(cam Camera, seed uint64, radius float64) IslandScene {
 		}
 	}
 
+	// Object counts follow the island's area, so small islands stay legible.
+	area := radius * radius / (60 * 60)
+	count := func(n float64) int { return max(1, int(math.Round(n*area))) }
+	grove := 9 * min(radius/60, 1)
+
 	place(Core(seed), V(0, 0, 0), 7)
-	try(5, 6, polar(r, 0.22, 0.5), func(i int) Mesh { return House(seed*31 + uint64(i)) })
+	try(count(5), 6, polar(r, 0.22, 0.6), func(i int) Mesh { return House(seed*31 + uint64(i)) })
 
 	// Groves: pines cluster around a few centres near the rim.
-	for g := range 3 {
+	for g := range max(1, count(3)) {
 		a := r.Float64() * 2 * math.Pi
 		c := V(radius*0.68*math.Cos(a), radius*0.68*math.Sin(a), 0)
-		try(9, 2.8, func() Vec3 {
-			return c.Add(V(between(r, -9, 9), between(r, -9, 9), 0))
+		try(count(9), 2.8, func() Vec3 {
+			return c.Add(V(between(r, -grove, grove), between(r, -grove, grove), 0))
 		}, func(i int) Mesh { return Pine(seed*97 + uint64(g*16+i)) })
 	}
-	try(6, 3.5, polar(r, 0.3, 0.85), func(i int) Mesh { return Rock(seed*53 + uint64(i)) })
-	try(3, 2.5, polar(r, 0.6, 0.85), func(i int) Mesh {
-		m := Crystal(seed*71 + uint64(i))
-		return m
-	})
-	try(8, 1.2, polar(r, 0.15, 0.55), func(i int) Mesh { return Villager(seed*13 + uint64(i)) })
+	try(count(6), 3.5, polar(r, 0.3, 0.85), func(i int) Mesh { return Rock(seed*53 + uint64(i)) })
+	try(count(3), 2.5, polar(r, 0.6, 0.85), func(i int) Mesh { return Crystal(seed*71 + uint64(i)) })
+	try(count(8), 1.2, polar(r, 0.15, 0.55), func(i int) Mesh { return Villager(seed*13 + uint64(i)) })
 	return sc
 }
 
