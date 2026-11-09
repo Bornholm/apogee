@@ -12,7 +12,7 @@ import (
 func run(c *Civ, seconds float64) {
 	dt := TickDuration.Seconds()
 	for t := 0; t < int(seconds/dt); t++ {
-		c.Step(dt, false, uint64(t))
+		c.Step(dt, Day, uint64(t))
 	}
 }
 

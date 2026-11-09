@@ -79,6 +79,12 @@ func (f Family) Name() string {
 	return [...]string{"Armes", "Murailles", "Industrie", "Arcanes"}[f]
 }
 
+// Of returns the family's name with its article, as in « un secret des
+// Armes » or « de l'Industrie ».
+func (f Family) Of() string {
+	return [...]string{"des Armes", "des Murailles", "de l'Industrie", "des Arcanes"}[f]
+}
+
 // Family returns the family the intention belongs to.
 func (i Intention) Family() Family {
 	return [...]Family{Industry, Industry, Walls, Weapons, Arcana}[i]

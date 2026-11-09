@@ -31,17 +31,19 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Println("heure  pop  déf  ass  bois pierre vivres aether  savoir  bât  culture dominante")
+	fmt.Println("heure  pop  déf  ass  bois pierre vivres aether  savoir  bât  paliers A/M/I/Ar  culture")
 	perHour := int(3600 / sim.TickDuration.Seconds())
 	for h := 1; h <= *hours; h++ {
 		for range perHour {
 			sky.Step()
 		}
 		c := &is.Civ
-		fmt.Printf("%5d %4.0f %4.0f %4.0f %5.0f %6.0f %6.0f %6.0f %7.1f %4d  %s\n",
+		fmt.Printf("%5d %4.0f %4.0f %4.0f %5.0f %6.0f %6.0f %6.0f %7.1f %4d  %d/%d/%d/%d          %s\n",
 			h, c.Population, c.Defenders, c.Assailants,
 			c.Stock[sim.Wood], c.Stock[sim.Stone], c.Stock[sim.Food], c.Stock[sim.Aether],
-			c.Knowledge, len(c.Buildings), c.Dominant().Name())
+			c.Knowledge, len(c.Buildings),
+			c.Tech.Tier(sim.Weapons), c.Tech.Tier(sim.Walls), c.Tech.Tier(sim.Industry), c.Tech.Tier(sim.Arcana),
+			c.Dominant().Name())
 	}
 
 	c := &is.Civ

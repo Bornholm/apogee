@@ -38,7 +38,7 @@ func (c *Civ) decide(tick uint64) {
 		}
 		return
 	}
-	if bestKind < 0 || !c.Stock.Covers(Specs[bestKind].Cost) {
+	if bestKind < 0 || !c.Stock.Covers(c.Cost(bestKind)) {
 		return // waiting for resources is a decision too
 	}
 	p, ok := c.place(bestKind, r)
@@ -50,7 +50,7 @@ func (c *Civ) decide(tick uint64) {
 		return
 	}
 	c.Crowded = false
-	c.Stock = c.Stock.Sub(Specs[bestKind].Cost)
+	c.Stock = c.Stock.Sub(c.Cost(bestKind))
 	c.Buildings = append(c.Buildings, Building{ID: c.NextID, Kind: bestKind, X: p.X, Y: p.Y})
 	c.NextID++
 	c.chronicle(tick, "%s, ton peuple entreprend de bâtir %s.", c.motiveFor(bestKind).motive(), Specs[bestKind].Name)
@@ -72,7 +72,7 @@ func (c *Civ) score(k Kind) float64 {
 			need = 0.3
 		}
 	case Farm:
-		if c.foodBalance() < 0.05 {
+		if c.foodBalance() < 0.05 || c.FarmUrge > 0 {
 			need = 2.5 // not enough food coming in
 		}
 	case Warehouse:

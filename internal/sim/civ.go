@@ -73,6 +73,19 @@ type Civ struct {
 	Starving bool
 	Crowded  bool
 
+	Tech Tech
+	// Pending is the supplique waiting for the god's answer, if any.
+	Pending        *Supplique
+	NextSupplique  uint32
+	SinceSupplique float64
+	// FarmUrge is the time left during which farms come first, after the
+	// god answered a famine supplique.
+	FarmUrge float64
+	// RoomCooldown is the time before the people ask again for more room
+	// after the god refused.
+	RoomCooldown float64
+	RoomRefusals int
+
 	NextID uint32
 }
 
@@ -84,6 +97,7 @@ func NewCiv(seed uint64) Civ {
 		Stock:      Stock{Wood: 60, Stone: 40, Food: 60, Aether: 10},
 		Population: 6,
 		Pie:        DefaultPie,
+		Tech:       newTech(),
 	}
 	for i, v := range c.Pie {
 		c.Conviction[i] = float64(v) / 100
@@ -145,7 +159,7 @@ func (c *Civ) Cap() float64 {
 			cap += Specs[b.Kind].Storage
 		}
 	}
-	return cap
+	return cap * (1 + c.Tech.Mods().Storage)
 }
 
 // Count returns how many buildings of a kind stand or are being built.
@@ -162,11 +176,17 @@ func (c *Civ) Count(k Kind) int {
 // Defense is the island's strength against attacks: towers, the core and
 // the defenders.
 func (c *Civ) Defense() float64 {
-	d := c.Defenders
+	m := c.Tech.Mods()
+	d := c.Defenders * (1 + m.DefenderStrength)
 	for _, b := range c.Buildings {
-		if b.Done() {
-			d += Specs[b.Kind].Defense
+		if !b.Done() {
+			continue
 		}
+		v := Specs[b.Kind].Defense
+		if b.Kind == Tower {
+			v *= 1 + m.TowerDefense
+		}
+		d += v
 	}
 	return d
 }
@@ -220,15 +240,20 @@ func (c *Civ) chronicle(tick uint64, format string, args ...any) {
 	}
 }
 
-// Step advances the civilisation by dt seconds. Night slows production down
+// Step advances the civilisation by dt seconds. The time of day matters
 // (GDD 3.6); tick dates chronicle entries and seeds decisions.
-func (c *Civ) Step(dt float64, night bool, tick uint64) {
+func (c *Civ) Step(dt float64, phase Phase, tick uint64) {
+	night := phase == Night
 	c.updateConviction(dt)
 	c.updateCulture(dt)
-	c.produce(dt, night)
+	libs := c.produce(dt, night)
 	c.feed(dt, tick)
 	c.build(dt, night, tick)
 	c.train(dt)
+	c.research(dt, night, libs, tick)
+	c.petition(dt, phase == Dawn, tick)
+	c.FarmUrge = max(0, c.FarmUrge-dt)
+	c.RoomCooldown = max(0, c.RoomCooldown-dt)
 	c.SinceDecision += dt
 	if c.SinceDecision >= decisionInterval {
 		c.SinceDecision -= decisionInterval
@@ -271,17 +296,24 @@ func (c *Civ) needs() [NumResources]float64 {
 	return n
 }
 
+// productionFactor is the share of production at this time of day.
+func (c *Civ) productionFactor(night bool) float64 {
+	if !night {
+		return 1
+	}
+	return max(nightProduction, c.Tech.Mods().NightProduction)
+}
+
 // produce assigns workers to producers by need and collects their output.
 // Assignment is recomputed every step: there are no individual workers to
-// manage (GDD 4.4).
-func (c *Civ) produce(dt float64, night bool) {
-	f := 1.0
-	if night {
-		f = nightProduction
-	}
+// manage (GDD 4.4). It returns the knowledge gathered by libraries.
+func (c *Civ) produce(dt float64, night bool) float64 {
+	f := c.productionFactor(night)
+	m := c.Tech.Mods()
 	for r := range c.Stock {
-		c.Stock[r] += coreOutput[r] * f * dt
+		c.Stock[r] += coreOutput[r] * (1 + m.Prod[r]) * f * dt
 	}
+	libs := 0.0
 	needs := c.needs()
 	weight := func(b Building) float64 {
 		if b.Kind == Library {
@@ -315,15 +347,16 @@ func (c *Civ) produce(dt float64, night bool) {
 			out *= farFromFeature
 		}
 		if b.Kind == Library {
-			c.Knowledge += out * (1 + c.Conviction[Study])
+			libs += out
 		} else {
-			c.Stock[s.Produces] += out
+			c.Stock[s.Produces] += out * (1 + m.Prod[s.Produces])
 		}
 	}
 	cap := c.Cap()
 	for r := range c.Stock {
 		c.Stock[r] = math.Min(c.Stock[r], cap) // the surplus is wasted (GDD 4.3)
 	}
+	return libs
 }
 
 func (c *Civ) nearFeature(b Building, kind FeatureKind) bool {
@@ -361,10 +394,7 @@ func (c *Civ) feed(dt float64, tick uint64) {
 
 // build advances the construction in progress, or the expansion.
 func (c *Civ) build(dt float64, night bool, tick uint64) {
-	f := 1.0
-	if night {
-		f = nightProduction
-	}
+	f := c.productionFactor(night) * (1 + c.Tech.Mods().BuildSpeed)
 	for i := range c.Buildings {
 		b := &c.Buildings[i]
 		if b.Done() {

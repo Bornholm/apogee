@@ -95,7 +95,7 @@ func (s *Sky) Step() {
 	for i := range s.Islands {
 		is := &s.Islands[i]
 		is.Angle = math.Mod(is.Angle+AngularSpeed(is.Radius)*dt, 2*math.Pi)
-		is.Civ.Step(dt, phase == Night, s.Tick)
+		is.Civ.Step(dt, phase, s.Tick)
 	}
 }
 
