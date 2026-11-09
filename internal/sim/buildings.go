@@ -62,11 +62,12 @@ var Specs = [NumKinds]Spec{
 	Warehouse: {Name: "un entrepôt", Cost: Stock{Wood: 25, Stone: 15}, BuildTime: 35, Radius: 4.5,
 		Storage: 300, Affinity: [NumIntentions]float64{Prosper: 0.4}},
 	Tower: {Name: "une tour", Cost: Stock{Wood: 10, Stone: 30}, BuildTime: 45, Radius: 3,
-		Defense: 6, Affinity: [NumIntentions]float64{Fortify: 1}},
+		Defense: 4.5, Affinity: [NumIntentions]float64{Fortify: 1}},
 	Barracks: {Name: "une caserne", Cost: Stock{Wood: 30, Stone: 20}, BuildTime: 50, Radius: 5,
 		Affinity: [NumIntentions]float64{Arm: 1}},
 	Library: {Name: "une bibliothèque", Cost: Stock{Wood: 20, Stone: 25, Aether: 5}, BuildTime: 50, Radius: 4.5,
-		Jobs: 2, Output: 0.0015, Affinity: [NumIntentions]float64{Study: 1}},
+		Jobs: 2, Output: 0.0015, Defense: 2, // the scholars' wards
+		Affinity: [NumIntentions]float64{Study: 1}},
 }
 
 // Building stands on an island. Positions are in island units, relative to

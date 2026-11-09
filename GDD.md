@@ -1,7 +1,7 @@
 # 📘 GAME DESIGN DOCUMENT : *APOGÉE*
 
-> **Version** 0.26 · 9 novembre 2026
-> **Statut** : Phase 2 (alpha) en cours
+> **Version** 0.27 · 9 novembre 2026
+> **Statut** : Phase 3 (bêta) en cours
 > **Auteur** : GameForge, avec le concepteur
 > **Cible** : développeur senior solo, Go + Ebitengine
 
@@ -942,7 +942,32 @@ le serveur intégré l'embarque dans le client desktop.
 | **Île vivante, accueil, tutoriel, observation** | ✅ | Voir 13.1 bis et ter, 3.4 |
 | **Reporté** | | Couleur d'équipe par joueur, contour des unités, lumières de nuit (halos), ombres mobiles |
 
-## 15.3 Priorités MVP (MoSCoW)
+## 15.3 Équilibrage automatisé (Phase 3)
+
+Le banc `cmd/apogee-balance` simule des ciels entiers sans rendu, avec une civilisation par stratégie, renaissances comprises, et compare durées de vie et apogées. Le dernier passage compte 14 ciels de 12 jours, soit 390 civilisations tombées :
+
+| Stratégie (gâteau constant) | Vie médiane | Apogée médiane | Lecture |
+|---|---|---|---|
+| Rempart (Se fortifier 70, Prospérer 30) | 4,7 j | 79 | Longévité, apogée modeste |
+| Équilibré (Prospérer 40, Se fortifier 30, Étudier 30) | 3,7 j | 79 | |
+| Prospère (Prospérer 60, Se fortifier 40) | 3,7 j | 75 | |
+| Guerrier (S'armer 50, Prospérer 30, Se fortifier 20) | 3,3 j | 78 | |
+| Érudit (Étudier 60, Prospérer 40) | 3,1 j | 82 | Le plus de paliers (2,6) |
+| Bâtisseur (Prospérer 50, S'étendre 30, Étudier 20) | 2,5 j | 156 | Apogée maximale, mort jeune |
+| Tout prospère (Prospérer 100) | 2,4 j | 75 | Une seule intention ne paie pas |
+| Expansion (S'étendre 50, Prospérer 50) | 2,1 j | 143 | Apogée haute, mort jeune |
+
+**Lecture.** Aucune stratégie ne domine à la fois en durée et en hauteur : en multipliant l'une par l'autre, le rempart et le bâtisseur arrivent en tête avec deux styles opposés. Toutes les civilisations tombent avant la semaine maximale (1.3 bis).
+
+**Réglages issus du banc** 🔧 :
+- Le cœur se réparait de 72 % par heure, ce qui rendait une forteresse quasi immortelle. Il se répare désormais d'environ 9 % par heure.
+- Au-delà d'une semaine, la menace croît quatre fois plus vite, pour que la limite soit tenue.
+- La défense d'une tour passe de 6 à 4,5, et les bibliothèques gagnent une défense de 2 (les protections des savants).
+- La force globale des vagues est réduite (facteur 0,42).
+
+**À revoir.** Avec deux pillards IA par ciel, les résultats sont presque identiques : le PvP pèse peu face au PvE. Le pillage ne prend qu'une part de stocks souvent pleins. À reprendre après des parties entre humains.
+
+## 15.4 Priorités MVP (MoSCoW)
 
 | Priorité | Éléments |
 |---|---|

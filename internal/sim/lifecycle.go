@@ -25,13 +25,13 @@ const (
 	bossMax       = 90 * 60.0
 	bossWarning   = 5 * 60.0
 	bossFactor    = 2.0
-	nightWave     = 1.2        // GDD 3.6
-	ruinThreshold = 0.3        // core health under which the island lies in ruins
-	ruinFactor    = 0.5        // production in ruins
-	coreRepair    = 1.0 / 5000 // core health regained per second
-	repairStone   = 0.05       // stone per second while repairing
-	fallDuration  = 30.0       // seconds the whirlpool takes to swallow an island
-	legendBonus   = 0.15       // culture inherited from the ancestors
+	nightWave     = 1.2         // GDD 3.6
+	ruinThreshold = 0.3         // core health under which the island lies in ruins
+	ruinFactor    = 0.5         // production in ruins
+	coreRepair    = 1.0 / 40000 // core health regained per second (about 9 % an hour)
+	repairStone   = 0.05        // stone per second while repairing
+	fallDuration  = 30.0        // seconds the whirlpool takes to swallow an island
+	legendBonus   = 0.15        // culture inherited from the ancestors
 )
 
 // descentSpeed is chosen so that a powerless island crosses the sky in
@@ -51,6 +51,10 @@ func Exposure(radius float64) float64 {
 	return math.Min(math.Max((RimRadius-radius)/(RimRadius-PortalRadius), 0), 1)
 }
 
+// waveScale tunes the overall strength of the waves (GDD 🔧, set by the
+// balancing bench, cmd/apogee-balance).
+const waveScale = 0.42
+
 // youth is how long waves stay gentle on a newborn civilisation (GDD 11.3).
 const youth = 6 * 3600.0
 
@@ -60,7 +64,7 @@ const youth = 6 * 3600.0
 // age it is bounded and predictable. age is in seconds.
 func WaveStrength(power, radius, age float64, night bool) float64 {
 	e := Exposure(radius)
-	s := (2 + power*0.25) * (0.2 + 2.8*math.Pow(e, 1.5))
+	s := waveScale * (2 + power*0.25) * (0.2 + 2.8*math.Pow(e, 1.5))
 	// A young civilisation meets gentler waves while it finds its feet.
 	s *= math.Min(1, 0.25+0.75*age/youth)
 	// Age makes every wave stronger; past a week, they grow without end, so
@@ -68,7 +72,7 @@ func WaveStrength(power, radius, age float64, night bool) float64 {
 	a := age / Lifetime
 	s *= 1 + 3*a*a
 	if age > Lifetime {
-		s *= 1 + (age-Lifetime)/3600
+		s *= 1 + (age-Lifetime)/900
 	}
 	if night {
 		s *= nightWave
