@@ -42,6 +42,7 @@ type Game struct {
 	clouds []cloud
 
 	islandSprites map[sim.IslandID]sprite // sky view miniatures
+	beacon        sprite                  // marks the player's island
 	home          *ebiten.Image           // the player's island at full size
 
 	level     int     // index in zoomLevels
@@ -88,6 +89,8 @@ func NewGame(src *Source, seed uint64) *Game {
 		dirty:         true,
 	}
 	g.scale = float64(zoomLevels[g.level])
+	b := cam.Render(art.Beacon())
+	g.beacon = sprite{ebiten.NewImageFromImage(b.Img), b.Anchor}
 	for i := range portalFrames {
 		sp := art.PortalFrame(cam, portalPixels, 3, float64(i)/portalFrames)
 		g.portal = append(g.portal, ebiten.NewImageFromImage(sp.Img))
@@ -260,6 +263,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		for _, is := range islands {
 			sp, p := g.miniature(is), g.orbitPixel(is)
 			at(sp.img, float64(p.X-sp.anchor.X), float64(p.Y-sp.anchor.Y))
+			if is.ID == g.src.Me {
+				// Float the beacon above the island's highest point.
+				top := p.Y - sp.anchor.Y - 4
+				at(g.beacon.img, float64(p.X-g.beacon.anchor.X), float64(top-g.beacon.anchor.Y))
+			}
 		}
 	} else if home := g.homeIsland(islands); home != nil {
 		b := home.Bounds()

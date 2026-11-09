@@ -250,3 +250,14 @@ func Island(seed uint64, radius float64) (Mesh, []Vec3) {
 	}
 	return m, top
 }
+
+// Beacon is the floating golden gem that marks the player's own island in the
+// sky view. Gold stands out against the blue sky and the blue teams.
+func Beacon() Mesh {
+	var m Mesh
+	rim := []Vec3{V(3.5, 0, 6), V(0, 3.5, 6), V(-3.5, 0, 6), V(0, -3.5, 6)}
+	fan(&m, Self, rim, V(0, 0, 11))
+	fan(&m, Self, rim, V(0, 0, 0))
+	m.OrientOutward(V(0, 0, 6))
+	return m
+}

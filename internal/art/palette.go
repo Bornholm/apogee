@@ -26,6 +26,7 @@ const (
 	Stone
 	Aether
 	Team
+	Self
 	Cloud
 	materialCount
 )
@@ -52,6 +53,7 @@ var Palette = [materialCount]Ramp{
 	Stone:     {hex(0xcfc9bc), hex(0xa29c90), hex(0x78736b)},
 	Aether:    {hex(0xc2f6ff), hex(0x6ccbf2), hex(0x5d6fd4)},
 	Team:      {hex(0x7fa6f0), hex(0x4a78d6), hex(0x2f4f9e)},
+	Self:      {hex(0xffe48c), hex(0xf2b134), hex(0xbf7a22)},
 	Cloud:     {hex(0xf6f8fa), hex(0xdfe7ef), hex(0xc3cfdd)},
 }
 
