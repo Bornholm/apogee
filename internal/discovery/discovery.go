@@ -88,7 +88,7 @@ func toServer(e *zeroconf.ServiceEntry) (Server, bool) {
 	return Server{Name: unescape(e.Instance), Addr: net.JoinHostPort(ip.String(), fmt.Sprint(e.Port))}, true
 }
 
-// unescape removes the DNS escaping of an instance name ("Ciel\\ bleu").
+// unescape removes the DNS escaping of an instance name (`Ciel\ bleu`).
 func unescape(s string) string {
 	var b strings.Builder
 	for i := 0; i < len(s); i++ {
