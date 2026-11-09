@@ -55,6 +55,9 @@ type Civ struct {
 	Defenders  float64
 	Assailants float64
 	Knowledge  float64
+	// CoreHealth is the heart's vigour, from 1 down to 0, when the island
+	// falls (GDD 3.3).
+	CoreHealth float64
 	Buildings  []Building
 	Features   []Feature
 	Pie        Pie
@@ -96,6 +99,7 @@ func NewCiv(seed uint64) Civ {
 		Size:       startSize,
 		Stock:      Stock{Wood: 60, Stone: 40, Food: 60, Aether: 10},
 		Population: 6,
+		CoreHealth: 1,
 		Pie:        DefaultPie,
 		Tech:       newTech(),
 	}
@@ -298,10 +302,14 @@ func (c *Civ) needs() [NumResources]float64 {
 
 // productionFactor is the share of production at this time of day.
 func (c *Civ) productionFactor(night bool) float64 {
-	if !night {
-		return 1
+	f := 1.0
+	if night {
+		f = max(nightProduction, c.Tech.Mods().NightProduction)
 	}
-	return max(nightProduction, c.Tech.Mods().NightProduction)
+	if c.CoreHealth < ruinThreshold {
+		f *= ruinFactor // the island lies in ruins (GDD 7.5)
+	}
+	return f
 }
 
 // produce assigns workers to producers by need and collects their output.
@@ -439,6 +447,10 @@ func (c *Civ) train(dt float64) {
 	}
 	towers := float64(c.Count(Tower))
 	wantDef := towers + c.Population*0.25*c.Conviction[Fortify]
+	if c.CoreHealth < 0.8 {
+		// A wounded heart: the people take up arms whatever the god says.
+		wantDef += c.Population * 0.15
+	}
 	wantAss := 0.0
 	if c.hasDone(Barracks) {
 		wantAss = c.Population * 0.4 * c.Conviction[Arm]

@@ -49,13 +49,38 @@ type Island struct {
 	Angle  float64
 	// Civ is the civilisation living on the island.
 	Civ Civ
+
+	// Owner is the player key of a human, or "ai/…" for a rival AI.
+	Owner     string
+	OwnerName string
+	// Generation counts the civilisations of this owner (GDD 11.5).
+	Generation int
+	Born       uint64 // tick of the founding
+	PeakPower  float64
+	Declining  bool
+	// Falling is the time left before the whirlpool swallows the island,
+	// once its heart broke; 0 otherwise.
+	Falling float64
+	Cause   string
 }
 
 // Sky is the whole simulated world.
 type Sky struct {
+	Seed    uint64
 	Tick    uint64
 	Islands []Island // ordered by ID: never iterate a map in the simulation
-	nextID  IslandID
+	NextID  IslandID
+
+	// Wave and Boss are the next announced attacks (GDD 8).
+	Wave *Threat
+	Boss *Threat
+	// Annals list the fallen civilisations (GDD 11.5).
+	Annals []Annal
+	// Waiting lists the peoples to be reborn at the next dawn.
+	Waiting []Rebirth
+	// LastPhase is the time of day at the previous tick. A new sky starts
+	// at dawn, so the first dawn does not count as a new one.
+	LastPhase Phase
 }
 
 // Sky geometry, in sky units. New civilisations are born at the rim and
@@ -67,16 +92,54 @@ const (
 	rimPeriod = 6 * time.Hour
 )
 
-// AddIsland creates an island at the rim of the sky and returns its ID.
+// AddIsland creates an island without owner at the rim of the sky and
+// returns its ID.
 func (s *Sky) AddIsland(name string, seed uint64, angle float64) IslandID {
-	s.nextID++
-	s.Islands = append(s.Islands, Island{
-		ID: s.nextID, Name: name, Seed: seed,
-		Radius: RimRadius, Angle: math.Mod(angle, 2*math.Pi),
-		Civ: NewCiv(seed),
-	})
-	return s.nextID
+	return s.Found("", name, seed, angle)
 }
+
+// Found creates an island at the rim for an owner and returns its ID. New
+// civilisations are always born at the rim (GDD 3.1).
+func (s *Sky) Found(owner, ownerName string, seed uint64, angle float64) IslandID {
+	s.NextID++
+	s.Islands = append(s.Islands, Island{
+		ID: s.NextID, Name: islandName(ownerName, seed), Seed: seed,
+		Radius: RimRadius, Angle: math.Mod(angle, 2*math.Pi),
+		Civ:   NewCiv(seed),
+		Owner: owner, OwnerName: ownerName, Generation: 1, Born: s.Tick,
+	})
+	return s.NextID
+}
+
+// islandName names a civilisation after its owner.
+func islandName(owner string, seed uint64) string {
+	if owner == "" {
+		return "Île sans nom"
+	}
+	return owner
+}
+
+// IslandOf returns the living island of an owner.
+func (s *Sky) IslandOf(owner string) (IslandID, bool) {
+	for _, is := range s.Islands {
+		if is.Owner == owner {
+			return is.ID, true
+		}
+	}
+	return 0, false
+}
+
+func (s *Sky) island(id IslandID) *Island {
+	for i := range s.Islands {
+		if s.Islands[i].ID == id {
+			return &s.Islands[i]
+		}
+	}
+	return nil
+}
+
+// Island returns the island with the given ID, or nil.
+func (s *Sky) Island(id IslandID) *Island { return s.island(id) }
 
 // AddIslandAt creates an island at a given distance from the portal, clamped
 // between the portal and the rim. It serves the demo rivals until the real
@@ -95,8 +158,11 @@ func (s *Sky) Step() {
 	for i := range s.Islands {
 		is := &s.Islands[i]
 		is.Angle = math.Mod(is.Angle+AngularSpeed(is.Radius)*dt, 2*math.Pi)
-		is.Civ.Step(dt, phase, s.Tick)
+		if is.Falling == 0 {
+			is.Civ.Step(dt, phase, s.Tick)
+		}
 	}
+	s.lifecycle(dt, phase)
 }
 
 // AngularSpeed is the orbital speed in radians per second at a distance from
