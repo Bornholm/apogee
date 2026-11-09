@@ -51,9 +51,11 @@ type Game struct {
 	// an outer intention towards it (GDD 6.3).
 	selected proto.IslandID
 	// home is the player's island at full size, rendered from the state and
-	// re-rendered only when its signature changes.
-	home    sprite
-	homeSig uint64
+	// re-rendered only when its signature changes: the ground with its
+	// shadows, and each object apart, so that people can walk behind them.
+	home     sprite
+	homeObjs []object
+	homeSig  uint64
 
 	// lastTick is the tick of the last state drawn: a new state means a
 	// redraw, about once a second.
@@ -71,6 +73,12 @@ type Game struct {
 	Notify func(text string)
 	// NotifyKinds are the kinds of entries worth a notification.
 	NotifyKinds map[sim.EntryKind]bool
+	// life animates the people of the island in view; walkerArt holds the
+	// villager and defender sprites.
+	life      life
+	walkerArt [2]sprite
+	animTick  int
+
 	// heard is the tick of the newest chronicle entry already considered.
 	heard  uint64
 	primed bool
@@ -209,6 +217,10 @@ func NewGame(src *Source, seed uint64) *Game {
 	g.scale = float64(zoomLevels[g.level])
 	b := cam.Render(art.Beacon())
 	g.beacon = sprite{ebiten.NewImageFromImage(b.Img), b.Anchor}
+	for i, mat := range []art.Material{art.Roof, art.Team} { // villagers, defenders
+		v := cam.Render(art.Person(seed+uint64(i), mat))
+		g.walkerArt[i] = sprite{ebiten.NewImageFromImage(v.Img), v.Anchor}
+	}
 	sw := cam.Render(art.Swarm(seed))
 	g.swarm = sprite{ebiten.NewImageFromImage(sw.Img), sw.Anchor}
 	for k, mat := range map[sim.Outer]art.Material{sim.Covet: art.Roof, sim.Annihilate: art.Blood} {
@@ -290,8 +302,19 @@ func (g *Game) homeIsland(st *proto.State) (sprite, bool) {
 		if g.home.img != nil {
 			g.home.img.Deallocate()
 		}
-		flat := islandScene(g.cam, sum, st.Own).Flatten(g.cam)
-		g.home = sprite{ebiten.NewImageFromImage(flat.Img), flat.Anchor}
+		for _, o := range g.homeObjs {
+			o.img.Deallocate()
+		}
+		scene := islandScene(g.cam, sum, st.Own)
+		ground := scene.FlattenGround(g.cam)
+		g.home = sprite{ebiten.NewImageFromImage(ground.Img), ground.Anchor}
+		g.homeObjs = g.homeObjs[:0]
+		for _, o := range scene.Sorted() {
+			g.homeObjs = append(g.homeObjs, object{
+				sprite: sprite{ebiten.NewImageFromImage(o.Sprite.Img), o.Sprite.Anchor},
+				x:      o.Pos.X, y: o.Pos.Y,
+			})
+		}
 		g.homeSig = sig
 	}
 	return g.home, true
@@ -399,6 +422,7 @@ func (g *Game) Update() error {
 		}
 	}
 	g.updatePan()
+	g.animate()
 	return nil
 }
 
@@ -619,6 +643,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.registerIslands(islands, k, ox, oy)
 	} else if home, ok := g.homeIsland(g.src.State()); ok {
 		at(home.img, -float64(home.anchor.X), -float64(home.anchor.Y))
+		g.drawWalkers(at)
 	}
 
 	g.drawHUD(screen, g.src.State())
@@ -697,3 +722,67 @@ func (g *Game) registerIslands(islands []proto.IslandSummary, k, ox, oy float64)
 		g.buttons = append(g.buttons, button{r, func() { g.selected = id }})
 	}
 }
+
+// animate moves the people of the island in view, and asks for a redraw
+// about fifteen times a second while they walk (GDD: a living island).
+func (g *Game) animate() {
+	st := g.src.State()
+	if g.level == 0 || st == nil || st.Own == nil {
+		return
+	}
+	g.life.sync(st.You, st.Own)
+	g.life.step(st.Own, 1.0/float64(ebiten.TPS()), st.Phase == "night")
+	g.animTick++
+	if g.animTick%4 == 0 && len(g.life.walkers) > 0 {
+		g.dirty = true
+	}
+}
+
+// object is a tree, a rock or a building of the island in view, drawn apart
+// from the ground so that people can pass behind it.
+type object struct {
+	sprite
+	x, y float64 // island units
+}
+
+// drawWalkers draws the island's objects and its people together, far to
+// near: a villager behind a house is hidden by it.
+func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
+	type item struct {
+		sp     sprite
+		x, y   float64
+		lift   float64 // pixels up, for a busy villager's bob
+		person bool
+	}
+	items := make([]item, 0, len(g.homeObjs)+len(g.life.walkers))
+	for _, o := range g.homeObjs {
+		items = append(items, item{sp: o.sprite, x: o.x, y: o.y})
+	}
+	bob := (g.animTick / 12) % 2
+	for _, w := range g.life.walkers {
+		sp := g.walkerArt[0]
+		if w.guard {
+			sp = g.walkerArt[1]
+		}
+		it := item{sp: sp, x: w.x, y: w.y, person: true}
+		if w.busy() && bob == 1 {
+			it.lift = 1 // hammering, harvesting
+		}
+		items = append(items, it)
+	}
+	// Stable: objects keep their order among themselves; at equal depth a
+	// person stands in front of the object it works at.
+	sort.SliceStable(items, func(i, j int) bool {
+		if items[i].y != items[j].y {
+			return items[i].y < items[j].y
+		}
+		return !items[i].person && items[j].person
+	})
+	for _, it := range items {
+		x, y := g.cam.Project(artV(it.x, it.y))
+		px, py := math.Round(x), math.Round(y)-it.lift
+		at(it.sp.img, px-float64(it.sp.anchor.X), py-float64(it.sp.anchor.Y))
+	}
+}
+
+func artV(x, y float64) art.Vec3 { return art.V(x, y, 0) }

@@ -187,11 +187,17 @@ func CloudPuff(seed uint64) Mesh {
 }
 
 // Villager is a tiny unit of the given team material.
-func Villager(seed uint64) Mesh {
+func Villager(seed uint64) Mesh { return Person(seed, Team) }
+
+// Person is a tiny figure: brown legs, a tunic of the given material and a
+// light head, readable even a few pixels tall.
+func Person(seed uint64, tunic Material) Mesh {
 	r := Rng(seed)
 	var m Mesh
-	h := between(r, 2.2, 2.8)
-	box(&m, Team, -0.5, -0.5, 0, 0.5, 0.5, h)
+	h := between(r, 3.2, 3.8)
+	box(&m, Wood, -0.6, -0.6, 0, 0.6, 0.6, h*0.35)
+	box(&m, tunic, -0.8, -0.7, h*0.35, 0.8, 0.7, h*0.78)
+	box(&m, Plaster, -0.55, -0.55, h*0.78, 0.55, 0.55, h)
 	return m
 }
 

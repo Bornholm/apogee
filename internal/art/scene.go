@@ -24,6 +24,30 @@ type IslandScene struct {
 // It follows GDD 12.3: one shadow layer of uniform opacity, clipped to the
 // island top, then objects sorted by the y of their base.
 func (s IslandScene) Compose(cam Camera, dst *image.RGBA, cx, cy int) {
+	s.ComposeGround(cam, dst, cx, cy)
+	objs := s.Sorted()
+	for _, o := range objs {
+		x, y := screenOf(cam, o.Pos, cx, cy)
+		Blit(dst, o.Sprite.Img, x-o.Sprite.Anchor.X, y-o.Sprite.Anchor.Y)
+	}
+}
+
+// Sorted returns the objects far to near, the order they must be drawn in.
+func (s IslandScene) Sorted() []Placed {
+	objs := append([]Placed(nil), s.Objects...)
+	sort.SliceStable(objs, func(i, j int) bool {
+		if objs[i].Pos.Y != objs[j].Pos.Y {
+			return objs[i].Pos.Y < objs[j].Pos.Y
+		}
+		return objs[i].Pos.X < objs[j].Pos.X
+	})
+	return objs
+}
+
+// ComposeGround draws the island and the shadows of its objects, but not
+// the objects: a client that animates people draws the objects itself,
+// sorted together with them.
+func (s IslandScene) ComposeGround(cam Camera, dst *image.RGBA, cx, cy int) {
 	Blit(dst, s.Island.Img, cx-s.Island.Anchor.X, cy-s.Island.Anchor.Y)
 
 	shadow := image.NewAlpha(dst.Rect)
@@ -47,18 +71,6 @@ func (s IslandScene) Compose(cam Camera, dst *image.RGBA, cx, cy int) {
 				dst.Pix[o+c] = mix(dst.Pix[o+c], v, ShadowAlpha)
 			}
 		}
-	}
-
-	objs := append([]Placed(nil), s.Objects...)
-	sort.SliceStable(objs, func(i, j int) bool {
-		if objs[i].Pos.Y != objs[j].Pos.Y {
-			return objs[i].Pos.Y < objs[j].Pos.Y
-		}
-		return objs[i].Pos.X < objs[j].Pos.X
-	})
-	for _, o := range objs {
-		x, y := screenOf(cam, o.Pos, cx, cy)
-		Blit(dst, o.Sprite.Img, x-o.Sprite.Anchor.X, y-o.Sprite.Anchor.Y)
 	}
 }
 
