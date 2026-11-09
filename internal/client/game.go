@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
 	"apogee/internal/art"
@@ -42,9 +41,23 @@ type Game struct {
 	portal []*ebiten.Image
 	clouds []cloud
 
-	islandSprites map[sim.IslandID]sprite // sky view miniatures
-	beacon        sprite                  // marks the player's island
-	home          *ebiten.Image           // the player's island at full size
+	islandSprites map[miniKey]sprite // sky view miniatures
+	beacon        sprite             // marks the player's island
+	// home is the player's island at full size, rendered from the state and
+	// re-rendered only when its signature changes.
+	home    sprite
+	homeSig uint64
+
+	// lastTick is the tick of the last state drawn: a new state means a
+	// redraw, about once a second.
+	lastTick uint64
+	// buttons are the clickable areas of the last redraw.
+	buttons []button
+	// draft is the pie the player is composing before whispering it.
+	draft    sim.Pie
+	drafting bool
+	// Panels shown on demand: culture and knowledge, the Annals.
+	showCulture, showAnnals bool
 
 	level     int     // index in zoomLevels
 	scale     float64 // displayed scale, animated towards the level
@@ -104,6 +117,19 @@ func (c *cloud) drift(limit float64) bool {
 	return c.pixel() != c.lastDraw
 }
 
+// ShowPanels opens the culture and Annals panels, for screenshots.
+func (g *Game) ShowPanels(culture, annals bool) {
+	g.showCulture, g.showAnnals = culture, annals
+	g.dirty = true
+}
+
+// SetZoom selects a zoom level by index, without animation.
+func (g *Game) SetZoom(level int) {
+	g.level = min(max(level, 0), len(zoomLevels)-1)
+	g.scale = float64(zoomLevels[g.level])
+	g.dirty = true
+}
+
 // NewGame prepares the static art; islands are rendered when they appear.
 func NewGame(src *Source, seed uint64) *Game {
 	cam := art.DefaultCamera
@@ -113,7 +139,7 @@ func NewGame(src *Source, seed uint64) *Game {
 		src:           src,
 		cam:           cam,
 		sky:           ebiten.NewImageFromImage(grad),
-		islandSprites: map[sim.IslandID]sprite{},
+		islandSprites: map[miniKey]sprite{},
 		positions:     map[sim.IslandID]image.Point{},
 		dirty:         true,
 	}
@@ -137,33 +163,51 @@ func NewGame(src *Source, seed uint64) *Game {
 	return g
 }
 
-// islandRadius gives each island a size from its seed, in world units.
-func islandRadius(seed uint64) float64 { return 14 + float64(seed%7) }
+// miniKey identifies a sky view miniature: an island grows when its people
+// push its edges, so the size is part of the key.
+type miniKey struct {
+	id   sim.IslandID
+	size int
+}
+
+// miniScale shrinks islands for the sky view.
+const miniScale = 3.5
 
 func (g *Game) miniature(is proto.IslandSummary) sprite {
-	if sp, ok := g.islandSprites[is.ID]; ok {
+	key := miniKey{is.ID, int(is.Size)}
+	if sp, ok := g.islandSprites[key]; ok {
 		return sp
 	}
-	flat := art.DemoIsland(g.cam, is.Seed, islandRadius(is.Seed)).Flatten(g.cam)
+	flat := art.DemoIsland(g.cam, is.Seed, max(is.Size, 1)/miniScale).Flatten(g.cam)
 	sp := sprite{ebiten.NewImageFromImage(flat.Img), flat.Anchor}
-	g.islandSprites[is.ID] = sp
+	g.islandSprites[key] = sp
 	return sp
 }
 
-func (g *Game) homeIsland(islands []proto.IslandSummary) *ebiten.Image {
-	if g.home != nil {
-		return g.home
+// homeIsland returns the player's island at full size, as the simulation
+// describes it (GDD 3.5), re-rendering it only when something changed.
+func (g *Game) homeIsland(st *proto.State) (sprite, bool) {
+	if st == nil || st.Own == nil {
+		return sprite{}, false
 	}
-	for _, is := range islands {
-		if is.ID == g.src.Me() {
-			const w, h = 320, 240
-			canvas := image.NewRGBA(image.Rect(0, 0, w, h))
-			scene := art.DemoIsland(g.cam, is.Seed, 60)
-			scene.Compose(g.cam, canvas, w/2, h*2/5)
-			g.home = ebiten.NewImageFromImage(canvas)
+	var sum proto.IslandSummary
+	for _, is := range st.Islands {
+		if is.ID == st.You {
+			sum = is
 		}
 	}
-	return g.home
+	if sum.ID == 0 {
+		return sprite{}, false
+	}
+	if sig := signature(sum, st.Own); sig != g.homeSig || g.home.img == nil {
+		if g.home.img != nil {
+			g.home.img.Deallocate()
+		}
+		flat := islandScene(g.cam, sum, st.Own).Flatten(g.cam)
+		g.home = sprite{ebiten.NewImageFromImage(flat.Img), flat.Anchor}
+		g.homeSig = sig
+	}
+	return g.home, true
 }
 
 // Update advances animations at a fixed rate and decides whether a redraw is
@@ -171,6 +215,31 @@ func (g *Game) homeIsland(islands []proto.IslandSummary) *ebiten.Image {
 func (g *Game) Update() error {
 	if err := g.src.Err(); err != nil {
 		return fmt.Errorf("connection to the sky lost: %w", err)
+	}
+	if st := g.src.State(); st != nil && st.Tick != g.lastTick {
+		g.lastTick = st.Tick
+		g.dirty = true
+		if !g.drafting && st.Own != nil {
+			g.draft = st.Own.Pie
+		}
+	}
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+		x, y := ebiten.CursorPosition()
+		for _, b := range g.buttons {
+			if image.Pt(x, y).In(b.r) {
+				b.action()
+				g.dirty = true
+				break
+			}
+		}
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyC) {
+		g.showCulture = !g.showCulture
+		g.dirty = true
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyA) {
+		g.showAnnals = !g.showAnnals
+		g.dirty = true
 	}
 	if _, wy := ebiten.Wheel(); wy != 0 {
 		g.zoomBy(int(math.Copysign(1, wy)))
@@ -281,11 +350,10 @@ func (g *Game) sceneBounds() image.Rectangle {
 		h := int(rimPixels * math.Sin(g.cam.Pitch))
 		return image.Rect(-w, -h-60, w, h+70)
 	}
-	if g.home == nil {
+	if g.home.img == nil {
 		return image.Rectangle{}
 	}
-	b := g.home.Bounds()
-	return image.Rect(-b.Dx()/2, -b.Dy()*2/5, b.Dx()-b.Dx()/2, b.Dy()-b.Dy()*2/5)
+	return g.home.img.Bounds().Sub(g.home.anchor)
 }
 
 // clampPan keeps the scene edges from leaving the screen: on an axis where
@@ -340,10 +408,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		return
 	}
 	g.dirty = false
+	screen.Clear()
 
+	// Nearest-neighbour stretching: linear filtering would blend the one
+	// pixel wide gradient with the transparent void around it, leaving the
+	// sky half transparent over the previous frame.
 	var sky ebiten.DrawImageOptions
 	sky.GeoM.Scale(float64(g.outW), float64(g.outH)/256)
-	sky.Filter = ebiten.FilterLinear
 	screen.DrawImage(g.sky, &sky)
 
 	// Virtual-pixel coordinates are relative to the screen centre; the
@@ -383,15 +454,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 				at(g.beacon.img, float64(p.X-g.beacon.anchor.X), float64(top-g.beacon.anchor.Y))
 			}
 		}
-	} else if home := g.homeIsland(islands); home != nil {
-		b := home.Bounds()
-		at(home, -float64(b.Dx()/2), -float64(b.Dy()*2/5))
+	} else if home, ok := g.homeIsland(g.src.State()); ok {
+		at(home.img, -float64(home.anchor.X), -float64(home.anchor.Y))
 	}
 
-	if g.phase != "" {
-		ebitenutil.DebugPrint(screen, fmt.Sprintf("%s · %s · %d:%02d · %d island(s)",
-			g.src.Sky, g.phase, g.phaseLeft/60, g.phaseLeft%60, len(islands)))
-	}
+	g.drawHUD(screen, g.src.State())
 	if g.OnFrame != nil {
 		g.OnFrame(screen)
 	}

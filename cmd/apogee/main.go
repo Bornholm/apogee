@@ -35,6 +35,10 @@ func main() {
 	fresh := flag.Bool("fresh", false, "start a new embedded sky instead of restoring the saved one")
 	shot := flag.String("shot", "", "save a screenshot to this PNG file after -frames redraws, then quit")
 	frames := flag.Int("frames", 30, "redraws before the screenshot")
+	after := flag.Duration("after", 0, "with -shot, wait at least this long before the screenshot")
+	zoom := flag.Int("zoom", 0, "initial zoom level: 0 is the sky, higher levels show your island")
+	culture := flag.Bool("culture", false, "open the culture and knowledge panel at start")
+	annals := flag.Bool("annals", false, "open the Annals panel at start")
 	cpu := flag.Duration("cpulog", 0, "log the process CPU usage at this interval (e.g. 10s)")
 	quit := flag.Duration("quit", 0, "quit after this duration")
 	width := flag.Int("width", 1280, "initial window width")
@@ -107,13 +111,16 @@ func main() {
 	}
 	defer conn.Close()
 
+	start := time.Now()
 	g := client.NewGame(client.Listen(conn), *seed)
+	g.SetZoom(*zoom)
+	g.ShowPanels(*culture, *annals)
 	var done error
 	if *shot != "" {
 		n := 0
 		g.OnFrame = func(screen *ebiten.Image) {
 			n++
-			if n == *frames {
+			if n >= *frames && time.Since(start) >= *after && done == nil {
 				if err := savePNG(*shot, screen); err != nil {
 					log.Print(err)
 				}
@@ -124,7 +131,6 @@ func main() {
 	if *cpu > 0 {
 		go logCPU(*cpu)
 	}
-	start := time.Now()
 	wrapped := &quitter{Game: g, stop: func() error {
 		if *quit > 0 && time.Since(start) > *quit {
 			return errDone

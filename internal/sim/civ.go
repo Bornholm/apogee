@@ -88,6 +88,8 @@ type Civ struct {
 	// after the god refused.
 	RoomCooldown float64
 	RoomRefusals int
+	// Milestone is the largest population, in tens, the chronicle told.
+	Milestone int
 
 	NextID uint32
 }
@@ -384,10 +386,12 @@ func (c *Civ) feed(dt float64, tick uint64) {
 		c.Stock[Food] -= eat
 		c.Starving = false
 		if c.Stock[Food] > 0.3*c.Cap() && c.Population+1 <= float64(c.Housing()) {
-			before := int(c.Population)
 			c.Population += growthPerSecond * dt
-			if int(c.Population) > before && int(c.Population)%10 == 0 {
-				c.chronicle(tick, "Ton peuple compte désormais %d âmes.", int(c.Population))
+			// Each ten souls is told once: a people swaying around a
+			// milestone does not repeat itself.
+			if n := int(c.Population) / 10 * 10; n > c.Milestone {
+				c.Milestone = n
+				c.chronicle(tick, "Ton peuple compte désormais %d âmes.", n)
 			}
 		}
 		return
