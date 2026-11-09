@@ -50,8 +50,9 @@ func signature(sum proto.IslandSummary, own *proto.Own) uint64 {
 	}
 	w(sum.Seed)
 	w(uint64(sum.Size * 10))
-	w(uint64(own.Population))
-	w(uint64(own.Defenders))
+	// Only what the picture shows: up to 24 villagers and 16 defenders.
+	w(uint64(min(int(own.Population), 24)))
+	w(uint64(min(int(own.Defenders), 16)))
 	for _, b := range own.Buildings {
 		w(uint64(b.ID))
 		w(uint64(b.Kind))

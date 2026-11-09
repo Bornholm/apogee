@@ -32,6 +32,9 @@ func (c *Civ) decide(tick uint64) {
 		}
 	}
 	// A promise made to the god comes first, as soon as it can be kept.
+	if c.ExpandPledge && c.Size >= maxSize {
+		c.ExpandPledge = false // nothing left to push
+	}
 	if c.ExpandPledge && c.Expanding == 0 && c.Stock.Covers(expandCost) {
 		c.ExpandPledge = false
 		c.Stock = c.Stock.Sub(expandCost)

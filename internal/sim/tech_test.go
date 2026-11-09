@@ -135,3 +135,25 @@ func TestRefusingRoomDelaysTheNextAsk(t *testing.T) {
 		t.Errorf("second refusal cooldown %v, first %v: it must grow", c.RoomCooldown, first)
 	}
 }
+
+func TestNoExpansionPledgeBeyondTheMaximum(t *testing.T) {
+	c := NewCiv(4)
+	c.Crowded = true
+	c.SinceSupplique = 3 * suppliqueGap
+	c.Stock[Food] = 80
+	run(&c, 1)
+	if c.Pending == nil || c.Pending.Kind != AskRoom {
+		t.Fatal("no room supplique")
+	}
+	c.Size = maxSize // the island reached its full extent meanwhile
+	c.Answer(c.Pending.ID, 0, 0)
+	if c.ExpandPledge {
+		t.Fatal("a pledge was made for an island that cannot grow")
+	}
+	c.ExpandPledge = true // even a stale pledge must not be paid
+	c.Stock = Stock{Wood: 100, Stone: 100, Food: 100}
+	c.decide(1)
+	if c.Expanding > 0 || c.ExpandPledge {
+		t.Fatal("an expansion was paid for an island at its maximum")
+	}
+}

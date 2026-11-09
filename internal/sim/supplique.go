@@ -107,6 +107,10 @@ func (c *Civ) resolve(option int, byGod bool, tick uint64) {
 		case option == 0 && c.Expanding == 0 && c.Size < maxSize && c.Stock.Covers(expandCost):
 			c.Stock = c.Stock.Sub(expandCost)
 			c.Expanding = 60
+		case option == 0 && c.Size >= maxSize:
+			c.chronicle(tick, "L'île a atteint sa plus grande étendue : elle ne peut plus grandir.")
+		case option == 0 && c.Expanding > 0:
+			c.chronicle(tick, "Ton peuple repousse déjà les bords de l'île.")
 		case option == 0:
 			// Agreed but not affordable yet: the people promise to do it as
 			// soon as they can, and stop asking.
