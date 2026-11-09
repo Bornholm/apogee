@@ -90,6 +90,8 @@ type Civ struct {
 	RoomRefusals int
 	// Milestone is the largest population, in tens, the chronicle told.
 	Milestone int
+	// Outer is the intention turned towards another island (GDD 6.3).
+	Outer OuterIntent
 	// ExpandPledge is set when the god agreed to push the edges before the
 	// people could afford it: they will as soon as they can.
 	ExpandPledge bool

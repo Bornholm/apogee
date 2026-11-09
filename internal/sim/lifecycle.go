@@ -202,7 +202,7 @@ func (s *Sky) attack(is *Island, factor float64, night bool, by string) {
 	c := &is.Civ
 	age := float64(s.Tick-is.Born) * TickDuration.Seconds()
 	strength := WaveStrength(c.Power(), is.Radius, age, night) * factor
-	defense := c.Defense()
+	defense := c.Defense() + s.relief(is.ID) // help from neighbours counts too
 	if c.CoreHealth < ruinThreshold {
 		defense *= ruinFactor
 	}

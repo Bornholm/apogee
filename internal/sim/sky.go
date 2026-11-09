@@ -64,6 +64,13 @@ type Island struct {
 	Cause   string
 	// Profile is the personality of a rival AI god (GDD 9.4).
 	Profile Profile
+	// Aggressor is set once the island raided another: it loses the
+	// protection of newcomers (GDD 11.3).
+	Aggressor bool
+	// ShieldFrom cannot pillage this island again for ShieldLeft seconds
+	// (GDD 7.4).
+	ShieldFrom IslandID
+	ShieldLeft float64
 }
 
 // Sky is the whole simulated world.
@@ -80,6 +87,9 @@ type Sky struct {
 	Annals []Annal
 	// Waiting lists the peoples to be reborn at the next dawn.
 	Waiting []Rebirth
+	// Raids are the groups crossing the sky (GDD 7).
+	Raids    []Raid
+	NextRaid uint32
 	// LastPhase is the time of day at the previous tick. A new sky starts
 	// at dawn, so the first dawn does not count as a new one.
 	LastPhase Phase
@@ -165,6 +175,7 @@ func (s *Sky) Step() {
 		}
 	}
 	s.lifecycle(dt, phase)
+	s.raids(dt)
 	s.rivals()
 }
 
