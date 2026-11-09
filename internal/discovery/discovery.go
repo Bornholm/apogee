@@ -46,11 +46,14 @@ func Browse(ctx context.Context, wait time.Duration) ([]Server, error) {
 	entries := make(chan *zeroconf.ServiceEntry, 16)
 	found := map[string]Server{}
 	done := make(chan struct{})
+	// zeroconf sends entries without watching the context and never closes
+	// the channel: keep reading until Browse has returned, or it may block.
+	browsed := make(chan struct{})
 	go func() {
 		defer close(done)
 		for {
 			select {
-			case <-ctx.Done():
+			case <-browsed:
 				return
 			case e := <-entries:
 				if s, ok := toServer(e); ok {
@@ -60,6 +63,7 @@ func Browse(ctx context.Context, wait time.Duration) ([]Server, error) {
 		}
 	}()
 	err := zeroconf.Browse(ctx, proto.ServiceType, "local.", entries)
+	close(browsed)
 	<-done
 	if err != nil && ctx.Err() == nil {
 		return nil, err

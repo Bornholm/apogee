@@ -79,6 +79,7 @@ func New(cfg Config) *Server {
 type client struct {
 	conn net.Conn
 	out  chan proto.Msg
+	dead bool // dropped for being too slow; guarded by Server.mu
 }
 
 // Run steps the simulation and broadcasts snapshots until ctx is done.
@@ -236,9 +237,13 @@ func (s *Server) broadcast() {
 	}
 	st := s.snapshotLocked()
 	for c := range s.clients {
+		if c.dead {
+			continue // its handler will remove it once its read loop ends
+		}
 		select {
 		case c.out <- proto.Msg{State: st}:
 		default:
+			c.dead = true
 			c.conn.Close()
 		}
 	}

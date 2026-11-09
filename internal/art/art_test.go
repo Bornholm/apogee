@@ -140,3 +140,26 @@ func TestUpscaleTreatsSmallFactorsAsOne(t *testing.T) {
 		}
 	}
 }
+
+func TestFlattenKeepsTheTallestObject(t *testing.T) {
+	cam := DefaultCamera
+	scene := DemoIsland(cam, 11, 16)
+	// A tall object near the back edge rises far above the island sprite.
+	var tower Mesh
+	box(&tower, Stone, -1, -1, 0, 1, 1, 90)
+	scene.Objects = append(scene.Objects, Placed{Sprite: cam.Render(tower), Pos: V(0, -12, 0)})
+	opaque := func(img *image.RGBA) (n int) {
+		for i := 3; i < len(img.Pix); i += 4 {
+			if img.Pix[i] != 0 {
+				n++
+			}
+		}
+		return n
+	}
+	// Reference: the same scene on a canvas with ample room on every side.
+	ref := image.NewRGBA(image.Rect(0, 0, 400, 400))
+	scene.Compose(cam, ref, 200, 250)
+	if got, want := opaque(scene.Flatten(cam).Img), opaque(ref); got != want {
+		t.Fatalf("flattened sprite has %d opaque pixels, want %d: something was cropped", got, want)
+	}
+}

@@ -53,3 +53,12 @@ func TestLeavingTheSkyViewDoesNotAnimate(t *testing.T) {
 		t.Fatalf("anim %d, want %d", g.anim, transitionTicks)
 	}
 }
+
+func TestPortalFrameStaysInRange(t *testing.T) {
+	// Around 2026 the millisecond clock times portalFPS exceeds 32 bits.
+	for _, ms := range []int64{0, 1, 1_789_000_000_000, 1_789_000_123_456, 1 << 50} {
+		if f := portalFrame(ms); f < 0 || f >= portalFrames {
+			t.Fatalf("portalFrame(%d) = %d, out of [0, %d)", ms, f, portalFrames)
+		}
+	}
+}

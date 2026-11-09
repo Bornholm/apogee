@@ -82,6 +82,13 @@ type cloud struct {
 	lastDraw int     // x position at last redraw, to detect pixel moves
 }
 
+// portalFrame returns the portal animation frame at a time in milliseconds.
+// The modulo is taken in 64 bits, so the index stays valid where int is 32
+// bits wide.
+func portalFrame(ms int64) int {
+	return int(ms * portalFPS / 1000 % portalFrames)
+}
+
 // pixel is the virtual-pixel column where the cloud is drawn. The same value
 // decides redraws, so a cloud never moves on screen without a redraw.
 func (c *cloud) pixel() int { return int(math.Floor(c.x)) }
@@ -200,7 +207,7 @@ func (g *Game) Update() error {
 		}
 	}
 	if g.level == 0 {
-		f := int(now.UnixMilli()*portalFPS/1000) % portalFrames
+		f := portalFrame(now.UnixMilli())
 		if f != g.frame {
 			g.frame = f
 			g.dirty = true

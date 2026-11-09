@@ -25,7 +25,9 @@ type Conn struct {
 
 // Dial connects to addr and performs the handshake.
 func Dial(ctx context.Context, addr, name, key string) (*Conn, error) {
-	var d net.Dialer
+	// Bound the TCP connection like the handshake: a wrong address or a stale
+	// mDNS record must not hang for the OS timeout.
+	d := net.Dialer{Timeout: 10 * time.Second}
 	c, err := d.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return nil, err
