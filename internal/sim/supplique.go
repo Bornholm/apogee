@@ -109,8 +109,8 @@ func (c *Civ) resolve(option int, byGod bool, tick uint64) {
 		c.chronicleAs(DiscoveryNews, tick, "Les savants maîtrisent « %s » (%s).", d.Name, d.Text)
 	case AskRoom:
 		switch {
-		case option == 0 && c.Expanding == 0 && c.Size < maxSize && c.Stock.Covers(expandCost):
-			c.Stock = c.Stock.Sub(expandCost)
+		case option == 0 && c.Expanding == 0 && c.Size < maxSize && c.Stock.Covers(c.ExpandCost()):
+			c.Stock = c.Stock.Sub(c.ExpandCost())
 			c.Expanding = expandTime
 		case option == 0 && c.Size >= maxSize:
 			c.chronicle(tick, "L'île a atteint sa plus grande étendue : elle ne peut plus grandir.")

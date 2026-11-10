@@ -230,7 +230,7 @@ func (s *Sky) carryOut(is *Island, dt float64) {
 
 // strike is the strength of an island's assailants.
 func (s *Sky) strike(is *Island) float64 {
-	return is.Civ.Assailants * (1 + is.Civ.Tech.Mods().AssailantStrength)
+	return is.Civ.Assailants * (1 + is.Civ.Mods().AssailantStrength)
 }
 
 func (s *Sky) launch(from, to *Island, kind RaidKind, units float64) {
@@ -307,7 +307,7 @@ func (s *Sky) clash(from, to *Island, r *Raid) {
 		to.Civ.chronicle(s.Tick, "Les renforts de %s veillent sur notre île.", from.Name)
 		return
 	}
-	atk := r.Units * (1 + from.Civ.Tech.Mods().AssailantStrength)
+	atk := r.Units * (1 + from.Civ.Mods().AssailantStrength)
 	def := to.Civ.Defense() + s.relief(to.ID)
 	r.Returning = true
 	to.Civ.LastBattle = Battle{Tick: s.Tick, By: RaiderFoe, Foes: min(max(int(math.Round(r.Units)), 1), 10), Repelled: atk <= def}
@@ -327,7 +327,7 @@ func (s *Sky) clash(from, to *Island, r *Raid) {
 	to.Civ.Defenders = math.Max(0, to.Civ.Defenders-math.Ceil(to.Civ.Defenders*0.5))
 	to.Civ.Deaths += defenders - to.Civ.Defenders
 	if r.Kind == Assault {
-		harm := (atk - def) / atk * 0.5 / (1 + to.Civ.Tech.Mods().CoreArmor)
+		harm := (atk - def) / atk * 0.5 / (1 + to.Civ.Mods().CoreArmor)
 		to.Civ.CoreHealth -= harm
 		if to.Civ.CoreHealth <= 0 {
 			to.Civ.CoreHealth = 0

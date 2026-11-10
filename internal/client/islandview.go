@@ -66,9 +66,16 @@ func signature(sum proto.IslandSummary, own *proto.Own) uint64 {
 // the outline at its real size, the natural sites, the buildings and
 // building sites where the people put them, and the people themselves.
 func islandScene(cam art.Camera, sum proto.IslandSummary, own *proto.Own) art.IslandScene {
-	mesh, _ := art.Island(sum.Seed, sum.Size)
+	mesh, _ := art.IslandStyled(sum.Seed, sum.Size, art.IslandStyle{High: sum.Trait == sim.HighIsle, Lush: sum.Trait == sim.FertileIsle})
 	sc := art.IslandScene{Island: cam.Render(mesh)}
 	art.PaintRivers(cam, sc.Island, geo.Rivers(sum.Seed, sum.Size))
+	var springs []geo.Vec2
+	for _, f := range own.Features {
+		if f.Kind == sim.Spring {
+			springs = append(springs, geo.Vec2{X: f.X, Y: f.Y})
+		}
+	}
+	art.PaintPools(cam, sc.Island, springs, 4)
 	add := func(m art.Mesh, x, y float64) {
 		sc.Objects = append(sc.Objects, art.Placed{Sprite: cam.Render(m), Pos: art.V(x, y, 0)})
 	}

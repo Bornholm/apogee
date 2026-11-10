@@ -91,6 +91,7 @@ const (
 	Grove                 // pines: wood
 	Rock                  // boulders: stone
 	Crystal               // aether crystals
+	Spring                // a hot spring: steam, nothing to work
 )
 
 // Feature is a natural site, generated from the island's seed.

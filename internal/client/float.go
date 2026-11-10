@@ -33,6 +33,7 @@ type scenery struct {
 	front    []geo.Vec2 // the shore seen from the camera, where stones fall
 	exposure float64    // 0 at the rim, 1 at the whirlpool
 	rivers   [][]geo.Vec2
+	springs  []geo.Vec2 // hot springs, steaming
 	r        *rand.Rand
 }
 
@@ -58,7 +59,19 @@ func (s *scenery) keep(sum proto.IslandSummary) {
 	}
 }
 
-// step lets the water and the stones fall.
+// keepSprings follows the hot springs of the island in view.
+func (s *scenery) keepSprings(view *proto.Own) {
+	s.springs = s.springs[:0]
+	for _, f := range view.Features {
+		if f.Kind == sim.Spring {
+			s.springs = append(s.springs, geo.Vec2{X: f.X, Y: f.Y})
+		}
+	}
+}
+
+var steamColours = []color.RGBA{{0xf2, 0xf6, 0xf8, 0xff}, {0xd6, 0xe0, 0xe6, 0xff}}
+
+// step lets the water and the stones fall, and the springs steam.
 func (s *scenery) step(dt float64, dust *particles) {
 	if s.r == nil || len(dust.ps) >= maxParticles*3/4 {
 		return
@@ -89,6 +102,14 @@ func (s *scenery) step(dt float64, dust *particles) {
 		l := math.Max(math.Hypot(dx, dy), 0.01)
 		dust.add(particle{x: a.X + dx*t, y: a.Y + dy*t, z: 0.05, vx: dx / l * 2.5, vy: dy / l * 2.5,
 			life: 0.5 + r.Float64()*0.5, col: waterColours[3]})
+	}
+	for _, c := range s.springs {
+		if r.Float64() < 5*dt {
+			a, d := r.Float64()*2*math.Pi, r.Float64()*3
+			dust.add(particle{x: c.X + d*math.Cos(a), y: c.Y + d*math.Sin(a)*0.8, z: 0.3,
+				vz: 1 + r.Float64()*0.6, sway: 0.5, phase: r.Float64() * 6,
+				life: 2 + r.Float64()*1.5, col: pick(r, steamColours)})
+		}
 	}
 	// Stones come loose under the island: seldom at the rim, often near
 	// the whirlpool.

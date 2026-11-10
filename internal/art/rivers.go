@@ -59,3 +59,32 @@ func waterAt(rivers [][]geo.Vec2, p geo.Vec2) (color.RGBA, bool) {
 	}
 	return waterLit, true
 }
+
+// PaintPools paints round pools of warm water on the top of an island
+// sprite: hot springs, with their pale steaming rim.
+func PaintPools(cam Camera, sp Sprite, centres []geo.Vec2, radius float64) {
+	if len(centres) == 0 || sp.Ground == nil {
+		return
+	}
+	s := math.Sin(cam.Pitch)
+	b := sp.Img.Rect
+	for y := b.Min.Y; y < b.Max.Y; y++ {
+		for x := b.Min.X; x < b.Max.X; x++ {
+			if !image.Pt(x, y).In(sp.Ground.Rect) || sp.Ground.AlphaAt(x, y).A == 0 {
+				continue
+			}
+			p := geo.Vec2{X: float64(x-sp.Anchor.X) + 0.5, Y: (float64(y-sp.Anchor.Y) + 0.5) / s}
+			for _, c := range centres {
+				switch d := p.Dist(c); {
+				case d > radius:
+				case d > radius-0.8:
+					sp.Img.SetRGBA(x, y, hex(0xd8e4e0)) // a mineral rim
+				case d > radius*0.45:
+					sp.Img.SetRGBA(x, y, hex(0x6cc6c8))
+				default:
+					sp.Img.SetRGBA(x, y, hex(0x9fe0dc))
+				}
+			}
+		}
+	}
+}

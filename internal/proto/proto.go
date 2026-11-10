@@ -152,8 +152,10 @@ type IslandSummary struct {
 	// Protected marks a newcomer no one may raid (GDD 11.3).
 	Protected bool `json:"protected,omitempty"`
 	// ProtectedMs is how long the protection lasts yet.
-	ProtectedMs int64   `json:"protectedMs,omitempty"`
-	Power       float64 `json:"power"`
+	ProtectedMs int64 `json:"protectedMs,omitempty"`
+	// Trait is the character of the island (GDD 11.6).
+	Trait sim.Trait `json:"trait,omitempty"`
+	Power float64   `json:"power"`
 }
 
 // RaidView is a group crossing the sky, as everyone sees it.
@@ -174,6 +176,7 @@ func Summarize(sky *sim.Sky, is *sim.Island) IslandSummary {
 		Size: is.Civ.Size, AI: is.IsAI(), Culture: int(is.Civ.Dominant()),
 		Declining: is.Declining, FallingMs: int64(is.Falling * 1000), Heart: is.Civ.CoreHealth,
 		Protected: sky.Protected(is), ProtectedMs: sky.ProtectionLeft(is).Milliseconds(), Power: is.Civ.Power(),
+		Trait: is.Civ.Trait,
 	}
 	if o := is.Civ.Outer; o.Kind == sim.Covet || o.Kind == sim.Annihilate {
 		sum.Banner, sum.BannerTarget = o.Kind, o.Target
@@ -229,8 +232,10 @@ type Own struct {
 	// to feast each day it lasts.
 	Age uint64 `json:"age,omitempty"`
 	// Peak is the highest power the civilization reached: its apogee.
-	Peak   float64 `json:"peak,omitempty"`
-	Deaths float64 `json:"deaths,omitempty"`
+	Peak float64 `json:"peak,omitempty"`
+	// Descent is how fast the island sinks, in sky units per second.
+	Descent float64 `json:"descent,omitempty"`
+	Deaths  float64 `json:"deaths,omitempty"`
 	// Outer is the intention the god turned towards another island.
 	Outer       sim.Outer `json:"outer,omitempty"`
 	OuterTarget IslandID  `json:"outerTarget,omitempty"`
@@ -279,6 +284,7 @@ func Detail(sky *sim.Sky, is *sim.Island) *Own {
 		o.Age = sky.Tick - is.Born
 	}
 	o.Peak = is.PeakPower
+	o.Descent = is.Civ.DescentSpeed()
 	for f := range sim.NumFamilies {
 		o.Tiers[f] = c.Tech.Tier(f)
 		for k, ch := range c.Tech.Chosen[f] {

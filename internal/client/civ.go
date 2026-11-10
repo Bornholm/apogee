@@ -120,9 +120,16 @@ func (g *Game) civLines(p painter, st *proto.State, o *proto.Own, x0, w int) []b
 	case o.Starving:
 		state, stateC = "Famine", alertColor
 	}
-	lines = append(lines, bookLine{2*p.line() + gap, func(y int) {
+	var trait []string
+	if t := sum.Trait; t.Name() != "" {
+		trait = p.wrap(t.Name()+" : "+t.Text(), w)
+	}
+	lines = append(lines, bookLine{(2+len(trait))*p.line() + gap, func(y int) {
 		p.styled(generation(o.Generation), x0, y, textColor, bold)
 		p.text("Vit depuis "+span(age)+" · vénère "+familyArticle(sim.Family(worship)), x0, y+p.line(), dimColor)
+		for i, l := range trait {
+			p.text(l, x0, y+(2+i)*p.line(), aetherColor)
+		}
 		bw := p.widthOf(state, small) + p.px(12)
 		badge := image.Rect(x0+w-bw, y+p.px(4), x0+w, y+p.px(4)+p.lineOf(small)+p.px(4))
 		p.fill(badge, stateC)
@@ -132,7 +139,10 @@ func (g *Game) civLines(p painter, st *proto.State, o *proto.Own, x0, w int) []b
 	// The way down to the whirlpool.
 	exposure := sim.Exposure(sum.Radius)
 	threshold := sim.Exposure(sim.DeclineRadius)
-	speed := sim.DescentSpeed(o.Power)
+	speed := o.Descent
+	if speed <= 0 { // an older sky does not tell
+		speed = sim.DescentSpeed(o.Power)
+	}
 	var forecast string
 	switch {
 	case sum.FallingMs > 0:

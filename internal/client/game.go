@@ -1279,8 +1279,9 @@ func (g *Game) animate() {
 	if sum, _, ok := g.viewed(st); ok {
 		g.dust.rainOver(sum.Size, g.wx.rain, g.wx.wind, dt)
 	}
-	if sum, _, ok := g.viewed(st); ok {
+	if sum, view, ok := g.viewed(st); ok {
 		g.scenery.keep(sum)
+		g.scenery.keepSprings(view)
 		g.scenery.step(dt, &g.dust)
 	}
 	// The birds flee the night, a wave on its way and a battle.

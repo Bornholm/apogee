@@ -131,7 +131,7 @@ func (s *Sky) lifecycle(dt float64, phase Phase) {
 		}
 		c := &is.Civ
 		is.PeakPower = math.Max(is.PeakPower, c.Power())
-		is.Radius = math.Max(PortalRadius, is.Radius-DescentSpeed(c.Power())*dt)
+		is.Radius = math.Max(PortalRadius, is.Radius-c.DescentSpeed()*dt)
 		if is.Radius < DeclineRadius && !is.Declining {
 			is.Declining = true
 			c.chronicleAs(DeclineNews, s.Tick, "Les anciens disent que le tourbillon nous appelle : notre déclin a commencé.")
@@ -222,7 +222,7 @@ func (s *Sky) attack(is *Island, factor float64, night bool, by string, foe Foe)
 		foes = min(max(3+int(strength/4), 3), 10)
 	}
 	c.LastBattle = Battle{Tick: s.Tick, By: foe, Foes: foes, Repelled: defense >= strength}
-	m := c.Tech.Mods()
+	m := c.Mods()
 	// Defenders fall in proportion to the strength they faced.
 	lost := math.Min(c.Defenders, strength*0.03/(1+m.DefenderStrength))
 	c.Defenders -= lost

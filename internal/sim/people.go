@@ -35,17 +35,17 @@ func (c *Civ) decide(tick uint64) {
 	if c.ExpandPledge && c.Size >= maxSize {
 		c.ExpandPledge = false // nothing left to push
 	}
-	if c.ExpandPledge && c.Expanding == 0 && c.Stock.Covers(expandCost) {
+	if c.ExpandPledge && c.Expanding == 0 && c.Stock.Covers(c.ExpandCost()) {
 		c.ExpandPledge = false
-		c.Stock = c.Stock.Sub(expandCost)
+		c.Stock = c.Stock.Sub(c.ExpandCost())
 		c.Expanding = expandTime
 		c.chronicle(tick, "Comme son dieu l'a voulu, ton peuple repousse les bords de l'île.")
 		return
 	}
 	// An expansion the people cannot afford yet does not stop them from
 	// building what they can.
-	if s := c.expandScore(); s > bestScore && c.Expanding == 0 && c.Stock.Covers(expandCost) {
-		c.Stock = c.Stock.Sub(expandCost)
+	if s := c.expandScore(); s > bestScore && c.Expanding == 0 && c.Stock.Covers(c.ExpandCost()) {
+		c.Stock = c.Stock.Sub(c.ExpandCost())
 		c.Expanding = expandTime
 		c.chronicle(tick, "%s, ton peuple repousse les bords de l'île.", Expand.motive())
 		return

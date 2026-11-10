@@ -232,6 +232,17 @@ func Dog(seed uint64) Mesh {
 // irregular outline, a band of faceted earth cliffs and a rocky cone beneath.
 // It returns the mesh and the outline of its top, in world coordinates.
 func Island(seed uint64, radius float64) (Mesh, []Vec3) {
+	return IslandStyled(seed, radius, IslandStyle{})
+}
+
+// IslandStyle varies an island with the trait of its land (GDD 11.6).
+type IslandStyle struct {
+	High bool // taller cliffs
+	Lush bool // greener grass
+}
+
+// IslandStyled is an island in a style.
+func IslandStyled(seed uint64, radius float64, style IslandStyle) (Mesh, []Vec3) {
 	// The outline is shared with the simulation, which places buildings
 	// inside it (internal/geo); the rest of the shape is decorative.
 	outline := geo.Outline(seed)
@@ -243,9 +254,16 @@ func Island(seed uint64, radius float64) (Mesh, []Vec3) {
 	r := Rng(seed)
 
 	var m Mesh
-	m.Add(Grass, top...)
+	grass := Grass
+	if style.Lush {
+		grass = Lush
+	}
+	m.Add(grass, top...)
 
 	cliff := radius * 0.28
+	if style.High {
+		cliff *= 1.6
+	}
 	lip := make([]Vec3, n)
 	for i, p := range top {
 		k := between(r, 0.94, 0.99)

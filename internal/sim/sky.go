@@ -120,6 +120,10 @@ func (s *Sky) Found(owner, ownerName string, seed uint64, angle float64) IslandI
 		Civ:   NewCiv(seed),
 		Owner: owner, OwnerName: ownerName, Generation: 1, Born: s.Tick,
 	})
+	c := &s.Islands[len(s.Islands)-1].Civ
+	if t := c.Trait; t != NoTrait {
+		c.chronicle(s.Tick, "Ton peuple découvre son île : %s. %s", lower(t.Name()), t.Text())
+	}
 	return s.NextID
 }
 

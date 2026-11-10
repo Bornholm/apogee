@@ -1,6 +1,6 @@
 # 📘 GAME DESIGN DOCUMENT : *APOGÉE*
 
-> **Version** 0.29 · 10 novembre 2026
+> **Version** 0.30 · 10 novembre 2026
 > **Statut** : Phase 3 (bêta) en cours
 > **Auteur** : GameForge, avec le concepteur
 > **Cible** : développeur senior solo, Go + Ebitengine
@@ -684,6 +684,52 @@ Le jeu **ne cherche pas** la rétention par pression (pas de séries, pas de not
 | **Annales du ciel** | Chaque civilisation y laisse une entrée, visible de tout le ciel : nom, joueur, durée, apogée (palier le plus haut, population), culture, cause de la chute (*« aspirée par le tourbillon sous les coups de l'île Rouge »*) |
 
 Les Annales donnent sa mesure au talent du joueur : il ne gagne pas, il marque l'histoire du ciel par la durée et la hauteur de ses civilisations. Entre collègues, elles nourrissent la dimension sociale (*« la mienne a tenu six jours »*).
+
+## 11.6 Une vie différente à chaque fois
+
+> **Chaque civilisation doit se jouer autrement que la précédente**, sans accélérer le rythme. Trois mécaniques s'y emploient : l'île sur laquelle elle naît, les monstres que le tourbillon lui envoie, et ce que la précédente lui a laissé. Toutes passent par les mêmes **modificateurs** que les découvertes (production, construction, défense, armure du cœur…), et toutes se voient dans le monde.
+
+### Îles de caractère 🔧
+
+Chaque île tire de sa graine **un trait**, connu de tout le ciel. Le peuple le découvre à l'aube de sa naissance (chronique) ; il s'affiche dans l'onglet Civilisation et sur la carte d'une île visée.
+
+| Trait | Effet | Ce qu'on voit |
+|---|---|---|
+| **Île de cristal** | Aether +40 %, bois −20 % ; cinq gisements de cristal au lieu de deux | Cristaux affleurant partout |
+| **Île forestière** | Bois +30 %, construction +15 % plus rapide ; le cœur encaisse 15 % de plus | Bosquets denses et nombreux |
+| **Île de roc** | Pierre +30 %, tours +15 % ; vivres −15 % | Rochers en nombre |
+| **Source chaude** | Naissances +50 %, mais famine 50 % plus meurtrière | Une mare fumante au milieu de l'île |
+| **Île haute** | Descend 20 % moins vite vers le tourbillon ; s'étendre coûte 50 % de plus | Falaises plus hautes |
+| **Terres fertiles** | Vivres +35 % ; défense −10 % (un peuple paisible) | Prairies plus vertes |
+
+### Bestiaire 🔧
+
+Les vagues ordinaires ne se ressemblent plus. Chaque vague tire une **espèce**, **annoncée avec la vague** (bandeau, onglet Civilisation) : le dieu a le temps d'adapter ses souffles.
+
+| Espèce | Règle | Ce qui la contre |
+|---|---|---|
+| **Monstres** | La vague classique | Tout |
+| **Essaim** | Nombreux et rapides : les tours comptent moitié, les défenseurs un tiers de plus | S'armer, Se fortifier par les gardes |
+| **Dévoreurs** | S'ils ne sont pas repoussés, ils frappent moins le cœur (moitié) mais dévorent les champs : vivres −60 % | Des vivres en réserve, des tours |
+| **Brise-tours** | S'ils ne sont pas repoussés, ils abattent une tour en plus du coup au cœur | Des défenseurs |
+| **Ombres** | Ne viennent que la nuit ; les gardes des bibliothèques comptent triple | Étudier |
+
+Le combat les montre : l'essaim nombreux et petit, les dévoreurs qui se posent sur les champs, les brise-tours sur les tours, les ombres sombres et lentes.
+
+### Reliques 🔧
+
+À la chute, les survivants ne sauvent **qu'un trésor**. Une supplique de renaissance propose **trois reliques** tirées des exploits de la civilisation tombée ; sans réponse, le peuple choisit seul. La relique agit **une génération seulement** et se dresse en stèle lumineuse près du nouveau cœur.
+
+| Relique | Tirée de… | Effet |
+|---|---|---|
+| **Couronne de l'apogée** | Une apogée élevée | Réserves de départ doublées |
+| **Codex** (de la famille la plus avancée) | Ses paliers | Savoir +20 % |
+| **Bouclier du cœur** | Les vagues repoussées | Armure du cœur +20 % |
+| **Semences anciennes** | Les fermes | Vivres +20 % |
+| **Bannière des conquérants** | Les raids gagnés | Guerriers +20 % |
+| **Pierre des bâtisseurs** | Les bâtiments | Construction +20 % plus rapide |
+
+> 📌 **Décision.** Les reliques font une exception mesurée à la règle « aucun bonus de puissance » de la Légende : chacune oriente la vie suivante dans **un seul domaine**, à hauteur de 20 % environ, et ne dure qu'une génération. Le rattrapage des nouveaux venus (11.3) compense l'écart.
 
 ---
 

@@ -31,6 +31,7 @@ const (
 	Monster
 	Blood
 	Cloud
+	Lush // the grass of fertile lands
 	materialCount
 )
 
@@ -61,6 +62,7 @@ var Palette = [materialCount]Ramp{
 	Monster:   {hex(0xf08cff), hex(0xa83fd0), hex(0x4a1468)},
 	Blood:     {hex(0xf0675a), hex(0xbf3b36), hex(0x7f2228)},
 	Cloud:     {hex(0xf6f8fa), hex(0xdfe7ef), hex(0xc3cfdd)},
+	Lush:      {hex(0x6fb84e), hex(0x55993e), hex(0x3f7a33)},
 }
 
 // ShadowTint is the colour of cast shadows: tinted blue-violet, never black.

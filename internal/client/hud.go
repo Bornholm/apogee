@@ -510,7 +510,7 @@ func (g *Game) drawTarget(p painter, st *proto.State, o *proto.Own) (image.Recta
 	p.frame(g.targetAt.Inset(-p.px(4)), 2, goldColor)
 	w := p.px(250)
 	bh := p.px(28)
-	h := p.px(20) + 3*p.line() + p.px(10) + 3*(bh+p.px(4)) - p.px(4)
+	h := p.px(20) + 4*p.line() + p.px(10) + 3*(bh+p.px(4)) - p.px(4)
 	x := g.targetAt.Max.X + p.px(12)
 	if x+w > g.outW-p.px(hudMargin) {
 		x = g.targetAt.Min.X - p.px(12) - w // no room on the right
@@ -528,6 +528,12 @@ func (g *Game) drawTarget(p painter, st *proto.State, o *proto.Own) (image.Recta
 	ty := in.Min.Y + p.line()
 	culture := min(max(target.Culture, 0), int(sim.NumFamilies)-1)
 	p.text("Vénère "+familyArticle(sim.Family(culture)), in.Min.X, ty, familyColor[culture])
+	ty += p.line()
+	land := target.Trait.Name()
+	if land == "" {
+		land = "Une île sans caractère"
+	}
+	p.text(land, in.Min.X, ty, dimColor)
 	ty += p.line()
 	switch {
 	case target.Banner != 0 && target.BannerTarget == st.You && target.Banner != sim.Rescue:

@@ -153,12 +153,15 @@ type Civ struct {
 	ExpandPledge bool
 
 	NextID uint32
+	// Trait is the character of the island (traits.go).
+	Trait Trait `json:",omitempty"`
 }
 
 // NewCiv founds a civilisation on a fresh island.
 func NewCiv(seed uint64) Civ {
 	c := Civ{
 		Seed:       seed,
+		Trait:      TraitOf(seed),
 		Size:       startSize,
 		Stock:      Stock{Wood: 60, Stone: 40, Food: 60, Aether: 10},
 		Population: 6,
@@ -171,7 +174,7 @@ func NewCiv(seed uint64) Civ {
 	}
 	c.updateCulture(0)
 	c.Culture = c.familyConviction()
-	c.Features = features(seed)
+	c.Features = features(seed, c.Trait)
 	c.NextID = 1
 	c.Buildings = []Building{{ID: c.NextID, Kind: Core, Progress: 1}}
 	c.NextID++
@@ -179,7 +182,7 @@ func NewCiv(seed uint64) Civ {
 }
 
 // features scatters the natural sites of an island from its seed.
-func features(seed uint64) []Feature {
+func features(seed uint64, t Trait) []Feature {
 	r := rand.New(rand.NewPCG(seed, 0x2545f4914f6cdd1d))
 	outline := geo.Outline(seed)
 	rivers := geo.Rivers(seed, startSize)
@@ -202,9 +205,13 @@ func features(seed uint64) []Feature {
 			}
 		}
 	}
-	add(Grove, 3, 7, 0.55, 0.75)
-	add(Rock, 3, 3, 0.35, 0.8)
-	add(Crystal, 2, 2.5, 0.5, 0.8)
+	groves, rocks, crystals := t.featureCounts()
+	if t == HotSpring {
+		add(Spring, 1, 4, 0.3, 0.45) // the steaming pool, first: it has room
+	}
+	add(Grove, groves, 7, 0.55, 0.75)
+	add(Rock, rocks, 3, 0.35, 0.8)
+	add(Crystal, crystals, 2.5, 0.5, 0.8)
 	return fs
 }
 
@@ -227,7 +234,7 @@ func (c *Civ) Cap() float64 {
 			cap += Specs[b.Kind].Storage
 		}
 	}
-	return cap * (1 + c.Tech.Mods().Storage)
+	return cap * (1 + c.Mods().Storage)
 }
 
 // Count returns how many buildings of a kind stand or are being built.
@@ -244,7 +251,7 @@ func (c *Civ) Count(k Kind) int {
 // Defense is the island's strength against attacks: towers, the core and
 // the defenders.
 func (c *Civ) Defense() float64 {
-	m := c.Tech.Mods()
+	m := c.Mods()
 	d := c.Defenders * (1 + m.DefenderStrength)
 	for _, b := range c.Buildings {
 		if !b.Done() {
@@ -256,7 +263,7 @@ func (c *Civ) Defense() float64 {
 		}
 		d += v
 	}
-	return d
+	return d * (1 + m.Defense)
 }
 
 // SetPie changes what the god whispers. The conviction of the people follows
@@ -373,7 +380,7 @@ func (c *Civ) needs() [NumResources]float64 {
 func (c *Civ) productionFactor(night bool) float64 {
 	f := 1.0
 	if night {
-		f = max(nightProduction, c.Tech.Mods().NightProduction)
+		f = max(nightProduction, c.Mods().NightProduction)
 	}
 	if c.CoreHealth < ruinThreshold {
 		f *= ruinFactor // the island lies in ruins (GDD 7.5)
@@ -386,7 +393,7 @@ func (c *Civ) productionFactor(night bool) float64 {
 // manage (GDD 4.4). It returns the knowledge gathered by libraries.
 func (c *Civ) produce(dt float64, night bool) float64 {
 	f := c.productionFactor(night)
-	m := c.Tech.Mods()
+	m := c.Mods()
 	for r := range c.Stock {
 		c.Stock[r] += coreOutput[r] * (1 + m.Prod[r]) * f * dt
 	}
@@ -453,8 +460,9 @@ func (c *Civ) feed(dt float64, tick uint64) {
 		c.Stock[Food] -= eat
 		c.Starving = false
 		if c.Stock[Food] > 0.3*c.Cap() && c.Population+1 <= float64(c.Housing()) {
-			c.Population += growthPerSecond * dt
-			c.Births += growthPerSecond * dt
+			born := growthPerSecond * (1 + c.Mods().Growth) * dt
+			c.Population += born
+			c.Births += born
 			// Each ten souls is told once: a people swaying around a
 			// milestone does not repeat itself.
 			if n := int(c.Population) / 10 * 10; n > c.Milestone {
@@ -466,7 +474,7 @@ func (c *Civ) feed(dt float64, tick uint64) {
 	}
 	c.Stock[Food] = 0
 	before := c.Population
-	c.Population = math.Max(1, c.Population-famineLoss*c.Population*dt)
+	c.Population = math.Max(1, c.Population-famineLoss*(1+c.Mods().Famine)*c.Population*dt)
 	c.Deaths += before - c.Population
 	if !c.Starving {
 		c.Starving = true
@@ -476,7 +484,7 @@ func (c *Civ) feed(dt float64, tick uint64) {
 
 // build advances the construction in progress, or the expansion.
 func (c *Civ) build(dt float64, night bool, tick uint64) {
-	f := c.productionFactor(night) * (1 + c.Tech.Mods().BuildSpeed)
+	f := c.productionFactor(night) * (1 + c.Mods().BuildSpeed)
 	for i := range c.Buildings {
 		b := &c.Buildings[i]
 		if b.Done() {

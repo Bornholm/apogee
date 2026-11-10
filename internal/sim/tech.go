@@ -32,6 +32,12 @@ type Mods struct {
 	AssailantStrength float64
 	CoreArmor         float64
 	NightProduction   float64 // replaces the night factor when higher
+	// The traits of islands (traits.go) and the relics add these.
+	Growth     float64 // extra share of births
+	Famine     float64 // extra share of the people lost to famine
+	Descent    float64 // share added to the speed of descent
+	ExpandCost float64 // share added to the cost of growing the island
+	Defense    float64 // share added to the whole defense
 }
 
 func (m Mods) add(o Mods) Mods {
@@ -46,6 +52,11 @@ func (m Mods) add(o Mods) Mods {
 	m.AssailantStrength += o.AssailantStrength
 	m.CoreArmor += o.CoreArmor
 	m.NightProduction = max(m.NightProduction, o.NightProduction)
+	m.Growth += o.Growth
+	m.Famine += o.Famine
+	m.Descent += o.Descent
+	m.ExpandCost += o.ExpandCost
+	m.Defense += o.Defense
 	return m
 }
 
@@ -187,7 +198,7 @@ func (c *Civ) Cost(k Kind) Stock {
 // research turns aether and curiosity into knowledge, and knowledge into
 // tiers of the axis the culture favours.
 func (c *Civ) research(dt float64, night bool, libs float64, tick uint64) {
-	m := c.Tech.Mods()
+	m := c.Mods()
 	gain := baseKnowledge
 	// Study burns aether into knowledge (GDD 5.3).
 	// Only the aether above a reserve is burnt: the scholars leave enough to
