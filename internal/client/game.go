@@ -114,7 +114,9 @@ type Game struct {
 	// homeChimneys smoke over the island in view; birds wheel above it.
 	homeChimneys []art.Vec3
 	birds        birds
-	animTick     int
+	// scenery floats the island in view (float.go).
+	scenery  scenery
+	animTick int
 	// atTinted draws an image in world coordinates with a colour, during a
 	// redraw.
 	atTinted func(img *ebiten.Image, x, y float64, c color.RGBA)
@@ -896,6 +898,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawRaids(at, islands)
 		g.registerIslands(islands, k, ox, oy)
 	} else if home, ok := g.homeIsland(g.src.State()); ok {
+		// The island rises and sinks gently as it floats.
+		oy -= bob(float64(g.animTick)/60, uint64(g.scenery.id)) * k
 		if f := g.signs.state.falling; g.viewing == 0 && f > 0 {
 			// The island falls into the whirlpool: it shakes, sinks and
 			// fades into the sky.
@@ -1076,6 +1080,10 @@ func (g *Game) animate() {
 		}
 	}
 	g.dust.smoke(g.homeChimneys, dt)
+	if sum, _, ok := g.viewed(st); ok {
+		g.scenery.keep(sum)
+		g.scenery.step(dt, &g.dust)
+	}
 	// The birds flee the night, a wave on its way and a battle.
 	threat := g.viewing == 0 && (g.battle.active() || (g.signs.state.waveIn >= 0 && g.signs.state.waveIn < 45))
 	g.birds.step(dt, threat || g.dark() > 0.6)
