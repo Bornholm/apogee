@@ -31,11 +31,31 @@ builds:
     flags: [-trimpath]
     ldflags: ["-s -w -X main.version={{ .Version }}"]
 
+# One archive per program, for the systems without a package: the game
+# with its desktop entry and icons, the server with its systemd unit.
 archives:
-  - formats: [tar.gz]
-    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+  - id: apogee
+    ids: [apogee]
+    formats: [tar.gz]
+    name_template: "apogee_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
-      - packaging/*
+      - src: packaging/apogee.desktop
+        strip_parent: true
+      - src: packaging/icons/*
+        dst: icons
+      - src: packaging/INSTALL.md
+        strip_parent: true
+  - id: apogee-server
+    ids: [apogee-server]
+    formats: [tar.gz]
+    name_template: "apogee-server_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - src: packaging/apogee-server.service
+        strip_parent: true
+      - src: packaging/server.env
+        strip_parent: true
+      - src: packaging/INSTALL.md
+        strip_parent: true
 
 checksum:
   name_template: checksums.txt
@@ -44,6 +64,8 @@ nfpms:
   - id: apogee
     package_name: apogee
     ids: [apogee]
+    # Arch's own naming: apogee-0.2.0-1-x86_64.pkg.tar.zst.
+    file_name_template: "{{ .ConventionalFileName }}"
     formats: [archlinux]
     homepage: https://github.com/Bornholm/apogee
     maintainer: Bornholm
@@ -66,7 +88,11 @@ nfpms:
     contents:
       - src: packaging/apogee.desktop
         dst: /usr/share/applications/apogee.desktop
-      - src: packaging/apogee.png
+      - src: packaging/icons/64.png
+        dst: /usr/share/icons/hicolor/64x64/apps/apogee.png
+      - src: packaging/icons/128.png
+        dst: /usr/share/icons/hicolor/128x128/apps/apogee.png
+      - src: packaging/icons/256.png
         dst: /usr/share/icons/hicolor/256x256/apps/apogee.png
     archlinux:
       packager: Bornholm
@@ -74,6 +100,7 @@ nfpms:
   - id: apogee-server
     package_name: apogee-server
     ids: [apogee-server]
+    file_name_template: "{{ .ConventionalFileName }}"
     formats: [archlinux]
     homepage: https://github.com/Bornholm/apogee
     maintainer: Bornholm
