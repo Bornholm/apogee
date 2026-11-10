@@ -2,6 +2,7 @@ package sim
 
 import (
 	"fmt"
+	"math"
 	"sort"
 )
 
@@ -35,7 +36,7 @@ func (r Relic) Text() string {
 	if r <= NoRelic || r >= NumRelics {
 		return ""
 	}
-	return [...]string{"", "réserves de départ doublées", "savoir +20 %", "le cœur encaisse 20 % de moins",
+	return [...]string{"", "une seconde dotation de départ en réserves", "savoir +20 %", "le cœur encaisse 20 % de moins",
 		"vivres +20 %", "guerriers +20 %", "construction 20 % plus rapide"}[r]
 }
 
@@ -57,8 +58,9 @@ func (r Relic) Mods() Mods {
 	return m
 }
 
-// relicsOf draws the three relics a fallen civilisation may leave: those
-// its deeds earned most.
+// relicsOf draws the relics a fallen civilisation may leave: those its
+// deeds earned, the three greatest at most, none for a people that did
+// nothing.
 func relicsOf(c *Civ, peak float64) []Relic {
 	farms := 0
 	for _, b := range c.Buildings {
@@ -74,9 +76,15 @@ func relicsOf(c *Civ, peak float64) []Relic {
 		WarBanner:    float64(c.Conquests),
 		BuilderStone: float64(len(c.Buildings)) / 8,
 	}
-	all := []Relic{Crown, Codex, Shield, Seeds, WarBanner, BuilderStone}
-	sort.SliceStable(all, func(i, j int) bool { return score[all[i]] > score[all[j]] })
-	return all[:3]
+	// Only what the deeds earned, the three greatest at most.
+	var earned []Relic
+	for _, r := range []Relic{Crown, Codex, Shield, Seeds, WarBanner, BuilderStone} {
+		if score[r] > 0 {
+			earned = append(earned, r)
+		}
+	}
+	sort.SliceStable(earned, func(i, j int) bool { return score[earned[i]] > score[earned[j]] })
+	return earned[:min(len(earned), 3)]
 }
 
 // offerRelics asks the newborn people which relic the survivors saved.
@@ -96,8 +104,11 @@ func (c *Civ) offerRelics(relics []Relic, tick uint64) {
 func (c *Civ) keepRelic(r Relic, tick uint64) {
 	c.Relic = r
 	if r == Crown {
+		// A second endowment of the start, whenever the god answers: what
+		// the cap cannot hold is lost.
+		cap := c.Cap()
 		for i := range c.Stock {
-			c.Stock[i] *= 2
+			c.Stock[i] = math.Min(c.Stock[i]+startStock[i], cap)
 		}
 	}
 	c.chronicle(tick, "Le peuple dresse près du cœur la stèle de son trésor : %s.", lower(r.Name()))

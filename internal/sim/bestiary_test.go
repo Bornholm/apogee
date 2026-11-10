@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"math"
 	"math/rand/v2"
 	"testing"
 	"time"
@@ -19,7 +20,7 @@ func fortress() Civ {
 func TestEachSpeciesMeetsADifferentDefense(t *testing.T) {
 	c := fortress()
 	base := c.defenseAgainst(Monsters)
-	if d := c.defenseAgainst(Monsters); d != c.Defense() {
+	if d := c.defenseAgainst(Monsters); math.Abs(d-c.Defense()) > 1e-9 {
 		t.Fatalf("the classic wave meets %v, not the defense %v", d, c.Defense())
 	}
 	if c.defenseAgainst(Swarm) >= base {

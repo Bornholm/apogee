@@ -718,11 +718,11 @@ Le combat les montre : l'essaim nombreux et petit, les dévoreurs qui se posent 
 
 ### Reliques 🔧
 
-À la chute, les survivants ne sauvent **qu'un trésor**. Une supplique de renaissance propose **trois reliques** tirées des exploits de la civilisation tombée ; sans réponse, le peuple choisit seul. La relique agit **une génération seulement** et se dresse en stèle lumineuse près du nouveau cœur.
+À la chute, les survivants ne sauvent **qu'un trésor**. Une supplique de renaissance propose **jusqu'à trois reliques**, celles que les exploits de la civilisation tombée ont méritées (aucune si elle n'a rien accompli) ; sans réponse, le peuple choisit seul. La relique agit **une génération seulement** et se dresse en stèle lumineuse près du nouveau cœur.
 
 | Relique | Tirée de… | Effet |
 |---|---|---|
-| **Couronne de l'apogée** | Une apogée élevée | Réserves de départ doublées |
+| **Couronne de l'apogée** | Une apogée élevée | Une seconde dotation de départ en réserves |
 | **Codex** (de la famille la plus avancée) | Ses paliers | Savoir +20 % |
 | **Bouclier du cœur** | Les vagues repoussées | Armure du cœur +20 % |
 | **Semences anciennes** | Les fermes | Vivres +20 % |

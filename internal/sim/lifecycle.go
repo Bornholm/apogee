@@ -257,8 +257,13 @@ func (s *Sky) attack(is *Island, factor float64, night bool, by string, foe Foe,
 			struck = "a frappé"
 		}
 	}
-	c.chronicleAs(WaveNews, s.Tick, "%s", strings.TrimSpace(fmt.Sprintf("%s %s le cœur (%d %% de vigueur restante). %s %s",
-		capitalize(by), struck, int(math.Round(c.CoreHealth*100)), ravaged, losses(lost))))
+	text := fmt.Sprintf("%s %s le cœur (%d %% de vigueur restante).", capitalize(by), struck, int(math.Round(c.CoreHealth*100)))
+	for _, more := range []string{ravaged, losses(lost)} {
+		if more != "" {
+			text += " " + more
+		}
+	}
+	c.chronicleAs(WaveNews, s.Tick, "%s", text)
 }
 
 func losses(n float64) string {

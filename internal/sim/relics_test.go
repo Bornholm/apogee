@@ -43,7 +43,7 @@ func TestTheFallenLeaveRelicsToTheirHeirs(t *testing.T) {
 	is.Civ.CoreHealth = 0
 	is.Falling = 0.01
 	s.Step()
-	if len(s.Waiting) != 1 || len(s.Waiting[0].Relics) != 3 {
+	if len(s.Waiting) != 1 || len(s.Waiting[0].Relics) == 0 || s.Waiting[0].Relics[0] != Shield {
 		t.Fatalf("waiting: %+v", s.Waiting)
 	}
 	s.rebirths()
@@ -56,4 +56,12 @@ func TestTheFallenLeaveRelicsToTheirHeirs(t *testing.T) {
 		}
 	}
 	t.Fatal("no heir")
+}
+
+func TestANoblessPeopleLeavesNoRelic(t *testing.T) {
+	c := NewCiv(3)
+	c.Buildings = nil
+	if got := relicsOf(&c, 0); len(got) != 0 {
+		t.Fatalf("a people that did nothing leaves %v", got)
+	}
 }

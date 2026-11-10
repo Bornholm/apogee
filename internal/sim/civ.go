@@ -164,13 +164,16 @@ type Civ struct {
 	Conquests int   `json:",omitempty"`
 }
 
+// startStock is what a newborn people owns.
+var startStock = Stock{Wood: 60, Stone: 40, Food: 60, Aether: 10}
+
 // NewCiv founds a civilisation on a fresh island.
 func NewCiv(seed uint64) Civ {
 	c := Civ{
 		Seed:       seed,
 		Trait:      TraitOf(seed),
 		Size:       startSize,
-		Stock:      Stock{Wood: 60, Stone: 40, Food: 60, Aether: 10},
+		Stock:      startStock,
 		Population: 6,
 		CoreHealth: 1,
 		Pie:        DefaultPie,
@@ -257,21 +260,7 @@ func (c *Civ) Count(k Kind) int {
 
 // Defense is the island's strength against attacks: towers, the core and
 // the defenders.
-func (c *Civ) Defense() float64 {
-	m := c.Mods()
-	d := c.Defenders * (1 + m.DefenderStrength)
-	for _, b := range c.Buildings {
-		if !b.Done() {
-			continue
-		}
-		v := Specs[b.Kind].Defense
-		if b.Kind == Tower {
-			v *= 1 + m.TowerDefense
-		}
-		d += v
-	}
-	return d * (1 + m.Defense)
-}
+func (c *Civ) Defense() float64 { return c.defenseAgainst(Monsters) }
 
 // SetPie changes what the god whispers. The conviction of the people follows
 // slowly (GDD 6.2).
