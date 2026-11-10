@@ -68,6 +68,7 @@ func main() {
 	phaseFlag := flag.String("phase", "", "force the time of day, for screenshots: dawn, day, dusk or night")
 	soundOn := flag.Bool("sound", true, "play the sound effects and the music (never during a screenshot)")
 	showVersion := flag.Bool("version", false, "print the version and quit")
+	checkUpdate := flag.Bool("checkupdate", true, "ask GitHub at launch whether a newer version was published (release builds only)")
 	flag.Parse()
 	if *showVersion {
 		fmt.Println(version)
@@ -94,7 +95,8 @@ func main() {
 	if *soundOn && *shot == "" {
 		engine = startSound(*seed)
 	}
-	app := client.NewApp(client.AppOptions{Seed: *seed, Rivals: *rivals, Speed: *speed, Sound: engine})
+	app := client.NewApp(client.AppOptions{Seed: *seed, Rivals: *rivals, Speed: *speed, Sound: engine,
+		Version: version, CheckUpdate: *checkUpdate})
 	defer app.Close() // the embedded sky is saved before the process ends
 
 	// A screenshot of the game needs a game: options about the view launch

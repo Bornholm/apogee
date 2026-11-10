@@ -13,6 +13,7 @@ import (
 	"apogee/internal/proto"
 	"apogee/internal/sim"
 	"apogee/internal/sound"
+	"apogee/internal/update"
 )
 
 // The HUD follows GDD 13.2, kept small so that the world stays in view: a
@@ -206,6 +207,12 @@ func (g *Game) drawTopBar(p painter, st *proto.State) {
 	square("C", g.showCulture, func() { g.togglePanel(true) })
 	if g.level > 0 && g.viewing == 0 {
 		square("‹ Ciel", false, func() { g.SetZoom(0) })
+	}
+	if r := g.Newer; r != nil {
+		label := "Version " + r.Version + " disponible"
+		w := p.width(label) + p.px(20)
+		p.fill(image.Rect(bx-w, y, bx, y+h), panelFill) // readable over the sky
+		p.buttonAs(image.Rect(bx-w, y, bx, y+h), label, func() { _ = update.Open(r.URL) }, ghostButton, aetherColor)
 	}
 }
 

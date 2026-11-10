@@ -18,6 +18,7 @@ import (
 	"apogee/internal/proto"
 	"apogee/internal/sim"
 	"apogee/internal/sound"
+	"apogee/internal/update"
 )
 
 // Zoom levels are integer upscale factors, one per view (GDD 3.4 and 12.3):
@@ -141,6 +142,10 @@ type Game struct {
 	glowAt    func(img *ebiten.Image, x, y float64, c color.RGBA, strength float64, add bool)
 	// ForcePhase, when set, stands for the time of day, for screenshots.
 	ForcePhase string
+
+	// Newer, when set, is a version of the game published since this one:
+	// the top bar offers its page.
+	Newer *update.Release
 
 	// connection is shown while the connection to the sky is lost;
 	// OnGiveUp, when set, takes the player back to the home screen.

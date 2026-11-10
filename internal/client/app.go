@@ -25,6 +25,7 @@ import (
 	"apogee/internal/proto"
 	"apogee/internal/server"
 	"apogee/internal/sound"
+	"apogee/internal/update"
 )
 
 // App is the whole client: the home screen, the connection, then the game.
@@ -52,8 +53,10 @@ type App struct {
 	outW     int
 	outH     int
 	dsf      float64
-	mu       sync.Mutex // guards servers and browsing, filled by a goroutine
-	quit     bool
+	mu       sync.Mutex // guards servers, browsing and newer, filled by goroutines
+	// newer is a version published since this one, once GitHub told.
+	newer *update.Release
+	quit  bool
 	// failed is the error of the last launch, if it failed.
 	failed error
 	// target is the address of the sky in play; lost follows the attempts
@@ -83,6 +86,10 @@ type AppOptions struct {
 	Configure func(*Game)
 	// Sound, when set, plays the effects and the music.
 	Sound *sound.Engine
+	// Version is the game's; with CheckUpdate, the app asks GitHub at
+	// launch whether a newer one was published.
+	Version     string
+	CheckUpdate bool
 }
 
 type appScreen int
@@ -121,6 +128,15 @@ func NewApp(opts AppOptions) *App {
 	}
 	a.backdrop = newBackdrop(opts.Seed)
 	a.applySound()
+	if opts.CheckUpdate {
+		go func() {
+			if r, ok := update.Check(context.Background(), opts.Version); ok {
+				a.mu.Lock()
+				a.newer = &r
+				a.mu.Unlock()
+			}
+		}()
+	}
 	return a
 }
 
@@ -285,6 +301,10 @@ func (a *App) Update() error {
 		if a.game == nil {
 			return nil // the player gave up
 		}
+		if r := a.Newer(); r != nil && a.game.Newer == nil {
+			a.game.Newer = r
+			a.game.dirty = true
+		}
 		if err := a.game.Update(); err != nil {
 			// The sky is lost: back to the home screen, with the reason.
 			a.Close()
@@ -415,6 +435,9 @@ func (a *App) Draw(screen *ebiten.Image) {
 	case joinScreen:
 		y = a.drawJoin(p, col)
 	}
+	if r := a.Newer(); r != nil {
+		a.drawNewer(p, r)
+	}
 	if a.status != "" {
 		y += p.px(16)
 		for _, l := range p.wrap(a.status, w) {
@@ -424,6 +447,40 @@ func (a *App) Draw(screen *ebiten.Image) {
 	}
 	if a.OnFrame != nil {
 		a.OnFrame(screen)
+	}
+}
+
+// Newer returns the version published since this one, if any.
+func (a *App) Newer() *update.Release {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.newer
+}
+
+// drawNewer tells, in the top right corner of the home screen, that a newer
+// version is out, with its page.
+func (a *App) drawNewer(p painter, r *update.Release) {
+	w := min(p.px(380), a.outW-p.px(48))
+	title := "Apogée " + r.Version + " est disponible"
+	sub := "Tu joues à la version " + a.Options.Version + "."
+	link := strings.TrimPrefix(r.URL, "https://")
+	bh := p.px(34)
+	h := p.px(20) + 2*p.line() + p.lineOf(small) + p.px(12) + bh
+	box := image.Rect(a.outW-p.px(24)-w, p.px(24), a.outW-p.px(24), p.px(24)+h)
+	in := p.panelEdged(box, aetherColor)
+	p.styled(title, in.Min.X, in.Min.Y, aetherColor, bold)
+	p.text(sub, in.Min.X, in.Min.Y+p.line(), dimColor)
+	p.styled(link, in.Min.X, in.Min.Y+2*p.line()+p.px(2), dimColor, small)
+	p.buttonAs(image.Rect(in.Min.X, in.Max.Y-bh, in.Max.X, in.Max.Y), "Ouvrir la page de téléchargement", func() {
+		a.openRelease(r)
+	}, primaryButton, panelEdge)
+}
+
+// openRelease opens the page of a release in the browser, or says where it
+// is when no browser opens.
+func (a *App) openRelease(r *update.Release) {
+	if err := update.Open(r.URL); err != nil {
+		a.status = "Ouvre " + r.URL + " pour mettre Apogée à jour."
 	}
 }
 
