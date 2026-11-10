@@ -132,7 +132,8 @@ dokku-setup: ## Create the Dokku app once: no proxy, TCP 47110 published, sky in
 		dokku storage:ensure-directory $(DOKKU_APP); \
 		dokku storage:report $(DOKKU_APP) | grep -q /data || dokku storage:mount $(DOKKU_APP) /var/lib/dokku/data/storage/$(DOKKU_APP):/data; \
 		dokku docker-options:report $(DOKKU_APP) | grep -q "47110:47110" || dokku docker-options:add $(DOKKU_APP) deploy "-p 47110:47110"; \
-		dokku docker-options:report $(DOKKU_APP) | grep -q stop-timeout || dokku docker-options:add $(DOKKU_APP) deploy "--stop-timeout 30"'
+		dokku docker-options:report $(DOKKU_APP) | grep -q stop-timeout || dokku docker-options:add $(DOKKU_APP) deploy "--stop-timeout 30"; \
+		dokku docker-options:report $(DOKKU_APP) | grep -q "build-arg GIT_REV" || dokku docker-options:add $(DOKKU_APP) build "--build-arg GIT_REV"'
 
 .PHONY: dokku-deploy
 dokku-deploy: ## Deploy HEAD to Dokku (the name: ssh dokku@DOKKU_HOST config:set APP APOGEE_NAME=…)

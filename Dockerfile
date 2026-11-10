@@ -5,8 +5,12 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-ARG VERSION=docker
-RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" \
+# The version is VERSION if given, else the commit Dokku deploys (GIT_REV,
+# passed with `dokku docker-options:add APP build "--build-arg GIT_REV"`).
+ARG VERSION
+ARG GIT_REV
+RUN v="${VERSION:-$(echo "${GIT_REV:-docker}" | cut -c1-7)}" && \
+    CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=$v" \
     -o /out/apogee-server ./cmd/apogee-server
 
 FROM alpine:3.22
