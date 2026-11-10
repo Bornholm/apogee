@@ -287,6 +287,19 @@ func Swarm(seed uint64) Mesh {
 	return m
 }
 
+// Creature is one monster of a wave, fought on the island: a dark shard
+// floating above the ground. The colossus is the same, larger.
+func Creature(seed uint64, scale float64) Mesh {
+	r := Rng(seed)
+	var m Mesh
+	c := V(0, 0, 4*scale)
+	rim := ring(r, 4, between(r, 1.6, 2.2)*scale, 0.25, c.Z, r.Float64()*math.Pi)
+	fan(&m, Monster, rim, c.Add(V(0, 0, between(r, 2.6, 3.4)*scale)))
+	fan(&m, Monster, rim, c.Add(V(0, 0, -between(r, 2, 2.8)*scale)))
+	m.OrientOutward(c)
+	return m
+}
+
 // Banner is a war banner on a pole, raised above an island that covets or
 // means to annihilate a neighbour (GDD 7.2).
 func Banner(cloth Material) Mesh {
