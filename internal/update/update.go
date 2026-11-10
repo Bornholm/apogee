@@ -68,6 +68,29 @@ func Check(ctx context.Context, current string) (Release, bool) {
 	return r, true
 }
 
+// Every is how often a game left running asks again.
+const Every = 6 * time.Hour
+
+// Watch asks at once, then every period until ctx ends, and calls found
+// with each release newer than current and than the last one found.
+func Watch(ctx context.Context, current string, every time.Duration, check func(context.Context, string) (Release, bool), found func(Release)) {
+	if _, ok := parse(current); !ok {
+		return
+	}
+	known := current
+	for {
+		if r, ok := check(ctx, current); ok && Newer(r.Version, known) {
+			known = r.Version
+			found(r)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(every):
+		}
+	}
+}
+
 // Newer reports whether version a comes after version b; both must be
 // releases (1.2.3, with or without a v).
 func Newer(a, b string) bool {

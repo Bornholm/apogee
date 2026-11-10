@@ -129,13 +129,12 @@ func NewApp(opts AppOptions) *App {
 	a.backdrop = newBackdrop(opts.Seed)
 	a.applySound()
 	if opts.CheckUpdate {
-		go func() {
-			if r, ok := update.Check(context.Background(), opts.Version); ok {
-				a.mu.Lock()
-				a.newer = &r
-				a.mu.Unlock()
-			}
-		}()
+		// At launch, then every few hours for a game left running.
+		go update.Watch(context.Background(), opts.Version, update.Every, update.Check, func(r update.Release) {
+			a.mu.Lock()
+			a.newer = &r
+			a.mu.Unlock()
+		})
 	}
 	return a
 }
@@ -301,9 +300,12 @@ func (a *App) Update() error {
 		if a.game == nil {
 			return nil // the player gave up
 		}
-		if r := a.Newer(); r != nil && a.game.Newer == nil {
+		if r := a.Newer(); r != nil && (a.game.Newer == nil || a.game.Newer.Version != r.Version) {
 			a.game.Newer = r
 			a.game.dirty = true
+			if a.game.Notify != nil && !a.game.isFocused() {
+				a.game.Notify("Apogée " + r.Version + " est disponible.")
+			}
 		}
 		if err := a.game.Update(); err != nil {
 			// The sky is lost: back to the home screen, with the reason.

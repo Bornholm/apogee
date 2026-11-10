@@ -856,7 +856,7 @@ L'interface, dite « tablettes d'Aether », reste petite pour laisser voir le mo
 | **Réserves** | Une barre en bas : les quatre ressources, chacune avec sa jauge face au plafond, puis les âmes, les défenseurs et les guerriers |
 | **Culture et savoir, Annales** | Un même panneau à onglets sur la gauche, à la place des souffles : une ligne par famille (paliers, ferveur, recherches en cours) et les découvertes ; ou les civilisations tombées (11.5). **Consultation seule** |
 | **Alerte de raid** | Notification claire quand une attaque approche, dans le jeu et en notification système |
-| **Nouvelle version** | Au lancement, une version publiée demande à GitHub la dernière release, par une seule requête anonyme (aucune donnée sur le joueur). Si elle est plus récente, l'accueil l'annonce dans un encadré avec le lien et un bouton qui ouvre la page de téléchargement, et le bandeau du jeu garde un bouton « Version X disponible ». Une version de développement ne vérifie rien ; l'option `-checkupdate=false` coupe la vérification |
+| **Nouvelle version** | Au lancement, puis toutes les 6 heures tant que le jeu tourne, une version publiée demande à GitHub la dernière release, par une requête anonyme (aucune donnée sur le joueur). Une version trouvée en cours de partie s'annonce aussi en notification système si la fenêtre est cachée. Si elle est plus récente, l'accueil l'annonce dans un encadré avec le lien et un bouton qui ouvre la page de téléchargement, et le bandeau du jeu garde un bouton « Version X disponible ». Une version de développement ne vérifie rien ; l'option `-checkupdate=false` coupe la vérification |
 
 ## 13.3 Performances en arrière-plan
 

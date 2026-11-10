@@ -37,7 +37,7 @@ Lance `apogee`. L'écran d'accueil permet de jouer seul contre des dieux rivaux 
 | H | Tutoriel |
 | M | Couper le son |
 
-Au lancement, le jeu demande à GitHub si une version plus récente est sortie et, si c'est le cas, affiche le lien vers sa page. Cette requête ne transmet rien sur toi. `apogee -checkupdate=false` la désactive.
+Au lancement, puis toutes les 6 heures s'il reste ouvert, le jeu demande à GitHub si une version plus récente est sortie et, si c'est le cas, affiche le lien vers sa page. Cette requête ne transmet rien sur toi. `apogee -checkupdate=false` la désactive.
 
 Pour un ciel qui tourne en permanence sur une machine du bureau, installe `apogee-server` puis active son service :
 

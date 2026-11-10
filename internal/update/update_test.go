@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestNewer(t *testing.T) {
@@ -61,4 +62,34 @@ func TestADevBuildNeverChecks(t *testing.T) {
 	if _, ok := Check(context.Background(), "dev"); ok {
 		t.Fatal("a dev build found an update")
 	}
+}
+
+func TestWatchAsksAgainAndTellsEachNewerRelease(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	answers := []string{"0.6.2", "0.6.2", "0.6.3", "0.6.3", "0.7.0"}
+	asked := 0
+	check := func(context.Context, string) (Release, bool) {
+		v := answers[min(asked, len(answers)-1)]
+		asked++
+		if asked >= len(answers) {
+			defer cancel()
+		}
+		return Release{Version: v, URL: "https://x/" + v}, Newer(v, "0.6.1")
+	}
+	var told []string
+	Watch(ctx, "0.6.1", time.Millisecond, check, func(r Release) { told = append(told, r.Version) })
+	if asked < len(answers) {
+		t.Fatalf("asked %d times", asked)
+	}
+	if len(told) != 3 || told[0] != "0.6.2" || told[1] != "0.6.3" || told[2] != "0.7.0" {
+		t.Fatalf("told %v, want each newer release once", told)
+	}
+}
+
+func TestWatchNeverAsksForADevBuild(t *testing.T) {
+	Watch(context.Background(), "dev", time.Millisecond, func(context.Context, string) (Release, bool) {
+		t.Fatal("a dev build asked")
+		return Release{}, false
+	}, func(Release) {})
 }
