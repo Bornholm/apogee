@@ -102,7 +102,7 @@ func (c *Civ) resolve(option int, byGod bool, tick uint64) {
 	case AskDiscovery:
 		c.Tech.Chosen[s.Axis][s.Tier] = int8(option)
 		d := Discoveries[s.Axis][s.Tier][option]
-		c.chronicle(tick, "Les savants maîtrisent « %s » (%s).", d.Name, d.Text)
+		c.chronicleAs(DiscoveryNews, tick, "Les savants maîtrisent « %s » (%s).", d.Name, d.Text)
 	case AskRoom:
 		switch {
 		case option == 0 && c.Expanding == 0 && c.Size < maxSize && c.Stock.Covers(expandCost):

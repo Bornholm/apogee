@@ -216,7 +216,7 @@ func (s *Sky) attack(is *Island, factor float64, night bool, by string) {
 	lost := math.Min(c.Defenders, strength*0.03/(1+m.DefenderStrength))
 	c.Defenders -= lost
 	if defense >= strength {
-		c.chronicle(s.Tick, "%s", strings.TrimSpace("Ton peuple a repoussé "+by+". "+losses(lost)))
+		c.chronicleAs(VictoryNews, s.Tick, "%s", strings.TrimSpace("Ton peuple a repoussé "+by+". "+losses(lost)))
 		return
 	}
 	harm := (strength - defense) / strength * 0.35 / (1 + m.CoreArmor)
@@ -306,7 +306,7 @@ func (s *Sky) rebirths() {
 		is.Generation = w.Count
 		is.Profile = w.Profile
 		is.Civ.Culture[w.Legend] += legendBonus
-		is.Civ.chronicle(s.Tick, "Des nuages émerge une île nouvelle. Ton peuple garde la légende de ses ancêtres, qui vénéraient les %s.", w.Legend.Name())
+		is.Civ.chronicleAs(BirthNews, s.Tick, "Des nuages émerge une île nouvelle. Ton peuple garde la légende de ses ancêtres, qui vénéraient les %s.", w.Legend.Name())
 	}
 	s.Waiting = s.Waiting[:0]
 }

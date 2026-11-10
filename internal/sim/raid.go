@@ -303,7 +303,7 @@ func (s *Sky) clash(from, to *Island, r *Raid) {
 	if atk <= def {
 		lost := math.Min(r.Units, math.Ceil(r.Units*0.6))
 		r.Units -= lost
-		to.Civ.chronicle(s.Tick, "Ton peuple a repoussé les guerriers de %s.", from.Name)
+		to.Civ.chronicleAs(VictoryNews, s.Tick, "Ton peuple a repoussé les guerriers de %s.", from.Name)
 		from.Civ.chronicle(s.Tick, "Les guerriers ont été repoussés par %s : %.0f sont tombés.", to.Name, lost)
 		return
 	}

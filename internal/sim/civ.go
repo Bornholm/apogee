@@ -70,6 +70,10 @@ const (
 	DeclineNews             // the island entered its decline
 	SuppliqueNews           // the people ask their god
 	FallNews                // the heart broke
+	BuiltNews               // a building was finished, or the island grew
+	DiscoveryNews           // the scholars mastered a discovery
+	VictoryNews             // a wave or a raid was repelled
+	BirthNews               // a new island rose from the clouds
 )
 
 // Civ is the civilisation living on an island: its people, economy and
@@ -452,7 +456,7 @@ func (c *Civ) build(dt float64, night bool, tick uint64) {
 		b.Progress += dt / (Specs[b.Kind].BuildTime * BuildPace) * f
 		if b.Done() {
 			b.Progress = 1
-			c.chronicle(tick, "Ton peuple a achevé %s.", Specs[b.Kind].Name)
+			c.chronicleAs(BuiltNews, tick, "Ton peuple a achevé %s.", Specs[b.Kind].Name)
 		}
 	}
 	if c.Expanding > 0 {
@@ -460,7 +464,7 @@ func (c *Civ) build(dt float64, night bool, tick uint64) {
 		if c.Expanding <= 0 {
 			c.Expanding = 0
 			c.Size = math.Min(c.Size+expandStep, maxSize)
-			c.chronicle(tick, "L'île s'est agrandie : de nouvelles terres s'offrent à ton peuple.")
+			c.chronicleAs(BuiltNews, tick, "L'île s'est agrandie : de nouvelles terres s'offrent à ton peuple.")
 		}
 	}
 }
