@@ -775,6 +775,7 @@ Le ciel offre des ressources visuelles que les jeux au sol n'ont pas :
 | **Dessous de l'île** | Un cône rocheux à facettes, éclairé d'un côté, qui donne une silhouette forte en vue « Ciel » |
 | **Profondeur atmosphérique** | Les îles lointaines ou basses sont plus bleutées et moins contrastées, sans coût de rendu |
 | **Ombres sur les nuages** | L'ombre d'une île tombe sur une couche de nuages en contrebas, ce qui situe les îles les unes par rapport aux autres |
+| **Un ciel habité** | La nuit, chaque île de la vue « Ciel » montre ses lumières, d'autant plus nombreuses que son peuple est puissant, et la lueur de son cœur. Le jour, de petits aéronefs marchands partent de certaines îles vers leur plus proche voisine : ils s'élèvent, croisent au-dessus des autres et redescendent en un peu plus d'une minute. Jamais entre deux îles en guerre (bannière de convoitise ou d'anéantissement), ni vers une île qui chute. Les départs suivent le tick du ciel : tous les dieux voient le même trafic |
 
 ## 12.7 Audio
 

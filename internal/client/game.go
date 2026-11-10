@@ -124,6 +124,7 @@ type Game struct {
 	ForceWeather string
 	atSkew       func(img *ebiten.Image, x, y, baseY, shear float64)
 	animTick     int
+	skyTick      int // counts every tick, the sky view included
 	// atTinted draws an image in world coordinates with a colour, during a
 	// redraw.
 	atTinted func(img *ebiten.Image, x, y float64, c color.RGBA)
@@ -919,6 +920,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			at(g.swarm.img, float64(p.X-g.swarm.anchor.X), float64(p.Y-g.swarm.anchor.Y))
 		}
 		g.drawRaids(at, islands)
+		g.drawSkyLife(islands, func(p image.Point) (float64, float64) { return float64(p.X), float64(p.Y) })
 		g.registerIslands(islands, k, ox, oy)
 	} else if home, ok := g.homeIsland(g.src.State()); ok {
 		// The island rises and sinks gently as it floats.
@@ -1085,6 +1087,12 @@ func (g *Game) animate() {
 		}
 	}
 	g.signs.step(dt, &g.dust, home)
+	// The weather and the ambience follow the sky, whatever the view.
+	g.wx = g.weatherNow(st)
+	if g.Sound != nil && g.skyTick%15 == 0 {
+		g.Sound.SetAmbience(g.ambience())
+	}
+	g.skyTick++
 	g.troops.step(dt)
 	if home && (g.troops.active() || g.signs.state.waveIn >= 0) && g.animTick%4 == 0 {
 		g.dirty = true
@@ -1105,10 +1113,6 @@ func (g *Game) animate() {
 		if w := &l.walkers[i]; w.busy() {
 			g.dust.emit(w, dt)
 		}
-	}
-	g.wx = g.weatherNow(st)
-	if g.Sound != nil && g.animTick%15 == 0 {
-		g.Sound.SetAmbience(g.ambience())
 	}
 	g.dust.smoke(g.homeChimneys, g.wx.wind, dt)
 	if sum, _, ok := g.viewed(st); ok {
