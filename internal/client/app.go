@@ -53,11 +53,18 @@ type App struct {
 	dsf      float64
 	mu       sync.Mutex // guards servers and browsing, filled by a goroutine
 	quit     bool
+	// failed is the error of the last launch, if it failed.
+	failed error
 
 	// OnFrame, when set, is called after each redraw of the home screen
 	// with the screen image. The screenshot mode uses it.
 	OnFrame func(screen *ebiten.Image)
 }
+
+// LaunchError returns the error of the last launch, if it failed: the
+// command line then gives up instead of waiting for a game that will not
+// come.
+func (a *App) LaunchError() error { return a.failed }
 
 // Game returns the game in progress, or nil on the home screen.
 func (a *App) Game() *Game { return a.game }
@@ -269,6 +276,7 @@ func (a *App) Update() error {
 			if r.err != nil {
 				a.screen = homeScreen
 				a.status = "Impossible de rejoindre le ciel : " + r.err.Error()
+				a.failed = r.err
 				return nil
 			}
 			a.conn, a.stopServer = r.conn, r.stop
@@ -440,11 +448,13 @@ func (a *App) drawJoin(p painter, r image.Rectangle, k int) {
 	gap := 8 * k
 	a.mu.Lock()
 	servers, browsing := append([]discovery.Server(nil), a.servers...), a.browsing
+	found := len(servers)
 	a.mu.Unlock()
 	// Only as many skies as the window holds: the address field and the
 	// buttons below must stay reachable.
 	fixed := 3*p.line() + 3*(bh+gap) + bh + 30*k
-	room := max(1, (a.outH-r.Min.Y-fixed-2*p.line())/(bh+gap))
+	// At least one listed sky, even in a tiny window.
+	room := max(2, (a.outH-r.Min.Y-fixed-2*p.line())/(bh+gap))
 	hidden := 0
 	if len(servers) > room {
 		hidden = len(servers) - (room - 1)
@@ -462,7 +472,7 @@ func (a *App) drawJoin(p painter, r image.Rectangle, k int) {
 	case browsing:
 		p.text("Recherche en cours…", in.Min.X, y, dimColor)
 		y += bh + gap
-	case len(servers) == 0:
+	case found == 0:
 		p.text("Aucun ciel trouvé : le réseau bloque peut-être la découverte.", in.Min.X, y, dimColor)
 		y += bh + gap
 	}

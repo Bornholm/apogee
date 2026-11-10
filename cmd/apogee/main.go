@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"image"
 	"image/png"
 	"log"
@@ -135,6 +136,10 @@ func main() {
 	wrapped := &quitter{App: app, stop: func() error {
 		if *quit > 0 && time.Since(start) > *quit {
 			return errDone
+		}
+		if err := app.LaunchError(); err != nil && *shot != "" {
+			// A screenshot of a game that could not start would never come.
+			return fmt.Errorf("no screenshot, the game did not start: %w", err)
 		}
 		return done
 	}}

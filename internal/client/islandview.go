@@ -75,7 +75,8 @@ func islandScene(cam art.Camera, sum proto.IslandSummary, own *proto.Own) art.Is
 		switch f.Kind {
 		case sim.Grove:
 			// A grove is a cluster of pines filling its footprint.
-			n := int(f.Radius * 1.6)
+			// The radius comes from the wire: a few dozen pines at most.
+			n := min(int(f.Radius*1.6), 64)
 			for k := range n {
 				a := float64(k) * math.Pi * (3 - math.Sqrt(5))
 				d := f.Radius * 0.85 * math.Sqrt((float64(k)+0.5)/float64(n))
