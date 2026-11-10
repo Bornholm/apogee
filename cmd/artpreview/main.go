@@ -37,7 +37,7 @@ func main() {
 			*scale = 2
 		}
 	case "icon":
-		canvas = iconView(*seed)
+		canvas = art.Icon()
 		if *scale == 0 {
 			*scale = 4
 		}
@@ -63,18 +63,6 @@ func islandView(seed uint64) *image.RGBA {
 	clouds(canvas, cam, seed, w, h)
 	scene := art.DemoIsland(cam, seed, 60)
 	scene.Compose(cam, canvas, w/2, h*2/5)
-	return canvas
-}
-
-// iconView draws a small island on a transparent square: the application
-// icon of the packages.
-func iconView(seed uint64) *image.RGBA {
-	const size = 64
-	cam := art.DefaultCamera
-	sp := art.DemoIsland(cam, seed, 22).Flatten(cam)
-	canvas := image.NewRGBA(image.Rect(0, 0, size, size))
-	b := sp.Img.Bounds()
-	art.Blit(canvas, sp.Img, (size-b.Dx())/2, (size-b.Dy())/2)
 	return canvas
 }
 

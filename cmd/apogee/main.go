@@ -16,6 +16,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/audio"
 
+	"apogee/internal/art"
 	"apogee/internal/client"
 	"apogee/internal/discovery"
 	"apogee/internal/notify"
@@ -67,6 +68,8 @@ func main() {
 	}
 
 	ebiten.SetWindowTitle("Apogée")
+	icon := art.Icon()
+	ebiten.SetWindowIcon([]image.Image{icon, art.Upscale(icon, 2), art.Upscale(icon, 4)})
 	ebiten.SetWindowSize(*width, *height)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	// The game lives on a second screen: keep running without focus, but only
@@ -158,7 +161,10 @@ func main() {
 		}
 		return done
 	}}
-	if err := ebiten.RunGame(wrapped); err != nil && !errors.Is(err, errDone) {
+	// The window class matches the desktop entry (StartupWMClass): docks and
+	// task bars show it with the entry's icon, Wayland included.
+	opts := &ebiten.RunGameOptions{X11ClassName: "apogee", X11InstanceName: "apogee"}
+	if err := ebiten.RunGameWithOptions(wrapped, opts); err != nil && !errors.Is(err, errDone) {
 		if engine != nil {
 			log.Fatalf("%v (if the sound device is the cause, play with -sound=false)", err)
 		}
