@@ -15,6 +15,8 @@ Sur Arch Linux, préférez les paquets `.pkg.tar.zst` de la release :
 Le jeu a besoin d'OpenGL, de X11 (ou XWayland) et d'ALSA (ou PipeWire et
 PulseAudio, qui l'émulent). Sans périphérique audio : `apogee -sound=false`.
 
+Au lancement, le jeu vérifie sur GitHub qu'il est à jour ; `apogee -checkupdate=false` désactive cette vérification.
+
 ## Le serveur dédié (archive `apogee-server_…`)
 
     sudo install -Dm755 apogee-server /usr/bin/apogee-server
