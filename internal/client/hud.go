@@ -330,16 +330,25 @@ func (g *Game) drawPie(p painter, r image.Rectangle, o *proto.Own) image.Rectang
 	rows := int(sim.NumIntentions)
 	row := p.px(24)
 	bh := p.px(28)
-	r.Max.Y = r.Min.Y + p.px(20) + p.line() + p.px(6) + rows*row + p.px(6) + bh
-	in := p.panel(r)
-	p.styled("Souffles", in.Min.X, in.Min.Y, goldColor, bold)
 	slices := 0
 	for _, v := range g.draft {
 		if v > 0 {
 			slices++
 		}
 	}
-	count := fmt.Sprintf("%d / 3", slices)
+	// With three intentions, a fourth needs room first: say so, since
+	// the + of the others is then off.
+	var full []string
+	if slices >= sim.MaxSlices {
+		full = p.wrap("Trois intentions au plus : baisse-en une à 0 % pour en souffler une autre.", r.Dx()-p.px(20))
+	}
+	r.Max.Y = r.Min.Y + p.px(20) + p.line() + p.px(6) + rows*row + p.px(6) + bh + len(full)*p.line()
+	if len(full) > 0 {
+		r.Max.Y += p.px(6)
+	}
+	in := p.panel(r)
+	p.styled("Souffles", in.Min.X, in.Min.Y, goldColor, bold)
+	count := fmt.Sprintf("%d / %d", slices, sim.MaxSlices)
 	p.styled(count, in.Max.X-p.widthOf(count, small), in.Min.Y+(p.line()-p.lineOf(small))/2, dimColor, small)
 	y := in.Min.Y + p.line() + p.px(6)
 	nameW := p.px(96)
@@ -382,6 +391,13 @@ func (g *Game) drawPie(p painter, r image.Rectangle, o *proto.Own) image.Rectang
 			g.play(sound.Whisper)
 			g.signs.whispered()
 		}
+	}
+	for _, l := range full {
+		p.text(l, in.Min.X, y, dimColor)
+		y += p.line()
+	}
+	if len(full) > 0 {
+		y += p.px(6)
 	}
 	split := in.Min.X + (in.Dx()-p.px(6))*2/3
 	p.buttonAs(image.Rect(in.Min.X, y, split, y+bh), "Souffler", whisper, primaryButton, panelEdge)
