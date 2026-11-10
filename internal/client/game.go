@@ -83,8 +83,10 @@ type Game struct {
 	drafting bool
 	// Panels shown on demand: culture and knowledge, the Annals; the pie
 	// in the island view, and the whole chronicle.
-	showCulture, showAnnals bool
-	pieOpen, chronicleAll   bool
+	book bookTab // the tab of the book panel open, if any
+	// stockLog samples the reserves, for their trend (civ.go).
+	stockLog              []stockSample
+	pieOpen, chronicleAll bool
 	// pieHidden puts the pie away in the sky view, where it shows by
 	// default; pieOpen shows it in the island view, where it does not.
 	pieHidden bool
@@ -417,10 +419,12 @@ func (g *Game) shortcut(r rune) {
 		g.ToggleMute()
 	case 's':
 		g.togglePie()
+	case 'i':
+		g.togglePanel(civTab)
 	case 'c':
-		g.togglePanel(true)
+		g.togglePanel(cultureTab)
 	case 'a':
-		g.togglePanel(false)
+		g.togglePanel(annalsTab)
 	case '+', '=':
 		g.zoomBy(1)
 	case '-', '−':
@@ -480,9 +484,17 @@ func (g *Game) Select(id proto.IslandID) {
 	g.dirty = true
 }
 
-// ShowPanels opens the culture and Annals panels, for screenshots.
-func (g *Game) ShowPanels(culture, annals bool) {
-	g.showCulture, g.showAnnals = culture, annals
+// ShowPanels opens a tab of the book panel, for screenshots: the
+// civilization, the culture or the Annals.
+func (g *Game) ShowPanels(civ, culture, annals bool) {
+	switch {
+	case civ:
+		g.book = civTab
+	case culture:
+		g.book = cultureTab
+	case annals:
+		g.book = annalsTab
+	}
 	g.dirty = true
 }
 
@@ -691,6 +703,7 @@ func (g *Game) Update() error {
 		// Free the miniatures of islands that fell or grew, whatever the
 		// zoom level.
 		g.purgeMiniatures(st.Islands)
+		g.logStock(st.Own, time.Now())
 		// The battle first: the news of its outcome waits for its end.
 		g.watchBattle(st)
 		g.notifyNews(st)

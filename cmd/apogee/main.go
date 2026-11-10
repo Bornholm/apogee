@@ -55,6 +55,7 @@ func main() {
 	zoom := flag.Int("zoom", 0, "initial zoom level: 0 is the sky, higher levels show your island")
 	culture := flag.Bool("culture", false, "open the culture and knowledge panel at start")
 	annals := flag.Bool("annals", false, "open the Annals panel at start")
+	civ := flag.Bool("civ", false, "open the panel of the civilization at start")
 	selectID := flag.Uint("select", 0, "select this island at start, as a click would")
 	observe := flag.Uint("observe", 0, "observe this island at start")
 	notifyFlag := flag.String("notify", "raid,wave,decline,fall", "desktop notifications while the window is hidden: raid, wave, decline, supplique, fall, or none")
@@ -103,7 +104,7 @@ func main() {
 	// the solo game when nothing else is asked; then only the game's frames
 	// count. Without them, the screenshot shows the home screen.
 	launched := *fresh || *solo || *host || *connect != "" || *discover
-	viewed := *signFlag != "" || *phaseFlag != "" || *weatherFlag != "" || *battleFlag != "" || *onWave || *onPhase != "" || *zoom > 0 || *observe > 0 || *culture || *annals || *selectID > 0 || *tutoStep > 0
+	viewed := *signFlag != "" || *phaseFlag != "" || *weatherFlag != "" || *battleFlag != "" || *onWave || *onPhase != "" || *zoom > 0 || *observe > 0 || *civ || *culture || *annals || *selectID > 0 || *tutoStep > 0
 	if viewed && !launched {
 		*solo, launched = true, true
 	}
@@ -137,7 +138,7 @@ func main() {
 	app.OnFrame = onFrame
 	app.Options.Configure = func(g *client.Game) {
 		g.SetZoom(*zoom)
-		g.ShowPanels(*culture, *annals)
+		g.ShowPanels(*civ, *culture, *annals)
 		g.Select(proto.IslandID(*selectID))
 		if *observe != 0 {
 			g.Observe(proto.IslandID(*observe))

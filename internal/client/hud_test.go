@@ -116,16 +116,24 @@ func TestNewsMakeOneSoundTheWeightiest(t *testing.T) {
 func TestShortcutsFollowTheLetterTyped(t *testing.T) {
 	g := &Game{}
 	g.shortcut('a')
-	if !g.showAnnals {
+	if g.book != annalsTab {
 		t.Fatal("a should open the Annals")
 	}
 	g.shortcut('q') // where A sits on an AZERTY keyboard's QWERTY code
-	if !g.showAnnals {
+	if g.book != annalsTab {
 		t.Fatal("q closed the Annals")
 	}
 	g.shortcut('C') // the culture takes the shared panel
-	if !g.showCulture || g.showAnnals {
-		t.Fatalf("C should turn the panel to the culture: %v %v", g.showCulture, g.showAnnals)
+	if g.book != cultureTab {
+		t.Fatalf("C should turn the panel to the culture: %v", g.book)
+	}
+	g.shortcut('i')
+	if g.book != civTab {
+		t.Fatalf("i should turn the panel to the civilization: %v", g.book)
+	}
+	g.shortcut('i')
+	if g.book != noBook {
+		t.Fatal("i again should close the panel")
 	}
 }
 
@@ -162,9 +170,9 @@ func TestThePieShowsOnDemand(t *testing.T) {
 	if g.pieShown() {
 		t.Fatal("the pie shows in the island view")
 	}
-	g.togglePanel(true)
+	g.togglePanel(cultureTab)
 	g.shortcut('S')
-	if !g.pieShown() || g.showCulture {
-		t.Fatalf("S should open the pie over the culture: %v %v", g.pieShown(), g.showCulture)
+	if !g.pieShown() || g.book != noBook {
+		t.Fatalf("S should open the pie over the culture: %v %v", g.pieShown(), g.book)
 	}
 }

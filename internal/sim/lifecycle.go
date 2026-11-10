@@ -38,6 +38,12 @@ const (
 // exactly Lifetime: power only ever shortens a life (GDD 3.1).
 var descentSpeed = (RimRadius - PortalRadius) / Lifetime
 
+// DescentSpeed is how fast an island of a power sinks towards the portal,
+// in sky units per second: the more powerful, the faster.
+func DescentSpeed(power float64) float64 {
+	return descentSpeed * (1 + power/powerScale)
+}
+
 // Power is the composite measure of an island (GDD 5.3): tiers, buildings,
 // people and soldiers.
 func (c *Civ) Power() float64 {
@@ -125,7 +131,7 @@ func (s *Sky) lifecycle(dt float64, phase Phase) {
 		}
 		c := &is.Civ
 		is.PeakPower = math.Max(is.PeakPower, c.Power())
-		is.Radius = math.Max(PortalRadius, is.Radius-descentSpeed*(1+c.Power()/powerScale)*dt)
+		is.Radius = math.Max(PortalRadius, is.Radius-DescentSpeed(c.Power())*dt)
 		if is.Radius < DeclineRadius && !is.Declining {
 			is.Declining = true
 			c.chronicleAs(DeclineNews, s.Tick, "Les anciens disent que le tourbillon nous appelle : notre déclin a commencé.")

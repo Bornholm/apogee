@@ -225,7 +225,9 @@ type Own struct {
 	Births float64 `json:"births,omitempty"`
 	// Age is how long the civilization has lived, in ticks, for the client
 	// to feast each day it lasts.
-	Age    uint64  `json:"age,omitempty"`
+	Age uint64 `json:"age,omitempty"`
+	// Peak is the highest power the civilization reached: its apogee.
+	Peak   float64 `json:"peak,omitempty"`
 	Deaths float64 `json:"deaths,omitempty"`
 	// Outer is the intention the god turned towards another island.
 	Outer       sim.Outer `json:"outer,omitempty"`
@@ -274,6 +276,7 @@ func Detail(sky *sim.Sky, is *sim.Island) *Own {
 	if sky.Tick > is.Born {
 		o.Age = sky.Tick - is.Born
 	}
+	o.Peak = is.PeakPower
 	for f := range sim.NumFamilies {
 		o.Tiers[f] = c.Tech.Tier(f)
 		for k, ch := range c.Tech.Chosen[f] {

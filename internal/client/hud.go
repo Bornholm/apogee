@@ -62,7 +62,7 @@ func (g *Game) drawHUD(screen *ebiten.Image, st *proto.State) {
 	top := p.px(panelTop)
 	g.areas = map[string]image.Rectangle{}
 	sky := g.level == 0
-	book := g.showCulture || g.showAnnals // it takes the left side
+	book := g.book != noBook // it takes the left side
 	left := top
 	if g.pieShown() && !book {
 		pie := g.drawPie(p, image.Rect(m, top, m+p.px(pieWidth), top), o)
@@ -206,9 +206,10 @@ func (g *Game) drawTopBar(p painter, st *proto.State) {
 		square("Accueil", false, g.OnHome)
 	}
 	square(sound, false, mute)
-	square("A", g.showAnnals, func() { g.togglePanel(false) })
-	square("C", g.showCulture, func() { g.togglePanel(true) })
-	square("S", g.pieShown() && !g.showCulture && !g.showAnnals, g.togglePie)
+	square("A", g.book == annalsTab, func() { g.togglePanel(annalsTab) })
+	square("C", g.book == cultureTab, func() { g.togglePanel(cultureTab) })
+	square("S", g.pieShown() && g.book == noBook, g.togglePie)
+	square("I", g.book == civTab, func() { g.togglePanel(civTab) })
 	if g.level > 0 && g.viewing == 0 {
 		square("‹ Ciel", false, func() { g.SetZoom(0) })
 	}
@@ -289,18 +290,27 @@ func (g *Game) togglePie() {
 		g.pieOpen = !g.pieOpen
 	}
 	if g.pieShown() {
-		g.showCulture, g.showAnnals = false, false
+		g.book = noBook
 	}
 	g.dirty = true
 }
 
-// togglePanel opens or closes culture and knowledge, or the Annals, which
-// share their panel.
-func (g *Game) togglePanel(culture bool) {
-	if culture {
-		g.showCulture, g.showAnnals = !g.showCulture, false
+// bookTab is a tab of the book panel, on the left.
+type bookTab int
+
+const (
+	noBook     bookTab = iota
+	civTab             // the state of the civilization (civ.go)
+	cultureTab         // culture and knowledge
+	annalsTab          // the Annals of the sky
+)
+
+// togglePanel opens a tab of the book panel, or closes it if it shows.
+func (g *Game) togglePanel(tab bookTab) {
+	if g.book == tab {
+		g.book = noBook
 	} else {
-		g.showAnnals, g.showCulture = !g.showAnnals, false
+		g.book = tab
 	}
 	g.dirty = true
 }
@@ -825,7 +835,10 @@ func (g *Game) drawBook(p painter, st *proto.State, o *proto.Own) {
 	inW := w - p.px(20)
 	x0 := m + p.px(10)
 	var lines []bookLine
-	if g.showCulture {
+	switch g.book {
+	case civTab:
+		lines = g.civLines(p, st, o, x0, inW)
+	case cultureTab:
 		total := 0.0
 		for _, v := range o.Culture {
 			total += v
@@ -869,7 +882,7 @@ func (g *Game) drawBook(p painter, st *proto.State, o *proto.Own) {
 				p.text(l, x0, y+p.px(10)+i*p.line(), dimColor)
 			}
 		}})
-	} else {
+	case annalsTab:
 		if len(st.Annals) == 0 {
 			lines = append(lines, bookLine{p.line(), func(y int) {
 				p.text("Aucune civilisation n'est encore tombée.", x0, y, dimColor)
@@ -893,22 +906,19 @@ func (g *Game) drawBook(p painter, st *proto.State, o *proto.Own) {
 	}
 	r := image.Rect(m, top, m+w, top+p.px(20)+tabH+p.px(10)+h)
 	in := p.panel(r)
-	tab := func(x int, label string, on bool, culture bool) int {
+	tab := func(x int, label string, t bookTab) int {
 		tw := p.widthOf(label, bold) + p.px(20)
 		kind := ghostButton
-		if on {
+		if g.book == t {
 			kind = primaryButton
 		}
-		p.buttonAs(image.Rect(x, in.Min.Y, x+tw, in.Min.Y+tabH), label, func() {
-			g.showCulture, g.showAnnals = culture, !culture
-		}, kind, panelEdge)
+		p.buttonAs(image.Rect(x, in.Min.Y, x+tw, in.Min.Y+tabH), label, func() { g.book = t }, kind, panelEdge)
 		return x + tw + p.px(4)
 	}
-	x := tab(in.Min.X, "Culture et savoir", g.showCulture, true)
-	tab(x, "Annales", g.showAnnals, false)
-	p.buttonAs(image.Rect(in.Max.X-tabH, in.Min.Y, in.Max.X, in.Min.Y+tabH), "×", func() {
-		g.showCulture, g.showAnnals = false, false
-	}, ghostButton, panelEdge)
+	x := tab(in.Min.X, "Civilisation", civTab)
+	x = tab(x, "Culture et savoir", cultureTab)
+	tab(x, "Annales", annalsTab)
+	p.buttonAs(image.Rect(in.Max.X-tabH, in.Min.Y, in.Max.X, in.Min.Y+tabH), "×", func() { g.book = noBook }, ghostButton, panelEdge)
 	y := in.Min.Y + tabH + p.px(10)
 	for _, l := range lines {
 		l.draw(y)
