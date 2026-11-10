@@ -16,6 +16,9 @@ import (
 	"apogee/internal/server"
 )
 
+// version is set at release time, by the linker.
+var version = "dev"
+
 func main() {
 	addr := flag.String("addr", fmt.Sprintf(":%d", proto.DefaultPort), "TCP listen address")
 	name := flag.String("name", "Apogée", "name of the sky, shown to players")
@@ -24,7 +27,12 @@ func main() {
 	rivals := flag.Int("rivals", 5, "rival AI gods in a new sky")
 	seed := flag.Uint64("seed", 1, "seed of a new sky")
 	speed := flag.Int("speed", 1, "simulation steps per tick (1 is real time)")
+	showVersion := flag.Bool("version", false, "print the version and quit")
 	flag.Parse()
+	if *showVersion {
+		fmt.Println(version)
+		return
+	}
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -36,7 +44,7 @@ func main() {
 		os.Exit(1)
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
-	log.Info("sky open", "name", *name, "addr", ln.Addr().String())
+	log.Info("sky open", "version", version, "name", *name, "addr", ln.Addr().String())
 
 	if *mdns {
 		ad, err := discovery.Advertise(*name, port)

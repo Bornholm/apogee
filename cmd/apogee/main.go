@@ -26,6 +26,9 @@ import (
 
 var errDone = errors.New("done")
 
+// version is set at release time, by the linker.
+var version = "dev"
+
 func main() {
 	seed := flag.Uint64("seed", 7, "seed of a new embedded sky and of the clouds")
 	solo := flag.Bool("solo", false, "skip the home screen: continue the solo game")
@@ -53,7 +56,12 @@ func main() {
 	width := flag.Int("width", 1280, "initial window width")
 	height := flag.Int("height", 800, "initial window height")
 	soundOn := flag.Bool("sound", true, "play the sound effects and the music (never during a screenshot)")
+	showVersion := flag.Bool("version", false, "print the version and quit")
 	flag.Parse()
+	if *showVersion {
+		fmt.Println(version)
+		return
+	}
 	if *shot != "" && *frames < 1 {
 		log.Fatal("-frames must be at least 1 with -shot")
 	}
