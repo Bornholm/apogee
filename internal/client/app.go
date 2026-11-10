@@ -268,6 +268,7 @@ func (a *App) Update() error {
 			a.game, a.conn = nil, nil
 			a.screen = homeScreen
 			a.status = "La connexion au ciel est perdue."
+			a.failed = fmt.Errorf("the connection to the sky was lost: %w", err)
 		}
 		return nil
 	case connectingScreen:
@@ -453,8 +454,9 @@ func (a *App) drawJoin(p painter, r image.Rectangle, k int) {
 	// Only as many skies as the window holds: the address field and the
 	// buttons below must stay reachable.
 	fixed := 3*p.line() + 3*(bh+gap) + bh + 30*k
-	// At least one listed sky, even in a tiny window.
-	room := max(2, (a.outH-r.Min.Y-fixed-2*p.line())/(bh+gap))
+	// The rows the window holds; in a tiny one, a single line says how many
+	// skies were found.
+	room := max(1, (a.outH-r.Min.Y-fixed-2*p.line())/(bh+gap))
 	hidden := 0
 	if len(servers) > room {
 		hidden = len(servers) - (room - 1)
@@ -484,7 +486,11 @@ func (a *App) drawJoin(p painter, r image.Rectangle, k int) {
 		y += bh + gap
 	}
 	if hidden > 0 {
-		p.text(fmt.Sprintf("… et %d autres ciels : agrandis la fenêtre pour les voir.", hidden), in.Min.X, y, dimColor)
+		msg := fmt.Sprintf("… et %d autres ciels : agrandis la fenêtre pour les voir.", hidden)
+		if len(servers) == 0 {
+			msg = fmt.Sprintf("%d ciels trouvés : agrandis la fenêtre pour les voir.", hidden)
+		}
+		p.text(msg, in.Min.X, y, dimColor)
 		y += bh + gap
 	}
 	var refresh func()
