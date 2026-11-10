@@ -140,6 +140,7 @@ func (g *Game) drawPie(p painter, r image.Rectangle, o *proto.Own) image.Rectang
 			g.src.Whisper(g.draft)
 			g.drafting = false
 			g.play(sound.Whisper)
+			g.signs.whispered()
 		}
 	}
 	half := (in.Dx() - 4*k) / 2

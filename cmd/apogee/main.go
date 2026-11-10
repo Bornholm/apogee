@@ -57,6 +57,7 @@ func main() {
 	width := flag.Int("width", 1280, "initial window width")
 	height := flag.Int("height", 800, "initial window height")
 	battleFlag := flag.String("battle", "", "play out an attack on your island at start: wave, colossus or raid, with ,lost when the island does not hold")
+	signFlag := flag.String("sign", "", "show a sign on your island, for screenshots: finished, grown, discovery, whisper, birth, wave, wound, decline, supplique or fall")
 	soundOn := flag.Bool("sound", true, "play the sound effects and the music (never during a screenshot)")
 	showVersion := flag.Bool("version", false, "print the version and quit")
 	flag.Parse()
@@ -92,7 +93,7 @@ func main() {
 	// the solo game when nothing else is asked; then only the game's frames
 	// count. Without them, the screenshot shows the home screen.
 	launched := *fresh || *solo || *host || *connect != "" || *discover
-	viewed := *battleFlag != "" || *onWave || *onPhase != "" || *zoom > 0 || *observe > 0 || *culture || *annals || *selectID > 0 || *tutoStep > 0
+	viewed := *signFlag != "" || *battleFlag != "" || *onWave || *onPhase != "" || *zoom > 0 || *observe > 0 || *culture || *annals || *selectID > 0 || *tutoStep > 0
 	if viewed && !launched {
 		*solo, launched = true, true
 	}
@@ -127,6 +128,9 @@ func main() {
 		}
 		if *tutoStep > 0 {
 			g.TutorialStep(*tutoStep - 1)
+		}
+		if *signFlag != "" {
+			g.ShowSign(*signFlag)
 		}
 		if *battleFlag != "" {
 			by, lost, _ := strings.Cut(*battleFlag, ",")

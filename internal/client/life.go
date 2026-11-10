@@ -30,6 +30,7 @@ const (
 	going
 	working
 	returning
+	answering // called to a gathering, walking there or gathered
 )
 
 // job tells what a villager does where it works, which decides the
@@ -72,6 +73,11 @@ type walker struct {
 	angle, radius float64
 	speed         float64 // radians per second
 	away          bool    // off its round, to fight or coming back
+	// call is the gathering the villager answers, act what it does there,
+	// phase offsets its movements from its neighbours'.
+	call  string
+	act   act
+	phase float64
 }
 
 // shore is the outline of the island in view, at its size.
@@ -107,6 +113,10 @@ type life struct {
 	homes        []geo.Vec2
 	// rally, during a battle, is where the guards run to fight.
 	rally []geo.Vec2
+	// calls are the gatherings of the villagers (gather.go).
+	calls []gathering
+	// slow makes the villagers drag their feet, during a famine.
+	slow bool
 }
 
 // featureJob returns what villagers do at a natural site. Kinds come from
@@ -236,7 +246,12 @@ func (l *life) patrol(post geo.Vec2, radius float64) float64 {
 
 // step moves everyone by dt seconds. At night, villagers linger at home.
 func (l *life) step(dt float64, night bool) {
+	l.gather(dt)
 	sites, works := l.sites, l.works
+	pace := 1.0
+	if l.slow {
+		pace = 0.45
+	}
 	for i := range l.walkers {
 		w := &l.walkers[i]
 		if w.guard {
@@ -261,6 +276,13 @@ func (l *life) step(dt float64, night bool) {
 			continue
 		}
 		switch w.state {
+		case answering:
+			// Hurry to the gathering, then stay there.
+			if w.walk(dt*1.6) && w.via {
+				w.via = false
+				w.tx, w.ty = w.fx, w.fy
+			}
+			continue
 		case resting:
 			if w.wait -= dt; w.wait > 0 {
 				continue
@@ -280,7 +302,7 @@ func (l *life) step(dt float64, night bool) {
 			l.route(w, t)
 			w.state = going
 		case going, returning:
-			if w.walk(dt) && w.via {
+			if w.walk(dt*pace) && w.via {
 				// Reached the waypoint: on to the real target.
 				w.via = false
 				w.tx, w.ty = w.fx, w.fy
@@ -362,3 +384,8 @@ func (w *walker) walk(dt float64) bool {
 // busy reports whether the walker is at work on the spot: it then bobs, as
 // if hammering or harvesting, and raises particles.
 func (w *walker) busy() bool { return !w.guard && w.state == working }
+
+// gathered reports whether the villager stands at its gathering.
+func (w *walker) gathered() bool {
+	return w.state == answering && !w.via && w.arrived()
+}

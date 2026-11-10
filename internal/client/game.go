@@ -97,8 +97,13 @@ type Game struct {
 	seen life
 	// battle plays out the last attack on the player's island; foeArt
 	// holds the sprites of the assailants.
-	battle    battle
-	rehearse  *sim.Battle // a battle to show at the next state, for screenshots
+	battle   battle
+	rehearse *sim.Battle // a battle to show at the next state, for screenshots
+	// signs make the events of the player's island visible (signs.go),
+	// troops the groups that come and go (troops.go).
+	signs     signs
+	troops    troops
+	allyArt   sprite
 	foeArt    [foeArts]sprite
 	dust      particles
 	pixel     *ebiten.Image // one white pixel, tinted to draw particles
@@ -377,6 +382,8 @@ func NewGame(src *Source, seed uint64) *Game {
 		f := cam.Render(m)
 		g.foeArt[i] = sprite{ebiten.NewImageFromImage(f.Img), f.Anchor}
 	}
+	ally := cam.Render(art.Person(seed+3, art.Plaster))
+	g.allyArt = sprite{ebiten.NewImageFromImage(ally.Img), ally.Anchor}
 	g.pixel = ebiten.NewImage(1, 1)
 	g.pixel.Fill(color.White)
 	sw := cam.Render(art.Swarm(seed))
@@ -527,6 +534,7 @@ func (g *Game) Update() error {
 		g.purgeMiniatures(st.Islands)
 		g.notifyNews(st)
 		g.watchBattle(st)
+		g.watchSigns(st)
 		if g.viewing != 0 && g.viewing == st.You {
 			g.Observe(0) // asked to observe one's own island before knowing it
 		}
@@ -844,7 +852,20 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawRaids(at, islands)
 		g.registerIslands(islands, k, ox, oy)
 	} else if home, ok := g.homeIsland(g.src.State()); ok {
-		if g.viewing == 0 {
+		if f := g.signs.state.falling; g.viewing == 0 && f > 0 {
+			// The island falls into the whirlpool: it shakes, sinks and
+			// fades into the sky.
+			ox += math.Round(math.Sin(float64(g.animTick)*1.7) * 2 * k)
+			oy += math.Round(f * f * 240 * k)
+			var cs ebiten.ColorScale
+			cs.ScaleAlpha(float32(1 - f))
+			at = func(img *ebiten.Image, x, y float64) { atScaled(img, x, y, cs) }
+		} else if g.viewing == 0 && g.signs.state.declining && g.battle.strike() == 0 {
+			// A declining island loses its colours.
+			var cs ebiten.ColorScale
+			cs.Scale(0.8, 0.76, 0.88, 1)
+			at = func(img *ebiten.Image, x, y float64) { atScaled(img, x, y, cs) }
+		} else if g.viewing == 0 {
 			// The heart struck: the island shakes and flushes red.
 			if s := g.battle.strike(); s > 0 {
 				ox += math.Round(math.Sin(float64(g.animTick)*2.1) * s * 2 * k)
@@ -855,6 +876,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 		at(home.img, -float64(home.anchor.X), -float64(home.anchor.Y))
 		g.drawWalkers(at)
+		if g.viewing == 0 {
+			g.drawStorm(atScaled)
+		}
 	}
 
 	g.drawHUD(screen, g.src.State())
@@ -950,6 +974,11 @@ func (g *Game) animate() {
 			if is.ID == st.You {
 				g.life.sync(is, st.Own, signature(is, st.Own))
 				g.life.rally = g.battle.rally()
+				if w := g.signs.state.waveIn; w >= 0 && w < 45 && g.life.rally == nil {
+					// A wave is coming: the guards gather at the heart.
+					g.life.rally = []geo.Vec2{g.signs.heart}
+				}
+				g.answerSigns()
 				g.life.step(dt, night)
 				break
 			}
@@ -970,6 +999,11 @@ func (g *Game) animate() {
 			g.dirty = true
 		}
 	}
+	g.signs.step(dt, &g.dust, home)
+	g.troops.step(dt)
+	if home && (g.troops.active() || g.signs.state.waveIn >= 0) && g.animTick%4 == 0 {
+		g.dirty = true
+	}
 	if g.level == 0 {
 		return
 	}
@@ -989,7 +1023,7 @@ func (g *Game) animate() {
 	}
 	g.dust.step(dt)
 	g.animTick++
-	if g.animTick%4 == 0 && len(l.walkers) > 0 {
+	if g.animTick%4 == 0 && (len(l.walkers) > 0 || len(g.dust.ps) > 0) {
 		g.dirty = true
 	}
 }
@@ -1028,6 +1062,58 @@ func (g *Game) ShowBattle(by sim.Foe, foes int, repelled bool) {
 	g.lastTick = 0 // hear the current state again
 }
 
+// watchSigns raises the signs of what changed on the player's island.
+func (g *Game) watchSigns(st *proto.State) {
+	if st.Own == nil {
+		return
+	}
+	for _, is := range st.Islands {
+		if is.ID == st.You {
+			g.signs.observe(is, st.Own)
+			g.answerSigns()
+			g.troops.observe(st, is, st.Own)
+			g.troops.rehearse(g.signs.rehearse)
+			return
+		}
+	}
+}
+
+// answerSigns passes the gatherings the signs ask for to the people.
+func (g *Game) answerSigns() {
+	for _, c := range g.signs.calls {
+		g.life.call(c)
+	}
+	for _, k := range g.signs.lifts {
+		g.life.lift(k)
+	}
+	g.signs.calls, g.signs.lifts = g.signs.calls[:0], g.signs.lifts[:0]
+	g.life.slow = g.signs.starving
+}
+
+// drawStorm gathers dark clouds over the island while a wave is on its way:
+// more and darker as it comes.
+func (g *Game) drawStorm(atScaled func(*ebiten.Image, float64, float64, ebiten.ColorScale)) {
+	in := g.signs.state.waveIn
+	if in < 0 || in > 90 || len(g.clouds) == 0 {
+		return
+	}
+	k := 1 - in/90
+	n := int(math.Ceil(8 * k))
+	size := math.Max(g.signs.size, 20)
+	drift := float64(g.animTick) / 60
+	for i := range n {
+		a := 2.2 + float64(i)*0.55 + math.Sin(drift*0.2+float64(i))*0.1
+		d := size * (0.55 + 0.35*float64(i%3)/2)
+		x, y := g.cam.Project(art.V(d*math.Cos(a), d*math.Sin(a)*0.6, 38+float64(i%2)*6))
+		c := g.clouds[i%len(g.clouds)].img
+		b := c.Bounds()
+		var cs ebiten.ColorScale
+		cs.Scale(0.42, 0.32, 0.55, 1)
+		cs.ScaleAlpha(float32(0.35 + 0.55*k))
+		atScaled(c, math.Round(x)-float64(b.Dx()/2), math.Round(y)-float64(b.Dy()/2), cs)
+	}
+}
+
 // shown returns the people of the island in view.
 func (g *Game) shown() *life {
 	if g.viewing != 0 {
@@ -1052,11 +1138,28 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 		lift   float64 // pixels up, for a busy villager's bob
 		z      float64 // island units above the ground, for an assailant
 		person bool
+		tint   *color.RGBA
 	}
 	people := g.shown().walkers
 	items := make([]item, 0, len(g.homeObjs)+len(people))
+	// During a famine, the fields wither.
+	var farms []geo.Vec2
+	if st := g.src.State(); g.viewing == 0 && g.signs.starving && st != nil && st.Own != nil {
+		for _, b := range st.Own.Buildings {
+			if b.Kind == sim.Farm {
+				farms = append(farms, geo.Vec2{X: b.X, Y: b.Y})
+			}
+		}
+	}
+	withered := color.RGBA{0xc8, 0xa0, 0x70, 0xff}
 	for _, o := range g.homeObjs {
-		items = append(items, item{sp: o.sprite, x: o.x, y: o.y})
+		it := item{sp: o.sprite, x: o.x, y: o.y}
+		for _, f := range farms {
+			if math.Abs(f.X-o.x) < 0.5 && math.Abs(f.Y-o.y) < 0.5 {
+				it.tint = &withered
+			}
+		}
+		items = append(items, it)
 	}
 	bob := (g.animTick / 12) % 2
 	for _, w := range people {
@@ -1068,7 +1171,39 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 		if w.busy() && bob == 1 {
 			it.lift = 1 // hammering, harvesting
 		}
+		if w.gathered() {
+			t := float64(g.animTick) / 60
+			switch w.act {
+			case hide:
+				continue // sheltering at home
+			case cheer:
+				it.lift = math.Round(math.Abs(math.Sin(t*7+w.phase)) * 3)
+			case pray:
+				if math.Sin(t*2.5+w.phase) > 0 {
+					it.lift = -1 // bowing
+				}
+			}
+		}
 		items = append(items, it)
+	}
+	if g.viewing == 0 {
+		// The troops coming and going, and the banners of the islands that
+		// covet this one, planted on its shore.
+		for _, f := range g.troops.figures(float64(g.animTick) / 60) {
+			sp := g.walkerArt[1]
+			switch f.kind {
+			case allyFigure:
+				sp = g.allyArt
+			case raiderFigure:
+				sp = g.foeArt[raiderArt]
+			}
+			items = append(items, item{sp: sp, x: f.x, y: f.y, z: f.z, person: true})
+		}
+		for _, b := range g.troops.banners {
+			if int(b.kind) < len(g.banners) && g.banners[b.kind].img != nil {
+				items = append(items, item{sp: g.banners[b.kind], x: b.at.X, y: b.at.Y})
+			}
+		}
 	}
 	if g.viewing == 0 && g.battle.active() {
 		for _, f := range g.battle.foes {
@@ -1088,6 +1223,10 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 	for _, it := range items {
 		x, y := g.cam.Project(art.V(it.x, it.y, it.z))
 		px, py := math.Round(x), math.Round(y)-it.lift
+		if it.tint != nil {
+			g.atTinted(it.sp.img, px-float64(it.sp.anchor.X), py-float64(it.sp.anchor.Y), *it.tint)
+			continue
+		}
 		at(it.sp.img, px-float64(it.sp.anchor.X), py-float64(it.sp.anchor.Y))
 	}
 	// Particles float above everything, one virtual pixel each.

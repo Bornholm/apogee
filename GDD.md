@@ -806,6 +806,8 @@ Tout le son est **synthétisé par le jeu**, à la manière des consoles 8 bits 
 
 ## 13.1 bis Une île vivante
 
+**Principe : tout événement significatif se voit dans le monde.** Le jeu est surtout regardé, peu joué : un événement ne doit pas exister seulement dans la chronique. Il se joue sur l'île, par ses habitants et ses troupes, de sorte qu'un coup d'œil suffise à comprendre ce qui se passe.
+
 | Élément | Application |
 |---|---|
 | **Croissance visible** | Une île naissante ne porte que son cœur et ses sites naturels. Le peuple mène jusqu'à **deux chantiers à la fois**, longs (de 30 min à plus d'une heure chacun), et la natalité est lente : l'île se remplit en une quinzaine d'heures 🔧 |
@@ -813,6 +815,9 @@ Tout le son est **synthétisé par le jeu**, à la manière des consoles 8 bits 
 | **Défenseurs** | Ils patrouillent autour des tours et du cœur, sans jamais quitter l'île |
 | **Particules** | Feuilles qui tombent des bosquets, sciure sur les chantiers, éclats aux carrières, balle dorée sur les champs, étincelles d'Aether |
 | **Combats visibles** | Chaque attaque contre l'île se joue sous les yeux du joueur pendant une dizaine de secondes. Les monstres d'une vague (ou le colosse, seul et bien plus grand, ou les guerriers d'un raid) descendent du ciel et planent autour du cœur. Le cœur, les tours et les défenseurs, qui accourent, leur tirent des traits d'Aether. Si l'île tient, les assaillants s'abattent et éclatent au sol. Sinon, le cœur est frappé (l'île rougit et tremble), puis ils repartent. La simulation résout l'attaque d'un coup et en transmet le résumé (assaillant, nombre, issue) ; une attaque survenue pendant l'absence du joueur n'est pas rejouée, la chronique la raconte |
+| **Réactions du peuple** | Les villageois quittent leur travail pour réagir : ils fêtent un bâtiment achevé ou une découverte (en sautant de joie autour), prient en cercle autour du cœur tant qu'une supplique attend, s'arrêtent et bondissent quand leur dieu souffle, se réfugient chez eux à l'approche d'une vague ou quand le cœur est frappé, et fêtent la victoire une fois la vague repoussée. Pendant une famine, ils traînent les pieds et les champs se flétrissent |
+| **Troupes** | Les guerriers de l'île marchent du cœur jusqu'au rivage puis s'envolent pour un raid, et reviennent de même. Les renforts d'un voisin descendent du ciel et patrouillent autour du cœur. Les pillards en approche apparaissent dans le ciel au-dessus de l'île avant le combat. Les bannières des îles qui convoitent celle du joueur sont plantées sur son rivage |
+| **Atmosphère** | Une vague annoncée amasse des nuées violettes au-dessus de l'île, plus nombreuses à mesure qu'elle approche, et les défenseurs se regroupent au cœur. Un cœur blessé fume. Une découverte fait jaillir une colonne de lumière d'Aether de la bibliothèque. Une île qui s'agrandit soulève de la poussière sur tout son rivage. Une île en déclin pâlit et s'effrite par ses falaises. Une île qui chute tremble, s'enfonce et s'efface |
 | **Le peuple vit sans témoin** | Les villageois du joueur poursuivent leur journée en vue du ciel ou pendant qu'il observe une autre île |
 | **Décor seulement** | Ces animations sont calculées par le client : la simulation ne connaît que les effectifs et les bâtiments |
 

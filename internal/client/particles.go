@@ -23,6 +23,8 @@ type particle struct {
 	// heavy particles (sawdust, chips) fall back under gravity; light ones
 	// (leaves, chaff, sparkles) keep their pace.
 	heavy bool
+	// deep particles fall past the ground, down the cliffs.
+	deep bool
 }
 
 // Particle colours, taken from the palette's ramps.
@@ -79,6 +81,13 @@ func (p *particles) emit(w *walker, dt float64) {
 	p.ps = append(p.ps, q)
 }
 
+// add raises one particle, if there is room.
+func (p *particles) add(q particle) {
+	if len(p.ps) < maxParticles {
+		p.ps = append(p.ps, q)
+	}
+}
+
 // gravity pulls sawdust and chips down; leaves and sparkles keep their pace.
 const gravity = 9.0
 
@@ -100,7 +109,7 @@ func (p *particles) step(dt float64) {
 		q.x += q.vx * dt
 		q.y += q.vy * dt
 		q.z += q.vz * dt
-		if q.z <= 0 && q.vz <= 0 {
+		if q.z <= 0 && q.vz <= 0 && !q.deep {
 			// Landed: leaves and chips rest a moment on the ground, then
 			// vanish.
 			q.z, q.vx, q.vy, q.vz, q.sway, q.heavy = 0, 0, 0, 0, 0, false
