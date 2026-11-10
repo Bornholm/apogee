@@ -441,3 +441,12 @@ func (g *Game) confirmName() {
 	g.renaming = false
 	g.dirty = true
 }
+
+// dropHiddenName gives up a name being typed once its field no longer
+// shows: the book closed or turned to another page. The keys go back to
+// the shortcuts, and no unseen name is ever sent.
+func (g *Game) dropHiddenName() {
+	if g.renaming && g.book != civTab {
+		g.renaming, g.newName = false, nil
+	}
+}

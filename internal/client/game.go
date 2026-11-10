@@ -757,6 +757,7 @@ func (g *Game) Update() error {
 	// Letter shortcuts follow the characters typed, not the physical keys:
 	// they stay on their letter whatever the layout, AZERTY or QWERTY.
 	g.chars = ebiten.AppendInputChars(g.chars[:0])
+	g.dropHiddenName()
 	if g.renaming {
 		g.typeName()
 	} else {

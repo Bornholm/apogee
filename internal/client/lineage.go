@@ -58,7 +58,7 @@ func (a *App) OpenLineage() { a.openLineage() }
 func (a *App) openLineage() {
 	a.editing = sim.Lineage{}
 	if l := a.settings.Lineage; l != nil {
-		a.editing = *l
+		a.editing = l.Clean() // a settings file may say anything
 	}
 	a.lineName = field{value: a.editing.Name, max: sim.MaxName}
 	a.screen, a.status = lineageScreen, ""

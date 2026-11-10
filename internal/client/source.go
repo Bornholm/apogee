@@ -136,13 +136,13 @@ func (s *Source) Aim(kind sim.Outer, target proto.IslandID) error {
 }
 
 // Look asks the server for the public view of another island; 0 stops.
+func (s *Source) Look(id proto.IslandID) error {
+	return s.send(proto.Msg{Look: &proto.Look{Island: id}})
+}
+
 // Rename names the god's living civilisation.
 func (s *Source) Rename(name string) error {
 	return s.send(proto.Msg{Rename: &proto.Rename{Name: name}})
-}
-
-func (s *Source) Look(id proto.IslandID) error {
-	return s.send(proto.Msg{Look: &proto.Look{Island: id}})
 }
 
 // Err returns the error that ended the connection, if any.
