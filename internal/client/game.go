@@ -312,7 +312,8 @@ func (g *Game) releaseOutcomes() {
 		loudest = max(loudest, newsRank(e.Kind))
 	}
 	g.held = kept
-	if loudest >= 0 {
+	// The blow on the heart was heard during the battle.
+	if loudest >= 0 && newsSounds[loudest].fx != sound.Struck {
 		g.play(newsSounds[loudest].fx)
 	}
 	g.dirty = true
@@ -362,6 +363,17 @@ func (g *Game) play(fx sound.Effect) {
 	if !g.mayPlay(fx, time.Now()) {
 		return
 	}
+	if g.onPlay != nil {
+		g.onPlay(fx)
+	}
+	if g.Sound != nil {
+		g.Sound.Play(fx)
+	}
+}
+
+// playScene plays a sound of what the island shows, a battle: it follows
+// the animation, without the spacing of the news.
+func (g *Game) playScene(fx sound.Effect) {
 	if g.onPlay != nil {
 		g.onPlay(fx)
 	}
@@ -1177,6 +1189,10 @@ func (g *Game) animate() {
 			}
 		}
 		g.battle.step(dt, &g.dust, home, guards)
+		for _, fx := range g.battle.sfx {
+			g.playScene(fx)
+		}
+		g.battle.sfx = g.battle.sfx[:0]
 		if !g.battle.active() {
 			defer g.releaseOutcomes()
 		}

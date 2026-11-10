@@ -8,6 +8,7 @@ import (
 	"apogee/internal/geo"
 	"apogee/internal/proto"
 	"apogee/internal/sim"
+	"apogee/internal/sound"
 )
 
 // The battle plays out on the island the last attack it suffered (GDD 13.1
@@ -58,7 +59,26 @@ type battle struct {
 	// feared and cheered tell whether the people already fled the blow,
 	// or celebrated the victory, of this battle.
 	feared, cheered bool
+	// sfx are the sounds of the last step, for the game to play: cries,
+	// shots, blows. nextCry, lastZap and lastBurst space them out.
+	sfx                         []sound.Effect
+	nextCry, lastZap, lastBurst float64
 }
+
+// cry is the sound of the assailants: monsters screech, the colossus
+// roars, raiders shout.
+func (b *battle) cry() sound.Effect {
+	switch b.b.By {
+	case sim.ColossusFoe:
+		return sound.Roar
+	case sim.RaiderFoe:
+		return sound.WarCry
+	}
+	return sound.Screech
+}
+
+// noise queues a sound of the battle.
+func (b *battle) noise(fx sound.Effect) { b.sfx = append(b.sfx, fx) }
 
 func (b *battle) active() bool { return len(b.foes) > 0 && b.t < battleTime }
 
@@ -130,6 +150,23 @@ func (b *battle) step(dt float64, dust *particles, emit bool, guards []walker) {
 	}
 	b.t += dt
 	t := b.t
+	if emit {
+		// The assailants announce themselves, then keep crying while they
+		// fight; raiders cross blades with the guards.
+		if t >= b.nextCry && t < fightTime {
+			if b.nextCry == 0 || b.b.By != sim.RaiderFoe {
+				b.noise(b.cry())
+			}
+			gap := 1.2 + b.r.Float64()
+			if b.b.By == sim.ColossusFoe {
+				gap = 3
+			}
+			b.nextCry = math.Max(t, 0.3) + gap
+		}
+		if b.b.By == sim.RaiderFoe && t > arriveTime && t < fightTime && b.r.Float64() < 2.2*dt {
+			b.noise(sound.Clash)
+		}
+	}
 	hz := b.hoverZ()
 	for i := range b.foes {
 		f := &b.foes[i]
@@ -151,6 +188,10 @@ func (b *battle) step(dt float64, dust *particles, emit bool, guards []walker) {
 				f.down = true
 				if emit {
 					dust.burst(f.x, f.y, 0.5, 24, monsterColours, b.r)
+					if t-b.lastBurst > 0.12 {
+						b.lastBurst = t
+						b.noise(sound.Burst)
+					}
 				}
 			}
 		default:
@@ -173,11 +214,16 @@ func (b *battle) step(dt float64, dust *particles, emit bool, guards []walker) {
 			g := guns[b.r.IntN(len(guns))]
 			if f := b.target(); f != nil {
 				dust.bolt(g.x, g.y, g.z, f.x, f.y, f.z+7, b.r)
+				if t-b.lastZap > 0.22 {
+					b.lastZap = t
+					b.noise(sound.Zap)
+				}
 			}
 		}
 	}
 	if !b.b.Repelled && !b.hit && t >= strikeTime {
 		b.hit = true
+		b.noise(sound.Struck)
 		dust.burst(b.heart.x, b.heart.y, 6, 40, append(append([]color.RGBA(nil), monsterColours...), bloodColours...), b.r)
 	}
 }

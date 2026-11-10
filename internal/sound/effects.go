@@ -4,20 +4,28 @@ package sound
 type Effect int
 
 const (
-	Click      Effect = iota // a button of the interface
-	Whisper                  // the god whispers a pie
-	Answer                   // the god answers a supplique
-	Built                    // a building is finished, or the island grew
-	Discovery                // the scholars mastered a discovery
-	Supplique                // the people ask their god
-	Raid                     // warriors of another island threaten us
-	Struck                   // a wave or a raid struck the heart
-	Victory                  // an attack was repelled
-	Decline                  // the decline began
-	Fall                     // the island falls into the whirlpool
-	Birth                    // a new island rises from the clouds
-	Feast                    // the people feast a milestone
-	NumEffects               // the number of effects
+	Click     Effect = iota // a button of the interface
+	Whisper                 // the god whispers a pie
+	Answer                  // the god answers a supplique
+	Built                   // a building is finished, or the island grew
+	Discovery               // the scholars mastered a discovery
+	Supplique               // the people ask their god
+	Raid                    // warriors of another island threaten us
+	Struck                  // a wave or a raid struck the heart
+	Victory                 // an attack was repelled
+	Decline                 // the decline began
+	Fall                    // the island falls into the whirlpool
+	Birth                   // a new island rises from the clouds
+	Feast                   // the people feast a milestone
+	// The sounds of a battle on the island (GDD 13.1 bis), played with its
+	// animation.
+	Screech    // monsters of the whirlpool, crying as they swoop
+	Roar       // the colossus
+	WarCry     // raiders landing
+	Zap        // a shot of aether
+	Burst      // a monster shot down
+	Clash      // blades meeting
+	NumEffects // the number of effects
 )
 
 // pluck is a note that fades like a plucked string.
@@ -121,6 +129,38 @@ var effects = [NumEffects][]Note{
 		},
 		arpeggio(0.9, 0.14, 0.6, Triangle, 0.25, 67, 71, 74),
 	),
+	Screech: {
+		// A rasping cry that dives.
+		{Dur: 0.45, Freq: midi(70), Wave: Pulse25, Vol: 0.16, Attack: 0.02, Slide: -14, Decay: 0.25},
+		{Dur: 0.45, Freq: 1800, Wave: Noise, Vol: 0.08, Attack: 0.02, Slide: -12, Decay: 0.2},
+		{At: 0.05, Dur: 0.35, Freq: midi(64), Wave: Triangle, Vol: 0.25, Slide: -12, Decay: 0.2},
+	},
+	Roar: {
+		// A deep growl that swells and shakes.
+		{Dur: 1.4, Freq: midi(31), Wave: Pulse25, Vol: 0.2, Attack: 0.3, Slide: -3, Decay: 0.8, Sustain: 0.5},
+		{Dur: 1.4, Freq: midi(31), Wave: Triangle, Vol: 0.55, Attack: 0.3, Slide: -3, Decay: 0.8, Sustain: 0.5},
+		{Dur: 1.2, Freq: 400, Wave: Noise, Vol: 0.14, Attack: 0.3, Decay: 0.6},
+	},
+	WarCry: {
+		// Raiders shout as they land.
+		{Dur: 0.5, Freq: midi(52), Wave: Pulse25, Vol: 0.14, Attack: 0.04, Slide: 5, Decay: 0.3, Sustain: 0.5},
+		{At: 0.06, Dur: 0.5, Freq: midi(55), Wave: Pulse25, Vol: 0.1, Attack: 0.04, Slide: 5, Decay: 0.3, Sustain: 0.5, Pan: 0.4},
+		{Dur: 0.5, Freq: midi(52), Wave: Triangle, Vol: 0.3, Attack: 0.04, Slide: 5, Decay: 0.3},
+	},
+	Zap: {
+		// A short bolt of aether.
+		{Dur: 0.12, Freq: midi(76), Wave: Triangle, Vol: 0.16, Slide: -12, Decay: 0.05},
+	},
+	Burst: {
+		// A dull pop.
+		{Dur: 0.25, Freq: 600, Wave: Noise, Vol: 0.16, Decay: 0.07},
+		{Dur: 0.2, Freq: midi(40), Wave: Triangle, Vol: 0.3, Slide: -10, Decay: 0.08},
+	},
+	Clash: {
+		// Blades meeting: a ring and a scrape.
+		{Dur: 0.18, Freq: midi(81), Wave: Pulse25, Vol: 0.07, Decay: 0.05},
+		{Dur: 0.1, Freq: 2200, Wave: Noise, Vol: 0.1, Decay: 0.03},
+	},
 	Feast: join(
 		// A dancing tune: a skipping melody over a bouncing bass.
 		arpeggio(0, 0.13, 0.15, Triangle, 0.35, 60, 64, 67, 64, 69, 67, 64, 72),

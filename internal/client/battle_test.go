@@ -142,3 +142,31 @@ func TestTheOutcomeWaitsForTheEndOfTheBattle(t *testing.T) {
 		t.Fatalf("after the battle: held %v, sounds %v", g.isHeld(victory), heard)
 	}
 }
+
+// A battle sounds like one: the assailants cry, the island shoots, the
+// monsters burst, raiders clash with the guards, a struck heart rumbles.
+func TestABattleIsHeard(t *testing.T) {
+	count := func(b *battle) map[sound.Effect]int {
+		n := map[sound.Effect]int{}
+		for _, fx := range b.sfx {
+			n[fx]++
+		}
+		return n
+	}
+	wave, _ := playBattle(t, sim.Battle{Tick: 10, By: sim.WaveFoe, Foes: 6, Repelled: true})
+	if n := count(wave); n[sound.Screech] < 2 || n[sound.Zap] < 5 || n[sound.Burst] < 1 || n[sound.Struck] != 0 {
+		t.Errorf("a repelled wave sounds %v", n)
+	}
+	colossus, _ := playBattle(t, sim.Battle{Tick: 10, By: sim.ColossusFoe, Foes: 1, Repelled: false})
+	if n := count(colossus); n[sound.Roar] < 1 || n[sound.Struck] != 1 || n[sound.Screech] != 0 {
+		t.Errorf("a colossus that strikes sounds %v", n)
+	}
+	raid, _ := playBattle(t, sim.Battle{Tick: 10, By: sim.RaiderFoe, Foes: 5, Repelled: true})
+	if n := count(raid); n[sound.WarCry] != 1 || n[sound.Clash] < 2 {
+		t.Errorf("a raid sounds %v", n)
+	}
+	// Zaps never pile up: at most one every 0.22 s.
+	if n := count(wave)[sound.Zap]; float64(n) > fightTime/0.22+1 {
+		t.Errorf("%d zaps in one battle", n)
+	}
+}
