@@ -291,7 +291,7 @@ func (c *Civ) Dominant() Family {
 func (c *Civ) familyPie() [NumFamilies]int {
 	var out [NumFamilies]int
 	for i, v := range c.Pie {
-		out[Intention(i).Family()] += v
+		out[Intention(i).Family()] += int(float64(v) * Intention(i).weight())
 	}
 	return out
 }
@@ -299,7 +299,7 @@ func (c *Civ) familyPie() [NumFamilies]int {
 func (c *Civ) familyConviction() [NumFamilies]float64 {
 	var out [NumFamilies]float64
 	for i, v := range c.Conviction {
-		out[Intention(i).Family()] += v
+		out[Intention(i).Family()] += v * Intention(i).weight()
 	}
 	return out
 }

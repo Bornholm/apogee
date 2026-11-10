@@ -895,7 +895,7 @@ func (g *Game) drawBook(p painter, st *proto.State, o *proto.Own) {
 	case cultureTab:
 		// How the scholars choose: the people's worship, which the
 		// whispers shape over hours.
-		why := p.wrap("Les savants étudient la famille que ton peuple vénère le plus. Prospérer et S'étendre nourrissent l'Industrie, Se fortifier les Murailles, S'armer les Armes, Étudier les Arcanes ; la ferveur suit tes souffles en quelques heures.", inW)
+		why := p.wrap("Les savants étudient la famille que ton peuple vénère le plus. Prospérer (et S'étendre, pour moitié) nourrit l'Industrie, Se fortifier les Murailles, S'armer les Armes, Étudier les Arcanes ; la ferveur suit tes souffles en quelques heures.", inW)
 		lines = append(lines, bookLine{len(why)*p.line() + p.px(8), func(y int) {
 			for i, l := range why {
 				p.text(l, x0, y+i*p.line(), dimColor)

@@ -90,6 +90,16 @@ func (i Intention) Family() Family {
 	return [...]Family{Industry, Industry, Walls, Weapons, Arcana}[i]
 }
 
+// weight is how much an intention feeds the culture of its family: two
+// intentions feed the Industry, so the second only counts half, and the
+// Industry does not outweigh the other families for having two (GDD 6.6).
+func (i Intention) weight() float64 {
+	if i == Expand {
+		return 0.5
+	}
+	return 1
+}
+
 // Pie is the god's split of attention between inner intentions, in percent
 // (GDD 6.2).
 type Pie [NumIntentions]int

@@ -371,6 +371,8 @@ Ce que le dieu souffle souvent devient la **culture** de son peuple.
 
 La culture rend chaque île unique au fil du temps et empêche une répartition optimale unique : changer radicalement de cap coûte du temps.
 
+> 📌 **Rééquilibrage.** Deux intentions nourrissent l'Industrie (Prospérer et S'étendre) : S'étendre n'y compte plus que pour moitié, pour que l'Industrie ne l'emporte pas sur les autres familles du seul fait d'en avoir deux.
+
 ## 6.7 La chronique
 
 Chaque île tient une **chronique** : quelques lignes, écrites dans la langue du jeu, qui racontent ce que le peuple a fait et pourquoi.
@@ -917,7 +919,7 @@ L'interface, dite « tablettes d'Aether », reste petite pour laisser voir le mo
 | **Chronique** | À droite en vue du ciel, les trois dernières nouvelles marquées d'une couleur par sorte, avec leur ancienneté ; « Tout lire » déplie la suite. En vue de l'île, seule la dernière nouvelle reste |
 | **Réserves** | Une barre en bas : les quatre ressources, chacune avec sa jauge face au plafond, puis les âmes, les défenseurs et les guerriers |
 | **Civilisation** | Premier onglet du panneau de gauche (bouton ou touche I) : la génération, l'âge et le culte de la civilisation avec son état (en ascension, famine, déclin, chute) ; sa trajectoire, de la position de l'île entre le bord du ciel et le tourbillon au seuil du déclin, avec la puissance, l'apogée et le temps estimé avant le déclin (ou avant la chute) ; la vigueur du cœur, le peuple face aux logements avec naissances et morts, les soldats ; les bâtiments par sorte et les chantiers en cours ; les réserves face au plafond avec leur tendance à l'heure, calculée par le client sur le quart d'heure écoulé ; les menaces (vague, colosse, bannières dressées contre l'île) |
-| **Culture et savoir, Annales** | Les onglets suivants du même panneau, à la place des souffles. Le panneau Culture rappelle d'abord comment les savants choisissent : la famille la plus vénérée, que nourrissent les souffles (Prospérer et S'étendre l'Industrie, Se fortifier les Murailles, S'armer les Armes, Étudier les Arcanes) : une ligne par famille (paliers, ferveur, recherches en cours) et les découvertes ; ou les civilisations tombées (11.5). **Consultation seule** |
+| **Culture et savoir, Annales** | Les onglets suivants du même panneau, à la place des souffles. Le panneau Culture rappelle d'abord comment les savants choisissent : la famille la plus vénérée, que nourrissent les souffles (Prospérer l'Industrie, et S'étendre pour moitié, Se fortifier les Murailles, S'armer les Armes, Étudier les Arcanes) : une ligne par famille (paliers, ferveur, recherches en cours) et les découvertes ; ou les civilisations tombées (11.5). **Consultation seule** |
 | **Alerte de raid** | Notification claire quand une attaque approche, dans le jeu et en notification système |
 | **Nouvelle version** | Au lancement, puis toutes les 6 heures tant que le jeu tourne, une version publiée demande à GitHub la dernière release, par une requête anonyme (aucune donnée sur le joueur). Une version trouvée en cours de partie s'annonce aussi en notification système si la fenêtre est cachée. Si elle est plus récente, l'accueil l'annonce dans un encadré avec le lien et un bouton qui ouvre la page de téléchargement, et le bandeau du jeu garde un bouton « Version X disponible ». Une version de développement ne vérifie rien ; l'option `-checkupdate=false` coupe la vérification |
 
