@@ -127,3 +127,52 @@ func TestRoutesNeverLeaveTheIsland(t *testing.T) {
 		}
 	}
 }
+
+// The player's people live on while the god looks at the sky or at another
+// island: coming back, nobody starts again from home.
+func TestOwnPeopleLiveOnWhateverTheView(t *testing.T) {
+	buildings := []sim.Building{
+		{ID: 1, Kind: sim.Core, Progress: 1},
+		{ID: 2, Kind: sim.House, X: 15, Y: 0, Progress: 1},
+		{ID: 3, Kind: sim.Farm, X: -15, Y: 5, Progress: 0.4},
+	}
+	st := &proto.State{
+		You: 1, Phase: "day",
+		Islands: []proto.IslandSummary{{ID: 1, Seed: 3, Size: 50}, {ID: 2, Seed: 4, Size: 50}},
+		Own:     &proto.Own{Population: 12, Buildings: buildings},
+		Seen:    &proto.Seen{Island: 2, Population: 8, Buildings: buildings},
+	}
+	g := &Game{src: &Source{state: st, send: func(proto.Msg) error { return nil }}, level: 2}
+	run := func(ticks int) {
+		for range ticks {
+			g.animate()
+		}
+	}
+	run(60)
+	moved := func(before []walker) int {
+		n := 0
+		for i, w := range g.life.walkers {
+			if i < len(before) && (w.x != before[i].x || w.y != before[i].y) {
+				n++
+			}
+		}
+		return n
+	}
+	before := append([]walker(nil), g.life.walkers...)
+	g.SetZoom(0) // the sky view
+	run(600)
+	if g.life.island != 1 || moved(before) == 0 {
+		t.Fatalf("the people stood still in the sky view (%d moved)", moved(before))
+	}
+	before = append([]walker(nil), g.life.walkers...)
+	g.SetZoom(2)
+	g.Observe(2)
+	run(600)
+	if g.seen.island != 2 || len(g.shown().walkers) != 8 {
+		t.Fatalf("the observed island shows %d walkers of island %d", len(g.shown().walkers), g.seen.island)
+	}
+	g.Observe(0)
+	if g.life.island != 1 || len(g.life.walkers) != 12 || moved(before) == 0 {
+		t.Fatalf("back home, the people were reset or frozen (%d moved)", moved(before))
+	}
+}

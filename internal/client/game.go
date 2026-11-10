@@ -90,7 +90,10 @@ type Game struct {
 	NotifyKinds map[sim.EntryKind]bool
 	// life animates the people of the island in view; walkerArt holds the
 	// villager and defender sprites.
+	// life is the player's own people, which live on whatever the view;
+	// seen is the people of the island observed, if any.
 	life      life
+	seen      life
 	dust      particles
 	pixel     *ebiten.Image // one white pixel, tinted to draw particles
 	walkerArt [2]sprite
@@ -450,6 +453,9 @@ func (g *Game) viewed(st *proto.State) (proto.IslandSummary, *proto.Own, bool) {
 func (g *Game) Observe(id proto.IslandID) {
 	if st := g.src.State(); st != nil && id == st.You {
 		id = 0
+	}
+	if id != g.viewing {
+		g.dust.ps = nil // the dust of the island left behind
 	}
 	g.viewing = id
 	g.src.Look(id)
@@ -900,29 +906,55 @@ func (g *Game) registerIslands(islands []proto.IslandSummary, k, ox, oy float64)
 }
 
 // animate moves the people of the island in view, and asks for a redraw
-// about fifteen times a second while they walk (GDD: a living island).
+// about fifteen times a second while they walk (GDD: a living island). The
+// player's own people keep walking in the sky view or while another island
+// is observed: coming back, they are where their day took them.
 func (g *Game) animate() {
 	st := g.src.State()
+	if st == nil {
+		return
+	}
+	dt := 1.0 / float64(ebiten.TPS())
+	night := st.Phase == "night"
+	if st.Own != nil {
+		for _, is := range st.Islands {
+			if is.ID == st.You {
+				g.life.sync(is, st.Own, signature(is, st.Own))
+				g.life.step(dt, night)
+				break
+			}
+		}
+	}
 	if g.level == 0 {
 		return
 	}
-	sum, view, ok := g.viewed(st)
-	if !ok {
-		return
+	l := g.shown()
+	if g.viewing != 0 {
+		sum, view, ok := g.viewed(st)
+		if !ok {
+			return
+		}
+		l.sync(sum, view, signature(sum, view))
+		l.step(dt, night)
 	}
-	g.life.sync(sum, view, signature(sum, view))
-	dt := 1.0 / float64(ebiten.TPS())
-	g.life.step(dt, st.Phase == "night")
-	for i := range g.life.walkers {
-		if w := &g.life.walkers[i]; w.busy() {
+	for i := range l.walkers {
+		if w := &l.walkers[i]; w.busy() {
 			g.dust.emit(w, dt)
 		}
 	}
 	g.dust.step(dt)
 	g.animTick++
-	if g.animTick%4 == 0 && len(g.life.walkers) > 0 {
+	if g.animTick%4 == 0 && len(l.walkers) > 0 {
 		g.dirty = true
 	}
+}
+
+// shown returns the people of the island in view.
+func (g *Game) shown() *life {
+	if g.viewing != 0 {
+		return &g.seen
+	}
+	return &g.life
 }
 
 // object is a tree, a rock or a building of the island in view, drawn apart
@@ -941,12 +973,13 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 		lift   float64 // pixels up, for a busy villager's bob
 		person bool
 	}
-	items := make([]item, 0, len(g.homeObjs)+len(g.life.walkers))
+	people := g.shown().walkers
+	items := make([]item, 0, len(g.homeObjs)+len(people))
 	for _, o := range g.homeObjs {
 		items = append(items, item{sp: o.sprite, x: o.x, y: o.y})
 	}
 	bob := (g.animTick / 12) % 2
-	for _, w := range g.life.walkers {
+	for _, w := range people {
 		sp := g.walkerArt[0]
 		if w.guard {
 			sp = g.walkerArt[1]
