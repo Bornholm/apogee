@@ -16,6 +16,7 @@ const (
 	Decline                  // the decline began
 	Fall                     // the island falls into the whirlpool
 	Birth                    // a new island rises from the clouds
+	Feast                    // the people feast a milestone
 	NumEffects               // the number of effects
 )
 
@@ -119,5 +120,11 @@ var effects = [NumEffects][]Note{
 			held(0.5, 1.1, 74, Pulse12, 0.18),
 		},
 		arpeggio(0.75, 0.12, 0.6, Pulse25, 0.22, 79, 83, 86),
+	),
+	Feast: join(
+		// A dancing tune: a skipping melody over a bouncing bass.
+		arpeggio(0, 0.12, 0.14, Pulse25, 0.28, 72, 76, 79, 76, 81, 79, 76, 84),
+		arpeggio(0, 0.24, 0.2, Triangle, 0.5, 48, 55, 48, 55),
+		[]Note{{At: 0.96, Dur: 0.4, Freq: 7000, Wave: Noise, Vol: 0.12, Decay: 0.15}},
 	),
 }

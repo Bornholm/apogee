@@ -1187,6 +1187,10 @@ func (g *Game) watchSigns(st *proto.State) {
 			g.signs.observe(is, st.Own)
 			g.answerSigns()
 			g.troops.observe(st, is, st.Own)
+			if g.signs.feasts.begun {
+				g.signs.feasts.begun = false
+				g.play(sound.Feast)
+			}
 			g.troops.rehearse(g.signs.rehearse)
 			return
 		}
@@ -1337,6 +1341,8 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 				if math.Sin(t*2.5+w.phase) > 0 {
 					it.lift = -1 // bowing
 				}
+			case dance:
+				it.lift = math.Round(math.Abs(math.Sin(t*6+w.phase*3)) * 2) // skipping
 			}
 		}
 		items = append(items, it)
@@ -1391,13 +1397,17 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 	// Stable: objects keep their order among themselves; at equal depth a
 	// person stands in front of the object it works at.
 	dark := g.dark()
+	var lamps []lamp
 	if dark > 0 {
-		lamps := append(append([]lamp(nil), g.homeLamps...), lanterns(people)...)
-		for i := range lamps {
-			l := &lamps[i]
-			// A lamp sorts just after what holds it.
-			items = append(items, item{x: l.x, y: l.by + 0.001, z: l.z, person: true, lamp: l})
-		}
+		lamps = append(append(lamps, g.homeLamps...), lanterns(people)...)
+	}
+	if g.viewing == 0 {
+		lamps = append(lamps, g.signs.festiveLamps()...)
+	}
+	for i := range lamps {
+		l := &lamps[i]
+		// A lamp sorts just after what holds it.
+		items = append(items, item{x: l.x, y: l.by + 0.001, z: l.z, person: true, lamp: l})
 	}
 	sort.SliceStable(items, func(i, j int) bool {
 		if items[i].y != items[j].y {

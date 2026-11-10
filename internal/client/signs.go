@@ -71,6 +71,8 @@ type signs struct {
 	born, dead int
 	graveyard  geo.Vec2
 	yard       bool
+	// feasts are the milestones feasted (festival.go).
+	feasts feasts
 }
 
 // observe compares a new state of the player's island with the last one and
@@ -131,6 +133,7 @@ func (s *signs) observe(sum proto.IslandSummary, own *proto.Own) {
 		s.heard = max(s.heard, e.Tick)
 	}
 	s.watchKin(own)
+	s.watchFeasts(own)
 	s.primed = true
 	s.starving = own.Starving
 	s.state = lasting{
@@ -234,6 +237,7 @@ func (s *signs) step(dt float64, dust *particles, emit bool) {
 		kept = append(kept, g)
 	}
 	s.now = kept
+	s.stepFeast(dt, dust, emit)
 	if !emit {
 		return
 	}

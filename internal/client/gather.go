@@ -19,6 +19,7 @@ const (
 	pray             // they bow slowly
 	hide             // they shelter at home, out of sight
 	watch            // they stand and look
+	dance            // they go round in a farandole
 )
 
 // gathering calls a share of the villagers to a place.
@@ -130,6 +131,11 @@ func (l *life) join(w *walker, g gathering, slot int) {
 	default:
 		a := float64(slot) * 2.39996 // the golden angle spreads the ring
 		r := g.radius * (0.8 + 0.4*l.r.Float64())
+		if g.act == dance {
+			// One ring, everyone on it, going round.
+			a, r = float64(slot)*0.55, g.radius
+			w.phase, w.ring, w.ringR = a, g.at, r
+		}
 		l.route(w, l.shore.inside(geo.Vec2{X: g.at.X + r*math.Cos(a), Y: g.at.Y + r*0.7*math.Sin(a)}))
 	}
 	w.state = answering

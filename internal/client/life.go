@@ -85,6 +85,9 @@ type walker struct {
 	leisure leisure
 	// pace is the gait of a villager answering a gathering, or 0.
 	pace float64
+	// ring and ringR are the circle a dancer goes round.
+	ring  geo.Vec2
+	ringR float64
 }
 
 // shore is the outline of the island in view, at its size.
@@ -297,6 +300,14 @@ func (l *life) step(dt float64, night bool) {
 			pace := 1.6
 			if w.pace > 0 {
 				pace = w.pace
+			}
+			if w.act == dance && !w.via && w.arrived() {
+				// The farandole turns: on to the next step of the ring.
+				w.phase += dt * 0.3
+				w.tx = w.ring.X + w.ringR*math.Cos(w.phase)
+				w.ty = w.ring.Y + w.ringR*0.8*math.Sin(w.phase)
+				w.walk(dt * 1.2)
+				continue
 			}
 			if w.walk(dt*pace) && w.via {
 				w.via = false

@@ -220,6 +220,9 @@ type Own struct {
 	// Births and Deaths count the souls born and lost on the island, for
 	// the client to show each one.
 	Births float64 `json:"births,omitempty"`
+	// Age is how long the civilization has lived, in ticks, for the client
+	// to feast each day it lasts.
+	Age    uint64  `json:"age,omitempty"`
 	Deaths float64 `json:"deaths,omitempty"`
 	// Outer is the intention the god turned towards another island.
 	Outer       sim.Outer `json:"outer,omitempty"`
@@ -264,6 +267,9 @@ func Detail(sky *sim.Sky, is *sim.Island) *Own {
 		WaveInMs: -1,
 		Outer:    c.Outer.Kind, OuterTarget: c.Outer.Target,
 		Battle: c.LastBattle, Starving: c.Starving, Births: c.Births, Deaths: c.Deaths,
+	}
+	if sky.Tick > is.Born {
+		o.Age = sky.Tick - is.Born
 	}
 	for f := range sim.NumFamilies {
 		o.Tiers[f] = c.Tech.Tier(f)

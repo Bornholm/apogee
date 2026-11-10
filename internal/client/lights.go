@@ -35,6 +35,8 @@ type lamp struct {
 	by   float64
 	seed uint32
 	big  bool // the heart
+	// festive lanterns hang for a feast: coloured, lit by day as well.
+	festive bool
 }
 
 // Halo radii, in virtual pixels: small, medium, large.
@@ -127,6 +129,9 @@ func (l lamp) glow(clock float64) (color.RGBA, int, float64) {
 		}
 		return aetherColour, 1, f * 0.8
 	case lanternLamp:
+		if l.festive {
+			return festiveColours[l.seed%uint32(len(festiveColours))], 0, 0.9 + 0.1*math.Sin(clock*3+ph)
+		}
 		return lanternColour, 0, 0.8 + 0.2*math.Sin(clock*9+ph)
 	}
 	return windowColour, 1, 0.55
@@ -170,6 +175,9 @@ func haloImage(radius int) *ebiten.Image {
 // drawLamp draws a lamp at a screen position in virtual pixels: its halo,
 // added to the scene, and its bright core.
 func (g *Game) drawLamp(l lamp, x, y, dark, clock float64) {
+	if l.festive || (l.kind == brazierLamp && l.seed == 7 && g.signs.feasting()) {
+		dark = math.Max(dark, 0.6) // a feast shines by day too
+	}
 	if dark <= 0 || !l.lit(clock, dark) || g.glowAt == nil {
 		return
 	}
