@@ -17,6 +17,10 @@ type Settings struct {
 	Volume int  `json:"volume"`
 	Muted  bool `json:"muted"`
 	Music  bool `json:"music"`
+	// LastServer is the address of the last sky joined over the network,
+	// and LastSky its name, to go back there in one click.
+	LastServer string `json:"lastServer,omitempty"`
+	LastSky    string `json:"lastSky,omitempty"`
 }
 
 // Sound levels: the game plays on a second screen, low by default.

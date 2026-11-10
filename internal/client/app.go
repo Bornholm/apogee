@@ -94,6 +94,8 @@ type launchResult struct {
 	conn *netclient.Conn
 	stop func()
 	err  error
+	// addr is the address of a sky joined over the network, to remember.
+	addr string
 }
 
 // field is a one-line text input.
@@ -108,6 +110,9 @@ func NewApp(opts AppOptions) *App {
 	a := &App{Options: opts, settings: LoadSettings()}
 	a.name = field{value: a.settings.Name, max: 24}
 	a.address = field{value: fmt.Sprintf("127.0.0.1:%d", proto.DefaultPort), max: 64}
+	if a.settings.LastServer != "" {
+		a.address.value = a.settings.LastServer
+	}
 	a.backdrop = newBackdrop(opts.Seed)
 	a.applySound()
 	return a
@@ -240,7 +245,11 @@ func (a *App) host() launchResult {
 	return a.dial(fmt.Sprintf("127.0.0.1:%d", proto.DefaultPort), stop)
 }
 
-func (a *App) join(addr string) launchResult { return a.dial(addr, nil) }
+func (a *App) join(addr string) launchResult {
+	r := a.dial(addr, nil)
+	r.addr = addr
+	return r
+}
 
 // browse looks for skies on the network, in the background.
 func (a *App) browse() {
@@ -286,6 +295,12 @@ func (a *App) Update() error {
 			}
 			a.conn, a.stopServer = r.conn, r.stop
 			a.game = NewGame(Listen(r.conn), a.Options.Seed)
+			if r.addr != "" {
+				// Remember the sky, to come back to it from the home screen.
+				a.settings.LastServer, a.settings.LastSky = r.addr, r.conn.Welcome.Sky
+				a.address.value = r.addr
+				a.settings.Save()
+			}
 			a.game.Sound = a.Options.Sound
 			a.game.OnMute = func(m bool) {
 				a.settings.Muted = m
@@ -423,6 +438,10 @@ func (a *App) drawHome(p painter, r image.Rectangle, k int) {
 	if hasSolo {
 		rows++
 	}
+	last := a.settings.LastServer
+	if last != "" {
+		rows++
+	}
 	r.Max.Y = r.Min.Y + p.line() + gap + bh + gap*3 + rows*(bh+gap) + 12*k
 	in := p.panel(r)
 	p.text("Ton nom de dieu", in.Min.X, in.Min.Y, goldColor)
@@ -438,6 +457,16 @@ func (a *App) drawHome(p painter, r image.Rectangle, k int) {
 		btn("Nouvelle partie solo", func() { a.launch(func() launchResult { return a.solo(true) }) })
 	} else {
 		btn("Jouer en solo", func() { a.launch(func() launchResult { return a.solo(true) }) })
+	}
+	if last != "" {
+		label := a.settings.LastSky
+		if label == "" {
+			label = last
+		}
+		if r := []rune(label); len(r) > 24 {
+			label = string(r[:23]) + "…"
+		}
+		btn("Revenir sur « "+label+" »", func() { a.launch(func() launchResult { return a.join(last) }) })
 	}
 	btn("Héberger un ciel sur le réseau", func() { a.launch(a.host) })
 	btn("Rejoindre un ciel", func() {
