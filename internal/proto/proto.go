@@ -46,13 +46,15 @@ type Look struct {
 }
 
 // Seen is what anyone may see of an island up close: its buildings and
-// people, never its stores, its pie nor its chronicle.
+// people, and its last battle, which the whole sky saw; never its stores,
+// its pie nor its chronicle.
 type Seen struct {
 	Island     IslandID       `json:"island"`
 	Buildings  []sim.Building `json:"buildings"`
 	Features   []sim.Feature  `json:"features"`
 	Population float64        `json:"population"`
 	Defenders  float64        `json:"defenders"`
+	Battle     sim.Battle     `json:"battle"`
 }
 
 // See copies the public view of an island. It must be called with the sky
@@ -64,6 +66,7 @@ func See(is *sim.Island) *Seen {
 		Buildings:  append([]sim.Building(nil), c.Buildings...),
 		Features:   append([]sim.Feature(nil), c.Features...),
 		Population: c.Population, Defenders: c.Defenders,
+		Battle: c.LastBattle,
 	}
 }
 

@@ -2,6 +2,7 @@ package client
 
 import (
 	"testing"
+	"time"
 
 	"apogee/internal/geo"
 	"apogee/internal/proto"
@@ -168,5 +169,34 @@ func TestABattleIsHeard(t *testing.T) {
 	// Zaps never pile up: at most one every 0.22 s.
 	if n := count(wave)[sound.Zap]; float64(n) > fightTime/0.22+1 {
 		t.Errorf("%d zaps in one battle", n)
+	}
+}
+
+// The battle of an island observed a moment after the wave struck it is
+// played out; an old one is not.
+func TestAnObservedIslandShowsItsBattle(t *testing.T) {
+	sum := proto.IslandSummary{ID: 2, Seed: 4, Size: 40}
+	view := &proto.Own{Buildings: []sim.Building{{ID: 1, Kind: sim.Core, Progress: 1}}}
+	ticks := func(d time.Duration) uint64 { return uint64(d / sim.TickDuration) }
+	g := &Game{viewing: 2}
+	st := &proto.State{Tick: 1000 + ticks(8*time.Second), Seen: &proto.Seen{Island: 2,
+		Battle: sim.Battle{Tick: 1000, By: sim.WaveFoe, Foes: 4, Repelled: true}}}
+	g.watchSeenBattle(st, sum, view)
+	if !g.shownBattle().active() {
+		t.Fatal("a battle eight seconds old is not shown")
+	}
+	g = &Game{viewing: 2}
+	st.Tick = 1000 + ticks(time.Minute)
+	g.watchSeenBattle(st, sum, view)
+	if g.shownBattle().active() {
+		t.Fatal("a battle a minute old is played out")
+	}
+	// Another island: its own battles, not the last one's.
+	g = &Game{viewing: 2}
+	st.Tick = 1001
+	g.watchSeenBattle(st, sum, view)
+	g.viewing = 3
+	if g.shownBattle().active() {
+		t.Fatal("the battle of island 2 shows on island 3")
 	}
 }

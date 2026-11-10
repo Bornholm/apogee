@@ -109,6 +109,10 @@ type Game struct {
 	rehearse *sim.Battle // a battle to show at the next state, for screenshots
 	// nextBattle waits for the battle being played out to end.
 	nextBattle *sim.Battle
+	// seenBattle plays out the last attack on the island observed, for
+	// seenOf; the whole sky saw it.
+	seenBattle battle
+	seenOf     proto.IslandID
 	// signs make the events of the player's island visible (signs.go),
 	// troops the groups that come and go (troops.go).
 	signs     signs
@@ -1052,9 +1056,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			cs.Scale(0.8, 0.76, 0.88, 1)
 			at = func(img *ebiten.Image, x, y float64) { atScaled(img, x, y, cs) }
 			islandTint = cs
-		} else if g.viewing == 0 {
+		} else {
 			// The heart struck: the island shakes and flushes red.
-			if s := g.battle.strike(); s > 0 {
+			if s := g.shownBattle().strike(); s > 0 {
 				ox += math.Round(math.Sin(float64(g.animTick)*2.1) * s * 2 * k)
 				var cs ebiten.ColorScale
 				cs.Scale(1, float32(1-0.45*s), float32(1-0.45*s), 1)
@@ -1230,6 +1234,27 @@ func (g *Game) animate() {
 			return
 		}
 		l.sync(sum, view, signature(sum, view))
+		g.watchSeenBattle(st, sum, view)
+		if b := &g.seenBattle; b.active() && g.seenOf == g.viewing {
+			l.rally = b.rally()
+			var guards []walker
+			for _, w := range l.walkers {
+				if w.guard {
+					guards = append(guards, w)
+				}
+			}
+			b.step(dt, &g.dust, true, guards)
+			for _, fx := range b.sfx {
+				g.playScene(fx)
+			}
+			b.sfx = b.sfx[:0]
+			if c, ok := b.reaction(); ok {
+				l.call(c)
+			}
+			g.dirty = true
+		} else {
+			l.rally = nil
+		}
 		l.step(dt, night)
 	}
 	for i := range l.walkers {
@@ -1246,13 +1271,49 @@ func (g *Game) animate() {
 		g.scenery.step(dt, &g.dust)
 	}
 	// The birds flee the night, a wave on its way and a battle.
-	threat := g.viewing == 0 && (g.battle.active() || (g.signs.state.waveIn >= 0 && g.signs.state.waveIn < 45))
+	threat := g.shownBattle().active() || (g.viewing == 0 && g.signs.state.waveIn >= 0 && g.signs.state.waveIn < 45)
 	g.birds.step(dt, threat || g.dark() > 0.6 || g.wx.rain > 0.5)
 	g.dust.step(dt)
 	g.animTick++
 	if g.animTick%4 == 0 && (len(l.walkers) > 0 || len(g.dust.ps) > 0 || g.dark() > 0) {
 		g.dirty = true
 	}
+}
+
+// seenBattleWindow is how late an attack on an observed island may be
+// seen: the god who saw the wave strike it in the sky clicks a moment
+// after, and the battle is played out from its start.
+const seenBattleWindow = 15 * time.Second
+
+// shownBattle is the battle of the island in view.
+func (g *Game) shownBattle() *battle {
+	if g.viewing != 0 {
+		if g.seenOf == g.viewing {
+			return &g.seenBattle
+		}
+		return &battle{}
+	}
+	return &g.battle
+}
+
+// watchSeenBattle plays out the last attack on the island observed, when
+// it is recent.
+func (g *Game) watchSeenBattle(st *proto.State, sum proto.IslandSummary, view *proto.Own) {
+	if st.Seen == nil || st.Seen.Island != g.viewing {
+		return
+	}
+	if g.seenOf != g.viewing {
+		g.seenOf, g.seenBattle = g.viewing, battle{}
+	}
+	bt := st.Seen.Battle
+	if bt.Tick == 0 || bt.Tick <= g.seenBattle.tick || g.seenBattle.active() {
+		return
+	}
+	g.seenBattle.tick = bt.Tick
+	if st.Tick > bt.Tick+uint64(seenBattleWindow/sim.TickDuration) {
+		return // long over
+	}
+	g.seenBattle.start(bt, shore{geo.Outline(sum.Seed), sum.Size}, view)
 }
 
 // watchBattle starts playing out a new attack on the player's island. An
@@ -1510,8 +1571,8 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 			}
 		}
 	}
-	if g.viewing == 0 && g.battle.active() {
-		for _, f := range g.battle.foes {
+	if b := g.shownBattle(); b.active() {
+		for _, f := range b.foes {
 			if !f.down && f.art >= 0 && f.art < foeArts {
 				items = append(items, item{sp: g.foeArt[f.art], x: f.x, y: f.y, z: f.z, person: true})
 			}
