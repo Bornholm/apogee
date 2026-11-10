@@ -1,0 +1,7 @@
+.git
+bin
+dist
+*.png
+!packaging/icons/*.png
+*.wav
+sky.json

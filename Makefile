@@ -21,6 +21,8 @@ SKIES    ?= 16
 DAYS     ?= 8
 RAIDERS  ?= 0
 SHOT     ?= shot.png
+DOKKU_HOST ?= dev.lookingfora.name
+DOKKU_APP  ?= apogee
 OUT      ?= apogee-sound.wav
 
 .DEFAULT_GOAL := help
@@ -116,6 +118,26 @@ snapshot: ## Build a local release with GoReleaser, packages included, into dist
 .PHONY: release-check
 release-check: ## Validate the GoReleaser configuration
 	goreleaser check
+
+## Deploy
+
+.PHONY: dokku-setup
+dokku-setup: ## Create the Dokku app once: raw TCP on 47110, sky in storage
+	ssh root@$(DOKKU_HOST) '\
+		set -e; \
+		dokku apps:exists $(DOKKU_APP) 2>/dev/null || dokku apps:create $(DOKKU_APP); \
+		dokku builder:set $(DOKKU_APP) selected dockerfile; \
+		dokku proxy:disable $(DOKKU_APP); \
+		dokku checks:disable $(DOKKU_APP); \
+		dokku storage:ensure-directory $(DOKKU_APP); \
+		dokku storage:report $(DOKKU_APP) | grep -q /data || dokku storage:mount $(DOKKU_APP) /var/lib/dokku/data/storage/$(DOKKU_APP):/data; \
+		dokku ports:set $(DOKKU_APP) tcp:47110:47110; \
+		dokku docker-options:report $(DOKKU_APP) | grep -q stop-timeout || dokku docker-options:add $(DOKKU_APP) deploy "--stop-timeout 30"'
+
+.PHONY: dokku-deploy
+dokku-deploy: ## Deploy HEAD to Dokku (the name: ssh dokku@DOKKU_HOST config:set APP APOGEE_NAME=…)
+	$(if $(shell git config remote.dokku.url),, git remote add dokku dokku@$(DOKKU_HOST):$(DOKKU_APP))
+	git push -f dokku $$(git rev-parse HEAD):refs/heads/master
 
 .PHONY: clean
 clean: ## Remove what the targets produced
