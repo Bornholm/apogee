@@ -56,6 +56,7 @@ func main() {
 	quit := flag.Duration("quit", 0, "quit after this duration")
 	width := flag.Int("width", 1280, "initial window width")
 	height := flag.Int("height", 800, "initial window height")
+	battleFlag := flag.String("battle", "", "play out an attack on your island at start: wave, colossus or raid, with ,lost when the island does not hold")
 	soundOn := flag.Bool("sound", true, "play the sound effects and the music (never during a screenshot)")
 	showVersion := flag.Bool("version", false, "print the version and quit")
 	flag.Parse()
@@ -91,7 +92,7 @@ func main() {
 	// the solo game when nothing else is asked; then only the game's frames
 	// count. Without them, the screenshot shows the home screen.
 	launched := *fresh || *solo || *host || *connect != "" || *discover
-	viewed := *onWave || *onPhase != "" || *zoom > 0 || *observe > 0 || *culture || *annals || *selectID > 0 || *tutoStep > 0
+	viewed := *battleFlag != "" || *onWave || *onPhase != "" || *zoom > 0 || *observe > 0 || *culture || *annals || *selectID > 0 || *tutoStep > 0
 	if viewed && !launched {
 		*solo, launched = true, true
 	}
@@ -126,6 +127,11 @@ func main() {
 		}
 		if *tutoStep > 0 {
 			g.TutorialStep(*tutoStep - 1)
+		}
+		if *battleFlag != "" {
+			by, lost, _ := strings.Cut(*battleFlag, ",")
+			foe := map[string]sim.Foe{"wave": sim.WaveFoe, "colossus": sim.ColossusFoe, "raid": sim.RaiderFoe}[by]
+			g.ShowBattle(foe, 6, lost != "lost")
 		}
 		g.NotifyKinds = notifyKinds(*notifyFlag)
 		g.Notify = func(text string) { notifier.Send("Apogée", text) }

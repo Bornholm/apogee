@@ -812,6 +812,8 @@ Tout le son est **synthétisé par le jeu**, à la manière des consoles 8 bits 
 | **Villageois** | Ils vont de leur maison aux chantiers, aux champs, aux carrières et aux bosquets, y travaillent un moment, puis rentrent. La nuit, ils restent davantage chez eux. Ils passent derrière ou devant les bâtiments selon leur profondeur |
 | **Défenseurs** | Ils patrouillent autour des tours et du cœur, sans jamais quitter l'île |
 | **Particules** | Feuilles qui tombent des bosquets, sciure sur les chantiers, éclats aux carrières, balle dorée sur les champs, étincelles d'Aether |
+| **Combats visibles** | Chaque attaque contre l'île se joue sous les yeux du joueur pendant une dizaine de secondes. Les monstres d'une vague (ou le colosse, seul et bien plus grand, ou les guerriers d'un raid) descendent du ciel et planent autour du cœur. Le cœur, les tours et les défenseurs, qui accourent, leur tirent des traits d'Aether. Si l'île tient, les assaillants s'abattent et éclatent au sol. Sinon, le cœur est frappé (l'île rougit et tremble), puis ils repartent. La simulation résout l'attaque d'un coup et en transmet le résumé (assaillant, nombre, issue) ; une attaque survenue pendant l'absence du joueur n'est pas rejouée, la chronique la raconte |
+| **Le peuple vit sans témoin** | Les villageois du joueur poursuivent leur journée en vue du ciel ou pendant qu'il observe une autre île |
 | **Décor seulement** | Ces animations sont calculées par le client : la simulation ne connaît que les effectifs et les bâtiments |
 
 ## 13.1 ter Accueil et tutoriel

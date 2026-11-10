@@ -15,6 +15,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
 	"apogee/internal/art"
+	"apogee/internal/geo"
 	"apogee/internal/proto"
 	"apogee/internal/sim"
 	"apogee/internal/sound"
@@ -92,8 +93,13 @@ type Game struct {
 	// villager and defender sprites.
 	// life is the player's own people, which live on whatever the view;
 	// seen is the people of the island observed, if any.
-	life      life
-	seen      life
+	life life
+	seen life
+	// battle plays out the last attack on the player's island; foeArt
+	// holds the sprites of the assailants.
+	battle    battle
+	rehearse  *sim.Battle // a battle to show at the next state, for screenshots
+	foeArt    [foeArts]sprite
 	dust      particles
 	pixel     *ebiten.Image // one white pixel, tinted to draw particles
 	walkerArt [2]sprite
@@ -358,6 +364,19 @@ func NewGame(src *Source, seed uint64) *Game {
 		v := cam.Render(art.Person(seed+uint64(i), mat))
 		g.walkerArt[i] = sprite{ebiten.NewImageFromImage(v.Img), v.Anchor}
 	}
+	for i := range foeArts {
+		var m art.Mesh
+		switch i {
+		case colossusArt:
+			m = art.Creature(seed+99, 4.5)
+		case raiderArt:
+			m = art.Person(seed+7, art.Blood)
+		default:
+			m = art.Creature(seed+uint64(i), 2)
+		}
+		f := cam.Render(m)
+		g.foeArt[i] = sprite{ebiten.NewImageFromImage(f.Img), f.Anchor}
+	}
 	g.pixel = ebiten.NewImage(1, 1)
 	g.pixel.Fill(color.White)
 	sw := cam.Render(art.Swarm(seed))
@@ -507,6 +526,7 @@ func (g *Game) Update() error {
 		// zoom level.
 		g.purgeMiniatures(st.Islands)
 		g.notifyNews(st)
+		g.watchBattle(st)
 		if g.viewing != 0 && g.viewing == st.You {
 			g.Observe(0) // asked to observe one's own island before knowing it
 		}
@@ -824,6 +844,15 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawRaids(at, islands)
 		g.registerIslands(islands, k, ox, oy)
 	} else if home, ok := g.homeIsland(g.src.State()); ok {
+		if g.viewing == 0 {
+			// The heart struck: the island shakes and flushes red.
+			if s := g.battle.strike(); s > 0 {
+				ox += math.Round(math.Sin(float64(g.animTick)*2.1) * s * 2 * k)
+				var cs ebiten.ColorScale
+				cs.Scale(1, float32(1-0.45*s), float32(1-0.45*s), 1)
+				at = func(img *ebiten.Image, x, y float64) { atScaled(img, x, y, cs) }
+			}
+		}
 		at(home.img, -float64(home.anchor.X), -float64(home.anchor.Y))
 		g.drawWalkers(at)
 	}
@@ -920,9 +949,25 @@ func (g *Game) animate() {
 		for _, is := range st.Islands {
 			if is.ID == st.You {
 				g.life.sync(is, st.Own, signature(is, st.Own))
+				g.life.rally = g.battle.rally()
 				g.life.step(dt, night)
 				break
 			}
+		}
+	}
+	// The battle runs on whatever the view; its shots and bursts only show
+	// on the island.
+	home := g.level > 0 && g.viewing == 0
+	if g.battle.active() {
+		var guards []walker
+		for _, w := range g.life.walkers {
+			if w.guard {
+				guards = append(guards, w)
+			}
+		}
+		g.battle.step(dt, &g.dust, home, guards)
+		if home {
+			g.dirty = true
 		}
 	}
 	if g.level == 0 {
@@ -949,6 +994,40 @@ func (g *Game) animate() {
 	}
 }
 
+// watchBattle starts playing out a new attack on the player's island. An
+// attack older than a few seconds when first heard of is not shown: the
+// player was away.
+func (g *Game) watchBattle(st *proto.State) {
+	if st.Own == nil {
+		return
+	}
+	bt := st.Own.Battle
+	if g.rehearse != nil {
+		bt, g.rehearse = *g.rehearse, nil
+		bt.Tick = max(st.Tick, g.battle.tick+1)
+	}
+	if bt.Tick == 0 || bt.Tick <= g.battle.tick {
+		return
+	}
+	g.battle.tick = bt.Tick
+	if st.Tick > bt.Tick+uint64(5*time.Second/sim.TickDuration) {
+		return
+	}
+	for _, is := range st.Islands {
+		if is.ID == st.You {
+			g.battle.start(bt, shore{geo.Outline(is.Seed), is.Size}, st.Own)
+			return
+		}
+	}
+}
+
+// ShowBattle plays out an attack on the player's island, as if it had just
+// happened: for screenshots and for trying the scene.
+func (g *Game) ShowBattle(by sim.Foe, foes int, repelled bool) {
+	g.rehearse = &sim.Battle{By: by, Foes: foes, Repelled: repelled}
+	g.lastTick = 0 // hear the current state again
+}
+
 // shown returns the people of the island in view.
 func (g *Game) shown() *life {
 	if g.viewing != 0 {
@@ -971,6 +1050,7 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 		sp     sprite
 		x, y   float64
 		lift   float64 // pixels up, for a busy villager's bob
+		z      float64 // island units above the ground, for an assailant
 		person bool
 	}
 	people := g.shown().walkers
@@ -990,6 +1070,13 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 		}
 		items = append(items, it)
 	}
+	if g.viewing == 0 && g.battle.active() {
+		for _, f := range g.battle.foes {
+			if !f.down && f.art >= 0 && f.art < foeArts {
+				items = append(items, item{sp: g.foeArt[f.art], x: f.x, y: f.y, z: f.z, person: true})
+			}
+		}
+	}
 	// Stable: objects keep their order among themselves; at equal depth a
 	// person stands in front of the object it works at.
 	sort.SliceStable(items, func(i, j int) bool {
@@ -999,7 +1086,7 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 		return !items[i].person && items[j].person
 	})
 	for _, it := range items {
-		x, y := g.cam.Project(artV(it.x, it.y))
+		x, y := g.cam.Project(art.V(it.x, it.y, it.z))
 		px, py := math.Round(x), math.Round(y)-it.lift
 		at(it.sp.img, px-float64(it.sp.anchor.X), py-float64(it.sp.anchor.Y))
 	}
@@ -1009,5 +1096,3 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 		g.atTinted(g.pixel, math.Round(x), math.Round(y), q.col)
 	}
 }
-
-func artV(x, y float64) art.Vec3 { return art.V(x, y, 0) }

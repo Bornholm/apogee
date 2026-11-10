@@ -71,6 +71,7 @@ type walker struct {
 	post          geo.Vec2
 	angle, radius float64
 	speed         float64 // radians per second
+	away          bool    // off its round, to fight or coming back
 }
 
 // shore is the outline of the island in view, at its size.
@@ -104,6 +105,8 @@ type life struct {
 	sig          uint64
 	sites, works []spot
 	homes        []geo.Vec2
+	// rally, during a battle, is where the guards run to fight.
+	rally []geo.Vec2
 }
 
 // featureJob returns what villagers do at a natural site. Kinds come from
@@ -237,9 +240,24 @@ func (l *life) step(dt float64, night bool) {
 	for i := range l.walkers {
 		w := &l.walkers[i]
 		if w.guard {
+			if len(l.rally) > 0 {
+				// To the fight, each to an assailant, at a run.
+				t := l.rally[i%len(l.rally)]
+				w.tx, w.ty = t.X+float64(i%3)-1, t.Y+1.5
+				w.walk(dt * 1.8)
+				w.away = true
+				continue
+			}
 			w.angle += w.speed * dt
-			w.x = w.post.X + w.radius*math.Cos(w.angle)
-			w.y = w.post.Y + w.radius*math.Sin(w.angle)
+			px := w.post.X + w.radius*math.Cos(w.angle)
+			py := w.post.Y + w.radius*math.Sin(w.angle)
+			if w.away {
+				// Back to the round before walking it again.
+				w.tx, w.ty = px, py
+				w.away = !w.walk(dt * 1.8)
+				continue
+			}
+			w.x, w.y = px, py
 			continue
 		}
 		switch w.state {
