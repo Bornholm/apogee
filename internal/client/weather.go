@@ -10,6 +10,7 @@ import (
 	"apogee/internal/art"
 	"apogee/internal/proto"
 	"apogee/internal/sim"
+	"apogee/internal/sound"
 )
 
 // The weather of the sky (GDD 12.5): spells of rain, wind that bends the
@@ -156,4 +157,37 @@ func (g *Game) drawFog(atScaled func(*ebiten.Image, float64, float64, ebiten.Col
 		cs.ScaleAlpha(float32(g.wx.fog * 0.4))
 		atScaled(c, math.Round(px)-float64(b.Dx()/2), math.Round(py)-float64(b.Dy()/2), cs)
 	}
+}
+
+// ambience is what the god's view sounds like (GDD 12.7): birds by day
+// over the island, crickets at night, the rain and the wind everywhere,
+// the streams and the hammers of the sites when the island is in view.
+func (g *Game) ambience() sound.Ambience {
+	a := sound.Ambience{Rain: g.wx.rain, Wind: g.wx.wind * 0.6}
+	if g.level == 0 {
+		a.Rain *= 0.5 // the sky view is further away
+		return a
+	}
+	dark := g.dark()
+	dry := 1 - g.wx.rain
+	phase, _, _ := g.moment()
+	birds := 0.45
+	if phase == "dawn" {
+		birds = 1 // the dawn chorus
+	}
+	if g.birds.visible() {
+		a.Birds = birds * (1 - dark) * dry
+	}
+	a.Crickets = dark * dry * 0.8
+	if len(g.scenery.rivers) > 0 {
+		a.Water = 0.6
+	}
+	busy := 0
+	for _, w := range g.shown().walkers {
+		if w.busy() && w.work.job == building {
+			busy++
+		}
+	}
+	a.Work = math.Min(float64(busy)/4, 1)
+	return a
 }

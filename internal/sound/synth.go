@@ -44,6 +44,7 @@ type bus uint8
 const (
 	musicBus bus = iota
 	effectsBus
+	ambienceBus
 )
 
 // voice is a note being played.

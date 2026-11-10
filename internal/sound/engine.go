@@ -3,6 +3,7 @@ package sound
 import (
 	"encoding/binary"
 	"math"
+	"math/rand/v2"
 	"sync"
 )
 
@@ -25,6 +26,9 @@ type Engine struct {
 	muted   bool
 	mood    Mood
 	compose composer
+	// ambience is the background of the god's view (ambience.go).
+	ambience Ambience
+	ambient  ambient
 
 	// One-pole filters on the mix: a high-pass removes the offset of thin
 	// pulses, a low-pass takes the edge off the squares.
@@ -33,7 +37,8 @@ type Engine struct {
 
 // New returns an engine whose music is drawn from seed.
 func New(seed uint64) *Engine {
-	return &Engine{volume: 0.35, music: true, compose: newComposer(seed)}
+	return &Engine{volume: 0.35, music: true, compose: newComposer(seed),
+		ambient: ambient{r: rand.New(rand.NewPCG(seed, 0xa3b1))}}
 }
 
 // SetVolume sets the master volume, from 0 to 1.
@@ -148,6 +153,15 @@ func (e *Engine) Read(p []byte) (int, error) {
 		// the music comes back.
 		e.compose.idle(e.clock + int64(frames))
 	}
+	// The ambience, a quarter of a second ahead.
+	for e.ambient.next < e.clock+int64(frames)+SampleRate/4 {
+		if !e.muted && !e.ambience.quiet() {
+			for _, n := range e.ambient.slice(e.ambience) {
+				e.add(n, ambienceBus, e.ambient.next)
+			}
+		}
+		e.ambient.next += int64(slice * SampleRate)
+	}
 	gain := e.volume
 	if e.muted {
 		gain = 0
@@ -163,9 +177,12 @@ func (e *Engine) Read(p []byte) (int, error) {
 				continue
 			}
 			s := v.sample(float64(now-v.start) / SampleRate)
-			if v.bus == musicBus {
+			switch v.bus {
+			case musicBus:
 				s *= musicLevel
-			} else {
+			case ambienceBus:
+				s *= ambienceLevel
+			default:
 				s *= effectsLevel
 			}
 			mix[0] += s * math.Min(1, 1-v.n.Pan)

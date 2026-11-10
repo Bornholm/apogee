@@ -102,7 +102,7 @@ art: ## Render the art preview to preview.png (ARGS: -view sky|icon)
 	$(GO) run ./cmd/artpreview -o preview.png $(ARGS)
 
 .PHONY: sound
-sound: ## Render every effect and the music to OUT, a WAV file
+sound: ## Render every effect and the music to OUT, a WAV file (ARGS: -ambience 8 for the ambiences)
 	$(GO) run ./cmd/soundpreview -out $(OUT) $(ARGS)
 
 ## Build and release

@@ -1107,6 +1107,9 @@ func (g *Game) animate() {
 		}
 	}
 	g.wx = g.weatherNow(st)
+	if g.Sound != nil && g.animTick%15 == 0 {
+		g.Sound.SetAmbience(g.ambience())
+	}
 	g.dust.smoke(g.homeChimneys, g.wx.wind, dt)
 	if sum, _, ok := g.viewed(st); ok {
 		g.dust.rainOver(sum.Size, g.wx.rain, g.wx.wind, dt)
