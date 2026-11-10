@@ -15,10 +15,13 @@ import (
 	"apogee/internal/sound"
 )
 
-// The HUD follows GDD 13.2: the pie of intentions, the pending supplique,
-// the chronicle, the resources, the threat and the time of day. Culture and
-// knowledge (C) and the Annals (A) open on demand. The god only ever acts
-// through the pie and the answers (GDD pilier 4).
+// The HUD follows GDD 13.2, kept small so that the world stays in view: a
+// thin bar across the top for the time, the strength and the threats; the
+// pie of intentions on the left, the chronicle on the right, the reserves
+// along the bottom. In the island view only the bar, the reserves and the
+// latest news stay. Culture and knowledge (C) and the Annals (A) share a
+// panel. The god only ever acts through the pie and the answers (GDD
+// pilier 4).
 
 var phaseNames = map[string]string{"dawn": "Aube", "day": "Jour", "dusk": "Crépuscule", "night": "Nuit"}
 
@@ -27,80 +30,245 @@ func clock(ms int64) string {
 	return fmt.Sprintf("%d:%02d", s/60, s%60)
 }
 
-// uiScale is the integer scale of the interface: the font stays crisp.
+// uiScale is the integer scale of the interface: the fonts stay crisp.
 func (g *Game) uiScale() float64 { return math.Max(1, math.Round(g.dsfOr1())) }
+
+// Layout of the HUD, in interface pixels.
+const (
+	hudMargin      = 12 // from the edges of the window
+	barTop         = 10 // the top bar
+	barHeight      = 32
+	panelTop       = barTop + barHeight + 10 // panels start below the bar
+	pieWidth       = 290
+	chronicleWidth = 320
+)
 
 func (g *Game) drawHUD(screen *ebiten.Image, st *proto.State) {
 	p := painter{dst: screen, k: g.uiScale(), buttons: &g.buttons}
-	k := int(p.k)
-	gap := 8 * k
+	m := p.px(hudMargin)
 	if st == nil {
-		p.text("Connexion au ciel…", gap, gap, textColor)
+		p.text("Connexion au ciel…", m, m, textColor)
 		return
 	}
-
-	// Top bar: the sky, the time of day, the threats.
-	bar := image.Rect(0, 0, g.outW, p.line()+gap)
-	p.fill(bar, panelFill)
-	x := gap
-	put := func(s string, c color.Color) {
-		p.text(s, x, gap/2, c)
-		x += p.width(s) + 3*gap
-	}
-	put(g.src.Sky, goldColor)
-	put(fmt.Sprintf("%s · %s", phaseNames[st.Phase], clock(st.PhaseLeftMs)), textColor)
-	if o := st.Own; o != nil {
-		put(fmt.Sprintf("Puissance %.0f · Défense %.0f", o.Power, o.Defense), textColor)
-		if o.WaveInMs >= 0 {
-			c := dimColor
-			if o.WaveInMs < 60_000 {
-				c = alertColor
-			}
-			put("Une vague approche : "+clock(o.WaveInMs), c)
-		}
-	}
-	if st.BossInMs >= 0 {
-		c := dimColor
-		if st.BossInMs < 5*60_000 {
-			c = alertColor
-		}
-		put("Colosse dans "+clock(st.BossInMs), c)
-	}
-
+	g.drawTopBar(p, st)
 	o := st.Own
 	if o == nil {
 		msg := "Ton peuple attend l'aube pour renaître."
-		p.text(msg, (g.outW-p.width(msg))/2, g.outH/2, goldColor)
-		g.drawHelp(p)
+		p.styled(msg, (g.outW-p.widthOf(msg, large))/2, g.outH/2, goldColor, large)
+		g.drawConnection(p)
 		return
 	}
-	top := bar.Max.Y + gap
+	top := p.px(panelTop)
 	g.areas = map[string]image.Rectangle{}
-	pie := g.drawPie(p, image.Rect(gap, top, gap+230*k, top+0), o)
-	g.areas["pie"] = pie
-	g.areas["outer"] = g.drawOuter(p, st, o, image.Rect(gap, pie.Max.Y+gap, gap+230*k, pie.Max.Y+gap))
-	alertY := bar.Max.Y + gap
-	if g.viewing != 0 && g.level > 0 {
-		alertY = g.drawObserving(p, st, bar.Max.Y+gap).Max.Y + gap // refusals go below
+	sky := g.level == 0
+	book := g.showCulture || g.showAnnals // it takes the left side
+	left := top
+	if (sky || g.pieOpen) && !book {
+		pie := g.drawPie(p, image.Rect(m, top, m+p.px(pieWidth), top), o)
+		g.areas["pie"] = pie
+		left = pie.Max.Y + p.px(8)
+	}
+	// The pie and the outer intention wait behind the book.
+	if !book {
+		if r, ok := g.drawOuterStatus(p, st, o, image.Rect(m, left, m+p.px(pieWidth), left)); ok {
+			g.areas["outer"] = r
+		} else if sky && g.selected == 0 {
+			p.styled("Clique une île pour la viser.", m, left, dimColor, body)
+		}
+	}
+
+	if sky {
+		if r, ok := g.drawTarget(p, st, o); ok {
+			g.areas["outer"] = r
+		}
+	}
+	alertY := top
+	if g.viewing != 0 && !sky {
+		alertY = g.drawObserving(p, st, top).Max.Y + p.px(8) // refusals go below
 	}
 	if msg := g.src.Refusal(6 * time.Second); msg != "" {
 		msg = refusalText(msg)
 		p.text(msg, (g.outW-p.width(msg))/2, alertY, alertColor)
 	}
-	g.areas["chronicle"] = g.drawChronicle(p, image.Rect(g.outW-gap-300*k, top, g.outW-gap, top), o)
+	right := image.Rect(g.outW-m-p.px(chronicleWidth), top, g.outW-m, top)
+	if sky {
+		g.areas["chronicle"] = g.drawChronicle(p, st, right, o)
+	} else if g.viewing == 0 {
+		g.areas["chronicle"] = g.drawNews(p, st, right, o)
+	}
 	g.areas["stock"] = g.drawStock(p, o)
 	if o.Pending != nil {
 		g.drawSupplique(p, o.Pending)
+	} else if g.signs.rehearse == "supplique" {
+		// For screenshots: a supplique as the people ask it in a famine.
+		g.drawSupplique(p, &proto.Supplique{Question: "Les greniers sont vides. Que devons-nous faire ?",
+			Options: []string{"Rationner : les soldats retournent aux champs", "Bâtir des fermes avant toute chose"}, LeftMs: 220_000})
 	}
-	if g.showCulture {
-		g.drawCulture(p, o)
+	if book {
+		g.drawBook(p, st, o)
 	}
-	if g.showAnnals {
-		g.drawAnnals(p, st.Annals)
-	}
-	g.drawHelp(p)
 	g.drawTutorial(p)
 	g.drawConnection(p)
+}
+
+// part is a piece of a row of the top bar: its width, and how to draw it.
+type part struct {
+	w    int
+	draw func(x, y int)
+}
+
+// drawTopBar draws the bar across the top: the sky and the time of day,
+// the strength of the island, the threats, and the buttons of the panels.
+func (g *Game) drawTopBar(p painter, st *proto.State) {
+	h := p.px(barHeight)
+	y := p.px(barTop)
+	gap := p.px(8)
+	label := func(s string, c color.Color, s2 style) part {
+		return part{p.widthOf(s, s2), func(x, y int) { p.styled(s, x, y+(h-p.lineOf(s2))/2, c, s2) }}
+	}
+	// block draws a framed group of parts and returns where the next goes.
+	block := func(x int, fill, edge color.Color, parts ...part) int {
+		w := p.px(10)*2 + gap*(len(parts)-1)
+		for _, pt := range parts {
+			w += pt.w
+		}
+		r := image.Rect(x, y, x+w, y+h)
+		p.fill(r, fill)
+		p.frame(r, 2, edge)
+		p.block(r)
+		cx := x + p.px(10)
+		for _, pt := range parts {
+			pt.draw(cx, y)
+			cx += pt.w + gap
+		}
+		return r.Max.X + gap
+	}
+	sep := part{p.px(2), func(x, y int) { p.fill(image.Rect(x, y+p.px(8), x+p.px(2), y+h-p.px(8)), panelEdge) }}
+	name := g.src.Sky
+	if g.level > 0 {
+		name = "Ton île"
+		if g.viewing != 0 {
+			name = "Île observée"
+		}
+	}
+	day := part{p.px(60), func(x, y int) {
+		total := phaseLength[st.Phase]
+		share := 0.0
+		if total > 0 {
+			share = 1 - float64(st.PhaseLeftMs)/float64(total.Milliseconds())
+		}
+		p.gauge(image.Rect(x, y+(h-p.px(6))/2, x+p.px(60), y+(h+p.px(6))/2), share, paleGold)
+	}}
+	parts := []part{label(name, goldColor, bold), phaseIcon(p, st.Phase, h), day, label(clock(st.PhaseLeftMs), dimColor, small)}
+	if o := st.Own; o != nil {
+		parts = append(parts, sep, label(fmt.Sprintf("Puissance %.0f", o.Power), textColor, body), label(fmt.Sprintf("Défense %.0f", o.Defense), textColor, body))
+		if g.level > 0 && g.viewing == 0 {
+			parts = append(parts, sep, g.pieGlimpse(p, o, h))
+		}
+	}
+	x := block(p.px(hudMargin), panelFill, panelEdge, parts...)
+	if o := st.Own; o != nil && o.WaveInMs >= 0 {
+		if o.WaveInMs < 60_000 {
+			x = block(x, alertFill, alertColor, label("Une vague dans", alertText, body), label(clock(o.WaveInMs), textColor, bold))
+		} else {
+			x = block(x, panelFill, panelEdge, label("Une vague dans", dimColor, body), label(clock(o.WaveInMs), textColor, body))
+		}
+	}
+	if st.BossInMs >= 0 {
+		if st.BossInMs < 5*60_000 {
+			block(x, alertFill, alertColor, label("Colosse dans", alertText, body), label(clock(st.BossInMs), textColor, bold))
+		} else {
+			block(x, panelFill, panelEdge, label("Colosse dans", dimColor, body), label(clock(st.BossInMs), textColor, body))
+		}
+	}
+	// The buttons, from the right edge.
+	bx := g.outW - p.px(hudMargin)
+	square := func(label string, on bool, action func()) {
+		w := max(h, p.widthOf(label, body)+p.px(16))
+		r := image.Rect(bx-w, y, bx, y+h)
+		kind := plainButton
+		if on {
+			kind = primaryButton
+		}
+		p.buttonAs(r, label, action, kind, panelEdge)
+		bx -= w + p.px(4)
+	}
+	sound := "Son"
+	if g.Sound != nil && g.Sound.Muted() {
+		sound = "Muet"
+	}
+	var mute func()
+	if g.Sound != nil {
+		mute = g.ToggleMute
+	}
+	square(sound, false, mute)
+	square("A", g.showAnnals, func() { g.togglePanel(false) })
+	square("C", g.showCulture, func() { g.togglePanel(true) })
+	if g.level > 0 && g.viewing == 0 {
+		square("‹ Ciel", false, func() { g.SetZoom(0) })
+	}
+}
+
+// phaseIcon draws the sun, or the moon at night, in pixels.
+func phaseIcon(p painter, phase string, h int) part {
+	n := p.px(1)
+	return part{p.px(12), func(x, y int) {
+		cy := y + (h-p.px(12))/2
+		dot := func(dx, dy, w, hh int, c color.Color) {
+			p.fill(image.Rect(x+dx*n, cy+dy*n, x+(dx+w)*n, cy+(dy+hh)*n), c)
+		}
+		switch phase {
+		case "night":
+			dot(3, 1, 6, 10, textColor)
+			dot(6, 0, 6, 9, panelFill)
+			dot(7, 0, 5, 9, barBack)
+		default:
+			c := paleGold
+			if phase != "day" {
+				c = alertText // dawn and dusk: a low, warm sun
+			}
+			dot(3, 3, 6, 6, c)
+			dot(5, 0, 2, 2, c)
+			dot(5, 10, 2, 2, c)
+			dot(0, 5, 2, 2, c)
+			dot(10, 5, 2, 2, c)
+		}
+	}}
+}
+
+// pieGlimpse is the pie as a small bar in the top bar of the island view;
+// a click opens the pie to change it.
+func (g *Game) pieGlimpse(p painter, o *proto.Own, h int) part {
+	w := p.px(80)
+	return part{w, func(x, y int) {
+		r := image.Rect(x, y+(h-p.px(8))/2, x+w, y+(h+p.px(8))/2)
+		p.fill(r, barBack)
+		cx := r.Min.X
+		for i := range sim.NumIntentions {
+			if v := o.Pie[i]; v > 0 {
+				dw := w * v / 100
+				p.fill(image.Rect(cx, r.Min.Y, cx+dw-p.px(1), r.Max.Y), intentionColor[i])
+				cx += dw
+			}
+		}
+		*p.buttons = append(*p.buttons, button{r: image.Rect(x, y, x+w, y+h), action: func() { g.pieOpen = !g.pieOpen }})
+	}}
+}
+
+// intentionColor tells the intentions apart in the glimpse of the pie.
+var intentionColor = [sim.NumIntentions]color.Color{
+	goldColor, aetherColor, color.RGBA{0xb9, 0xb4, 0xd6, 0xff}, alertColor, color.RGBA{0xb4, 0x8c, 0xff, 0xff},
+}
+
+// togglePanel opens or closes culture and knowledge, or the Annals, which
+// share their panel.
+func (g *Game) togglePanel(culture bool) {
+	if culture {
+		g.showCulture, g.showAnnals = !g.showCulture, false
+	} else {
+		g.showAnnals, g.showCulture = !g.showAnnals, false
+	}
+	g.dirty = true
 }
 
 // drawConnection tells the player the connection to the sky is lost, while
@@ -109,51 +277,69 @@ func (g *Game) drawConnection(p painter) {
 	if g.connection == "" {
 		return
 	}
-	k := int(p.k)
-	bh := p.line() + 8*k
-	w := max(p.width(g.connection)+24*k, 320*k)
-	h := p.line() + bh + 24*k
-	top := p.line() + 24*k
+	bh := p.px(30)
+	w := max(p.width(g.connection)+p.px(24), p.px(340))
+	h := p.line() + bh + p.px(28)
+	top := p.px(panelTop)
 	r := image.Rect((g.outW-w)/2, top, (g.outW+w)/2, top+h)
-	in := p.panel(r)
-	p.text(g.connection, in.Min.X+(in.Dx()-p.width(g.connection))/2, in.Min.Y, alertColor)
+	in := p.panelEdged(r, alertColor)
+	p.text(g.connection, in.Min.X+(in.Dx()-p.width(g.connection))/2, in.Min.Y, alertText)
 	y := in.Max.Y - bh
-	bw := p.width("Revenir à l'accueil") + 24*k
+	bw := p.width("Revenir à l'accueil") + p.px(24)
 	p.button(image.Rect(in.Min.X+(in.Dx()-bw)/2, y, in.Min.X+(in.Dx()+bw)/2, y+bh), "Revenir à l'accueil", g.OnGiveUp)
 }
 
-func (g *Game) drawHelp(p painter) {
-	help := "Molette : zoom · Flèches : défiler · C : culture et savoir · A : Annales · H : tutoriel · M : son"
-	if g.Sound != nil && g.Sound.Muted() {
-		help = strings.Replace(help, "M : son", "M : son (coupé)", 1)
-	}
-	p.text(help, g.outW-p.width(help)-int(8*p.k), g.outH-p.line()-int(4*p.k), dimColor)
-}
-
 // drawPie draws the pie of intentions the player composes and whispers
-// (GDD 6.2): target slices, and the people's actual conviction under each.
+// (GDD 6.2): one line per intention, its share in tenths, and the people's
+// actual conviction under it.
 func (g *Game) drawPie(p painter, r image.Rectangle, o *proto.Own) image.Rectangle {
-	k := int(p.k)
 	rows := int(sim.NumIntentions)
-	// Title, one line and a gauge per intention, the buttons, the padding.
-	r.Max.Y = r.Min.Y + p.line() + 4*k + rows*(p.line()+10*k) + p.line() + 4*k + 12*k
+	row := p.px(24)
+	bh := p.px(28)
+	r.Max.Y = r.Min.Y + p.px(20) + p.line() + p.px(6) + rows*row + p.px(6) + bh
 	in := p.panel(r)
-	p.text("Souffles", in.Min.X, in.Min.Y, goldColor)
-	y := in.Min.Y + p.line() + 4*k
-	bw := 16 * k
+	p.styled("Souffles", in.Min.X, in.Min.Y, goldColor, bold)
+	slices := 0
+	for _, v := range g.draft {
+		if v > 0 {
+			slices++
+		}
+	}
+	count := fmt.Sprintf("%d / 3", slices)
+	p.styled(count, in.Max.X-p.widthOf(count, small), in.Min.Y+(p.line()-p.lineOf(small))/2, dimColor, small)
+	y := in.Min.Y + p.line() + p.px(6)
+	nameW := p.px(96)
+	btn := p.px(20)
+	pctW := p.px(40)
 	for i := range sim.NumIntentions {
 		v := g.draft[i]
-		p.text(i.Name(), in.Min.X, y, textColor)
+		col := color.Color(dimColor)
+		if v > 0 {
+			col = textColor
+		}
+		p.text(i.Name(), in.Min.X, y+(row-p.line())/2, col)
 		right := in.Max.X
-		p.button(image.Rect(right-bw, y-k, right, y+p.line()-k), "+", g.adjust(i, +10))
-		pct := fmt.Sprintf("%d %%", v)
-		p.text(pct, right-bw-6*k-p.width("100 %"), y, textColor)
-		left := right - bw - 10*k - p.width("100 %") - bw
-		p.button(image.Rect(left, y-k, left+bw, y+p.line()-k), "−", g.adjust(i, -10))
-		y += p.line()
-		p.bar(image.Rect(in.Min.X, y, in.Max.X, y+4*k), float64(v)/100, o.Conviction[i])
-		y += 4*k + 6*k
+		cy := y + (row-btn)/2
+		p.button(image.Rect(right-btn, cy, right, cy+btn), "+", g.adjust(i, +10))
+		pct := fmt.Sprintf("%d%%", v)
+		p.styled(pct, right-btn-pctW+(pctW-p.widthOf(pct, small))/2, y+(row-p.lineOf(small))/2, textColor, small)
+		minus := right - btn - pctW - btn
+		p.button(image.Rect(minus, cy, minus+btn, cy+btn), "−", g.adjust(i, -10))
+		// Ten notches for the share, a thread of gold for the conviction.
+		bx0, bx1 := in.Min.X+nameW, minus-p.px(6)
+		by := y + (row-p.px(9))/2
+		cell := (bx1 - bx0 + p.px(1)) / 10
+		for c := range 10 {
+			fill := buttonFill
+			if c < v/10 {
+				fill = goldColor
+			}
+			p.fill(image.Rect(bx0+c*cell, by, bx0+(c+1)*cell-p.px(1), by+p.px(6)), fill)
+		}
+		p.gauge(image.Rect(bx0, by+p.px(7), bx0+10*cell-p.px(1), by+p.px(9)), o.Conviction[i], paleGold)
+		y += row
 	}
+	y += p.px(6)
 	var whisper func()
 	if g.drafting && g.draft.Validate() == nil && g.draft != o.Pie {
 		whisper = func() {
@@ -163,8 +349,8 @@ func (g *Game) drawPie(p painter, r image.Rectangle, o *proto.Own) image.Rectang
 			g.signs.whispered()
 		}
 	}
-	half := (in.Dx() - 4*k) / 2
-	p.button(image.Rect(in.Min.X, y, in.Min.X+half, y+p.line()+4*k), "Souffler", whisper)
+	split := in.Min.X + (in.Dx()-p.px(6))*2/3
+	p.buttonAs(image.Rect(in.Min.X, y, split, y+bh), "Souffler", whisper, primaryButton, panelEdge)
 	var cancel func()
 	if g.drafting {
 		cancel = func() {
@@ -172,13 +358,12 @@ func (g *Game) drawPie(p painter, r image.Rectangle, o *proto.Own) image.Rectang
 			g.drafting = false
 		}
 	}
-	p.button(image.Rect(in.Max.X-half, y, in.Max.X, y+p.line()+4*k), "Annuler", cancel)
+	p.buttonAs(image.Rect(split+p.px(6), y, in.Max.X, y+bh), "Annuler", cancel, ghostButton, panelEdge)
 	return r
 }
 
 // drawObserving shows whose island the god is looking at, and the way back.
 func (g *Game) drawObserving(p painter, st *proto.State, top int) image.Rectangle {
-	k := int(p.k)
 	name := "une île disparue"
 	for _, is := range st.Islands {
 		if is.ID == g.viewing {
@@ -190,11 +375,12 @@ func (g *Game) drawObserving(p painter, st *proto.State, top int) image.Rectangl
 	}
 	label := "Tu observes l'île de " + name
 	back := "Revenir à mon île (Échap)"
-	w := max(p.width(label), p.width(back)) + 24*k
-	r := image.Rect((g.outW-w)/2, top, (g.outW+w)/2, top+2*p.line()+20*k)
-	in := p.panel(r)
-	p.text(label, in.Min.X+(in.Dx()-p.width(label))/2, in.Min.Y, goldColor)
-	p.button(image.Rect(in.Min.X, in.Min.Y+p.line()+2*k, in.Max.X, in.Max.Y), back, func() { g.Observe(0) })
+	bh := p.px(28)
+	w := max(p.widthOf(label, bold), p.width(back)) + p.px(40)
+	r := image.Rect((g.outW-w)/2, top, (g.outW+w)/2, top+p.line()+bh+p.px(26))
+	in := p.panelEdged(r, aetherColor)
+	p.styled(label, in.Min.X+(in.Dx()-p.widthOf(label, bold))/2, in.Min.Y, aetherColor, bold)
+	p.buttonAs(image.Rect(in.Min.X, in.Max.Y-bh, in.Max.X, in.Max.Y), back, func() { g.Observe(0) }, ghostButton, aetherColor)
 	return r
 }
 
@@ -215,104 +401,111 @@ func refusalText(msg string) string {
 	return "Le ciel refuse : " + msg
 }
 
-// drawOuter shows the intention turned towards another island, the island
-// selected in the sky view, and what can be whispered towards it
-// (GDD 6.3).
-func (g *Game) drawOuter(p painter, st *proto.State, o *proto.Own, r image.Rectangle) image.Rectangle {
-	k := int(p.k)
-	name := func(id proto.IslandID) string {
-		for _, is := range st.Islands {
-			if is.ID == id {
-				return is.Name
-			}
+func islandName(st *proto.State, id proto.IslandID) string {
+	for _, is := range st.Islands {
+		if is.ID == id {
+			return is.Name
 		}
-		return "une île disparue"
 	}
+	return "une île disparue"
+}
+
+// drawOuterStatus tells, under the pie, the intention turned towards
+// another island, with the way to call it off (GDD 6.3).
+func (g *Game) drawOuterStatus(p painter, st *proto.State, o *proto.Own, r image.Rectangle) (image.Rectangle, bool) {
 	away := false
 	for _, rd := range st.Raids {
 		if rd.From == st.You {
 			away = true
 		}
 	}
+	if o.Outer == 0 && !away {
+		return r, false
+	}
+	bh := p.px(26)
+	r.Max.Y = r.Min.Y + p.px(20) + p.line() + p.px(6) + bh
+	in := p.panel(r)
+	status := "Tes guerriers sont en route."
+	if o.Outer != 0 {
+		status = fmt.Sprintf("%s : %s", o.Outer.Name(), islandName(st, o.OuterTarget))
+	}
+	p.styled(status, in.Min.X, in.Min.Y, goldColor, body)
+	p.buttonAs(image.Rect(in.Min.X, in.Max.Y-bh, in.Max.X, in.Max.Y), "Rappeler", func() { g.src.Aim(sim.NoOuter, 0) }, ghostButton, panelEdge)
+	return r, true
+}
+
+// drawTarget draws, by the island selected in the sky view, what the god
+// may whisper towards it.
+func (g *Game) drawTarget(p painter, st *proto.State, o *proto.Own) (image.Rectangle, bool) {
 	var target *proto.IslandSummary
 	for i := range st.Islands {
 		if st.Islands[i].ID == g.selected {
 			target = &st.Islands[i]
 		}
 	}
-	if o.Outer == 0 && !away && target == nil {
-		if g.level == 0 {
-			p.text("Clique une île pour la viser.", r.Min.X, r.Min.Y, textColor)
+	if target == nil || g.targetAt.Empty() {
+		return image.Rectangle{}, false
+	}
+	// The island is framed in gold.
+	p.frame(g.targetAt.Inset(-p.px(4)), 2, goldColor)
+	w := p.px(250)
+	bh := p.px(28)
+	h := p.px(20) + 3*p.line() + p.px(10) + 3*(bh+p.px(4)) - p.px(4)
+	x := g.targetAt.Max.X + p.px(12)
+	if x+w > g.outW-p.px(hudMargin) {
+		x = g.targetAt.Min.X - p.px(12) - w // no room on the right
+	}
+	y := min(max(g.targetAt.Min.Y, p.px(panelTop)), g.outH-h-p.px(50))
+	r := image.Rect(x, y, x+w, y+h)
+	in := p.panelEdged(r, goldColor)
+	name := target.Name
+	if target.AI {
+		name += " (IA)"
+	}
+	p.styled(name, in.Min.X, in.Min.Y, textColor, bold)
+	figures := fmt.Sprintf("P %.0f · cœur %d%%", target.Power, int(math.Round(target.Heart*100)))
+	p.styled(figures, in.Max.X-p.widthOf(figures, small), in.Min.Y+(p.line()-p.lineOf(small))/2, dimColor, small)
+	ty := in.Min.Y + p.line()
+	culture := min(max(target.Culture, 0), int(sim.NumFamilies)-1)
+	p.text("Vénère "+strings.ToLower(sim.Family(culture).Name()), in.Min.X, ty, familyColor[culture])
+	ty += p.line()
+	switch {
+	case target.Banner != 0 && target.BannerTarget == st.You && target.Banner != sim.Rescue:
+		p.text("Te menace de sa bannière.", in.Min.X, ty, alertText)
+	case target.Protected:
+		p.text("Jeune civilisation, protégée.", in.Min.X, ty, dimColor)
+	case target.Declining:
+		p.text("En déclin.", in.Min.X, ty, alertText)
+	default:
+		p.text("Rien ne vous oppose.", in.Min.X, ty, dimColor)
+	}
+	ty += p.line() + p.px(10)
+	id := target.ID
+	aim := func(kind sim.Outer, ok bool) func() {
+		if !ok {
+			return nil
 		}
-		r.Max.Y = r.Min.Y + p.line()
-		return r
-	}
-	// Status line, then for a target four lines of description and two rows
-	// of buttons; the recall button closes the panel.
-	bh := p.line() + 4*k
-	h := p.line() + 2*k + bh + 12*k
-	if target != nil {
-		h += 4*p.line() + 4*k + 3*(bh+4*k)
-	}
-	r.Max.Y = r.Min.Y + h
-	in := p.panel(r)
-	y := in.Min.Y
-	status := "Vers les autres îles"
-	if o.Outer != 0 {
-		status = fmt.Sprintf("%s : %s", o.Outer.Name(), name(o.OuterTarget))
-	} else if away {
-		status = "Tes guerriers sont en route."
-	}
-	p.text(status, in.Min.X, y, goldColor)
-	y += p.line() + 2*k
-	if target != nil {
-		who := target.Name
-		if target.AI {
-			who += " (IA)"
+		return func() {
+			g.src.Aim(kind, id)
+			g.play(sound.Whisper)
 		}
-		p.text(who, in.Min.X, y, textColor)
-		y += p.line()
-		culture := min(max(target.Culture, 0), int(sim.NumFamilies)-1)
-		p.text(fmt.Sprintf("Culture %s · puissance %.0f", sim.Family(culture).Name(), target.Power), in.Min.X, y, familyColor[culture])
-		y += p.line()
-		p.text(fmt.Sprintf("Cœur %d %%", int(math.Round(target.Heart*100))), in.Min.X, y, textColor)
-		y += p.line()
-		switch {
-		case target.Protected:
-			p.text("Jeune civilisation : protégée.", in.Min.X, y, dimColor)
-		case target.Declining:
-			p.text("En déclin.", in.Min.X, y, alertColor)
-		}
-		y += p.line() + 4*k
-		half := (in.Dx() - 4*k) / 2
-		id := target.ID
-		aim := func(kind sim.Outer, ok bool) func() {
-			if !ok {
-				return nil
-			}
-			return func() {
-				g.src.Aim(kind, id)
-				g.play(sound.Whisper)
-			}
-		}
-		raidable := !target.Protected
-		// Punir leaves at once and Secourir lends spare defenders: both need
-		// someone to send. Convoiter and Anéantir prepare first.
-		p.button(image.Rect(in.Min.X, y, in.Min.X+half, y+bh), "Convoiter", aim(sim.Covet, raidable))
-		p.button(image.Rect(in.Max.X-half, y, in.Max.X, y+bh), "Punir", aim(sim.Punish, raidable && o.Assailants >= 1))
-		y += bh + 4*k
-		p.button(image.Rect(in.Min.X, y, in.Min.X+half, y+bh), "Anéantir", aim(sim.Annihilate, raidable && target.Declining))
-		p.button(image.Rect(in.Max.X-half, y, in.Max.X, y+bh), "Secourir", aim(sim.Rescue, o.Defenders >= 3))
-		y += bh + 4*k
-		p.button(image.Rect(in.Min.X, y, in.Max.X, y+bh), "Observer cette île", func() { g.Observe(id) })
-		y += bh + 4*k
 	}
-	var recall func()
-	if o.Outer != 0 || away {
-		recall = func() { g.src.Aim(sim.NoOuter, 0) }
+	raidable := !target.Protected
+	half := (in.Dx() - p.px(4)) / 2
+	cell := func(col, row int, label string, action func()) {
+		x0 := in.Min.X + col*(half+p.px(4))
+		y0 := ty + row*(bh+p.px(4))
+		p.button(image.Rect(x0, y0, x0+half, y0+bh), label, action)
 	}
-	p.button(image.Rect(in.Min.X, y, in.Max.X, y+bh), "Rappeler", recall)
-	return r
+	// Punir leaves at once and Secourir lends spare defenders: both need
+	// someone to send. Convoiter and Anéantir prepare first.
+	cell(0, 0, "Convoiter", aim(sim.Covet, raidable))
+	cell(1, 0, "Punir", aim(sim.Punish, raidable && o.Assailants >= 1))
+	cell(0, 1, "Anéantir", aim(sim.Annihilate, raidable && target.Declining))
+	cell(1, 1, "Secourir", aim(sim.Rescue, o.Defenders >= 3))
+	oy := ty + 2*(bh+p.px(4))
+	p.buttonAs(image.Rect(in.Min.X, oy, in.Max.X, oy+bh), "Observer de près", func() { g.Observe(id) }, ghostButton, aetherColor)
+	return r, true
 }
 
 // adjust returns the action moving 10 % of the pie to or from intention i,
@@ -345,142 +538,323 @@ func (g *Game) adjust(i sim.Intention, d int) func() {
 	}
 }
 
-// drawChronicle draws the latest lines of the chronicle, newest first.
-func (g *Game) drawChronicle(p painter, r image.Rectangle, o *proto.Own) image.Rectangle {
-	k := int(p.k)
-	r.Max.Y = r.Min.Y + p.line()*14 + 12*k
-	in := p.panel(r)
-	p.text("Chronique", in.Min.X, in.Min.Y, goldColor)
-	y := in.Min.Y + p.line() + 4*k
+// newsColor marks each kind of entry of the chronicle.
+func newsColor(k sim.EntryKind) color.Color {
+	switch k {
+	case sim.RaidNews, sim.WaveNews:
+		return alertColor
+	case sim.VictoryNews, sim.BirthNews:
+		return aetherColor
+	case sim.DeclineNews, sim.FallNews:
+		return familyColor[3]
+	case sim.BuiltNews, sim.DiscoveryNews, sim.SuppliqueNews:
+		return goldColor
+	}
+	return dimColor
+}
+
+// ago tells how long ago an entry was written.
+func ago(st *proto.State, e sim.Entry) string {
+	if e.Tick >= st.Tick {
+		return "à l'instant"
+	}
+	d := time.Duration(st.Tick-e.Tick) * sim.TickDuration
+	switch {
+	case d < time.Minute:
+		return "à l'instant"
+	case d < time.Hour:
+		return fmt.Sprintf("%d\u00a0min", int(d.Minutes()))
+	}
+	return fmt.Sprintf("%d\u00a0h", int(d.Hours()))
+}
+
+// plural counts people of a kind, as French says it: one is singular, and
+// so is none.
+func plural(n float64, word string) string {
+	v := int(math.Round(n))
+	if v > 1 {
+		word += "s"
+	}
+	return fmt.Sprintf("%d %s", v, word)
+}
+
+// chronicleShort is how many entries the chronicle shows, unless the god
+// asks for all of them.
+const chronicleShort = 3
+
+// drawChronicle draws the latest entries of the chronicle, newest first:
+// three, or as many as fit when the god reads it all.
+func (g *Game) drawChronicle(p painter, st *proto.State, r image.Rectangle, o *proto.Own) image.Rectangle {
+	inW := r.Dx() - p.px(20)
+	textW := inW - p.px(12)
+	type entry struct {
+		lines []string
+		e     sim.Entry
+	}
+	var entries []entry
+	h := p.line() + p.px(6)
+	limit := g.outH - p.px(120) - r.Min.Y
 	for i := len(o.Chronicle) - 1; i >= 0; i-- {
-		lines := p.wrap(o.Chronicle[i].Text, in.Dx())
-		if y+len(lines)*p.line() > in.Max.Y {
-			break // only whole entries: an older one that does not fit waits
+		if !g.chronicleAll && len(entries) == chronicleShort {
+			break
 		}
-		for _, l := range lines {
-			p.text(l, in.Min.X, y, textColor)
+		lines := p.wrap(o.Chronicle[i].Text+" · "+ago(st, o.Chronicle[i]), textW)
+		eh := len(lines)*p.line() + p.px(4)
+		if h+eh > limit {
+			break // only whole entries
+		}
+		entries = append(entries, entry{lines, o.Chronicle[i]})
+		h += eh
+	}
+	r.Max.Y = r.Min.Y + h + p.px(20)
+	in := p.panel(r)
+	p.styled("Chronique", in.Min.X, in.Min.Y, goldColor, bold)
+	more := "Tout lire"
+	if g.chronicleAll {
+		more = "Réduire"
+	}
+	mw := p.widthOf(more, small)
+	mr := image.Rect(in.Max.X-mw-p.px(4), in.Min.Y, in.Max.X, in.Min.Y+p.line())
+	p.styled(more, in.Max.X-mw, in.Min.Y+(p.line()-p.lineOf(small))/2, dimColor, small)
+	*p.buttons = append(*p.buttons, button{r: mr, action: func() { g.chronicleAll = !g.chronicleAll }})
+	y := in.Min.Y + p.line() + p.px(6)
+	for i, e := range entries {
+		c := color.Color(textColor)
+		if i > 0 {
+			c = color.NRGBA{0xf2, 0xee, 0xe3, uint8(max(255-i*40, 150))}
+		}
+		p.dot(in.Min.X, y+(p.line()-p.px(6))/2, 6, newsColor(e.e.Kind))
+		for _, l := range e.lines {
+			p.text(l, in.Min.X+p.px(12), y, c)
 			y += p.line()
 		}
-		y += 2 * k
+		y += p.px(4)
 	}
 	return r
 }
 
-// drawStock draws the resources with their cap, and the people.
-func (g *Game) drawStock(p painter, o *proto.Own) image.Rectangle {
-	k := int(p.k)
-	lines := []string{
-		fmt.Sprintf("Bois %.0f · Pierre %.0f · Vivres %.0f · Aether %.0f  (stock max %.0f)",
-			o.Stock[sim.Wood], o.Stock[sim.Stone], o.Stock[sim.Food], o.Stock[sim.Aether], o.Cap),
-		fmt.Sprintf("Peuple %.0f/%d · Défenseurs %.0f · Assaillants %.0f · Génération %d",
-			o.Population, o.Housing, o.Defenders, o.Assailants, o.Generation),
+// drawNews shows, in the island view, the latest entry of the chronicle.
+func (g *Game) drawNews(p painter, st *proto.State, r image.Rectangle, o *proto.Own) image.Rectangle {
+	if len(o.Chronicle) == 0 {
+		return image.Rectangle{}
 	}
-	w := 0
-	for _, l := range lines {
-		w = max(w, p.width(l))
+	e := o.Chronicle[len(o.Chronicle)-1]
+	lines := p.wrap(e.Text, r.Dx()-p.px(32))
+	if len(lines) > 3 {
+		lines = lines[:3]
 	}
-	r := image.Rect(8*k, g.outH-8*k-2*p.line()-12*k-p.line(), 8*k+w+12*k, g.outH-8*k-p.line())
-	in := p.panel(r)
+	r.Max.Y = r.Min.Y + len(lines)*p.line() + p.px(16)
+	p.fill(r, panelFill)
+	p.frame(r, 2, panelEdge)
+	p.block(r)
+	p.dot(r.Min.X+p.px(10), r.Min.Y+p.px(8)+(p.line()-p.px(6))/2, 6, newsColor(e.Kind))
 	for i, l := range lines {
-		p.text(l, in.Min.X, in.Min.Y+i*p.line(), textColor)
+		p.text(l, r.Min.X+p.px(22), r.Min.Y+p.px(8)+i*p.line(), textColor)
 	}
 	return r
+}
+
+// drawStock draws the reserves along the bottom, each with its gauge
+// against the cap, and the people.
+func (g *Game) drawStock(p painter, o *proto.Own) image.Rectangle {
+	h := p.px(30)
+	gap := p.px(14)
+	names := [...]string{"Bois", "Pierre", "Vivres", "Aether"}
+	res := [...]sim.Resource{sim.Wood, sim.Stone, sim.Food, sim.Aether}
+	people := fmt.Sprintf("%.0f/%d âmes", o.Population, o.Housing)
+	soldiers := plural(o.Defenders, "défenseur")
+	if o.Assailants >= 1 {
+		soldiers += " · " + plural(o.Assailants, "guerrier")
+	}
+	w := p.px(20)
+	for i, r := range res {
+		w += p.px(12) + p.width(names[i]) + p.px(4) + p.widthOf(fmt.Sprintf("%.0f", o.Stock[r]), bold) + p.px(6) + p.px(24) + gap
+	}
+	w += p.px(2) + gap + p.width(people) + gap + p.width(soldiers)
+	y := g.outH - p.px(10) - h
+	box := image.Rect(p.px(hudMargin), y, p.px(hudMargin)+w, y+h)
+	p.fill(box, panelFill)
+	p.frame(box, 2, panelEdge)
+	p.block(box)
+	x := box.Min.X + p.px(10)
+	ty := y + (h-p.line())/2
+	for i, r := range res {
+		p.dot(x, y+(h-p.px(6))/2, 6, resourceColor[i])
+		x += p.px(12)
+		p.text(names[i], x, ty, dimColor)
+		x += p.width(names[i]) + p.px(4)
+		v := fmt.Sprintf("%.0f", o.Stock[r])
+		p.styled(v, x, ty, textColor, bold)
+		x += p.widthOf(v, bold) + p.px(6)
+		share := 0.0
+		if o.Cap > 0 {
+			share = o.Stock[r] / o.Cap
+		}
+		p.gauge(image.Rect(x, y+(h-p.px(4))/2, x+p.px(24), y+(h+p.px(4))/2), share, resourceColor[i])
+		x += p.px(24) + gap
+	}
+	p.fill(image.Rect(x, y+p.px(8), x+p.px(2), y+h-p.px(8)), panelEdge)
+	x += p.px(2) + gap
+	p.text(people, x, ty, textColor)
+	x += p.width(people) + gap
+	p.text(soldiers, x, ty, dimColor)
+	return box
 }
 
 // drawSupplique draws the question of the people and its answers
 // (GDD 6.5). Unanswered, the people decide alone when the time runs out.
 func (g *Game) drawSupplique(p painter, s *proto.Supplique) {
-	k := int(p.k)
-	w := 440 * k
-	q := p.wrap(s.Question, w-12*k)
-	h := p.line()*(len(q)+1) + len(s.Options)*(p.line()+10*k) + 16*k
-	r := image.Rect((g.outW-w)/2, g.outH-h-p.line()-70*k, (g.outW+w)/2, g.outH-p.line()-70*k)
-	in := p.panel(r)
-	p.text("Supplique · ton peuple décidera seul dans "+clock(s.LeftMs), in.Min.X, in.Min.Y, goldColor)
-	y := in.Min.Y + p.line()
+	w := p.px(460)
+	inW := w - p.px(20)
+	q := p.wrap(s.Question, inW)
+	bh := p.px(30)
+	cols := 2
+	if len(s.Options) == 1 || len(s.Options) > 4 {
+		cols = 1
+	}
+	// Each answer in its column, on as many lines as it needs.
+	colW := (inW - p.px(6)*(cols-1)) / cols
+	rows, lines := (len(s.Options)+cols-1)/cols, 1
+	for _, opt := range s.Options {
+		lines = max(lines, len(p.wrap(opt, colW-p.px(12))))
+	}
+	bh = max(bh, lines*p.line()+p.px(10))
+	h := p.px(20) + p.line() + p.px(10) + len(q)*p.line() + p.px(8) + rows*(bh+p.px(6)) - p.px(6)
+	bottom := g.outH - p.px(50)
+	r := image.Rect((g.outW-w)/2, bottom-h, (g.outW+w)/2, bottom)
+	in := p.panelEdged(r, goldColor)
+	p.styled("Ton peuple s'adresse à toi", in.Min.X, in.Min.Y, goldColor, bold)
+	left := "seul dans " + clock(s.LeftMs)
+	p.styled(left, in.Max.X-p.widthOf(left, small), in.Min.Y+(p.line()-p.lineOf(small))/2, dimColor, small)
+	y := in.Min.Y + p.line() + p.px(3)
+	p.gauge(image.Rect(in.Min.X, y, in.Max.X, y+p.px(3)), float64(s.LeftMs)/1000/sim.SuppliqueTimeout, goldColor)
+	y += p.px(7)
 	for _, l := range q {
 		p.text(l, in.Min.X, y, textColor)
 		y += p.line()
 	}
-	y += 4 * k
+	y += p.px(8)
 	for i, opt := range s.Options {
 		id, option := s.ID, i
-		p.button(image.Rect(in.Min.X, y, in.Max.X, y+p.line()+6*k), opt, func() {
+		x0 := in.Min.X + (i%cols)*(colW+p.px(6))
+		y0 := y + (i/cols)*(bh+p.px(6))
+		br := image.Rect(x0, y0, x0+colW, y0+bh)
+		p.fill(br, buttonFill)
+		p.frame(br, 1, panelEdge)
+		ol := p.wrap(opt, colW-p.px(12))
+		for j, l := range ol {
+			p.text(l, x0+p.px(6), y0+(bh-len(ol)*p.line())/2+j*p.line(), textColor)
+		}
+		*p.buttons = append(*p.buttons, button{r: br, action: func() {
 			g.src.Answer(id, option)
 			g.play(sound.Answer)
-		})
-		y += p.line() + 10*k
+		}})
 	}
 }
 
-// drawCulture shows the culture and the knowledge of the people; the god
-// only reads it (GDD 13.2).
-func (g *Game) drawCulture(p painter, o *proto.Own) {
-	k := int(p.k)
-	w := 360 * k
-	nf := int(sim.NumFamilies)
-	h := p.line() + 4*k + nf*(p.line()+10*k) + 4*k + p.line() + max(1, len(o.Discoveries))*p.line() + 12*k
-	r := image.Rect((g.outW-w)/2, (g.outH-h)/2, (g.outW+w)/2, (g.outH+h)/2)
-	in := p.panel(r)
-	p.text("Culture et savoir", in.Min.X, in.Min.Y, goldColor)
-	y := in.Min.Y + p.line() + 4*k
-	total := 0.0
-	for _, v := range o.Culture {
-		total += v
-	}
-	for f := range sim.NumFamilies {
-		label := fmt.Sprintf("%s · palier %d/%d", f.Name(), o.Tiers[f], sim.TiersPerAxis)
-		if int(f) == o.Axis {
-			label += " · les savants y travaillent"
-		}
-		p.text(label, in.Min.X, y, familyColor[f])
-		y += p.line()
-		share := 0.0
-		if total > 0 {
-			share = o.Culture[f] / total
-		}
-		progress := 0.0
-		if int(f) == o.Axis {
-			progress = o.Progress
-		}
-		p.bar(image.Rect(in.Min.X, y, in.Max.X, y+4*k), share, progress)
-		y += 10 * k
-	}
-	y += 4 * k
-	p.text("Découvertes", in.Min.X, y, goldColor)
-	y += p.line()
-	if len(o.Discoveries) == 0 {
-		p.text("Aucune encore.", in.Min.X, y, dimColor)
-	}
-	for _, d := range o.Discoveries {
-		p.text("· "+d, in.Min.X, y, textColor)
-		y += p.line()
-	}
+// bookLine is a line of the book panel: its height, and how to draw it.
+type bookLine struct {
+	h    int
+	draw func(y int)
 }
 
-// drawAnnals lists the fallen civilisations of the sky (GDD 11.5).
-func (g *Game) drawAnnals(p painter, annals []proto.Annal) {
-	k := int(p.k)
-	w := 520 * k
-	lines := []string{}
-	for i := len(annals) - 1; i >= 0; i-- {
-		a := annals[i]
-		lines = append(lines, fmt.Sprintf("%s, génération %d : %.1f jours, apogée %.0f, %d paliers, culture %s.",
-			a.Name, a.Generation, a.DaysLived, a.PeakPower, a.Tiers, sim.Family(min(max(a.Culture, 0), int(sim.NumFamilies)-1)).Name()))
-		lines = append(lines, "   "+a.Cause)
-	}
-	if len(lines) == 0 {
-		lines = []string{"Aucune civilisation n'est encore tombée."}
-	}
-	h := p.line()*(len(lines)+1) + 16*k
-	r := image.Rect((g.outW-w)/2, (g.outH-h)/2, (g.outW+w)/2, (g.outH+h)/2)
-	in := p.panel(r)
-	p.text("Annales du ciel", in.Min.X, in.Min.Y, goldColor)
-	for i, l := range lines {
-		c := textColor
-		if i%2 == 1 {
-			c = dimColor
+// drawBook is the panel of culture and knowledge, and of the Annals, on
+// the left, beside the world rather than over it.
+func (g *Game) drawBook(p painter, st *proto.State, o *proto.Own) {
+	m := p.px(hudMargin)
+	top := p.px(panelTop)
+	w := min(p.px(560), g.outW-2*m)
+	tabH := p.px(28)
+	inW := w - p.px(20)
+	x0 := m + p.px(10)
+	var lines []bookLine
+	if g.showCulture {
+		total := 0.0
+		for _, v := range o.Culture {
+			total += v
 		}
-		p.text(l, in.Min.X, in.Min.Y+(i+1)*p.line(), c)
+		for f := range sim.NumFamilies {
+			h := p.px(26)
+			lines = append(lines, bookLine{h, func(y int) {
+				ty := y + (h-p.line())/2
+				p.styled(f.Name(), x0, ty, familyColor[f], bold)
+				px := x0 + p.px(92)
+				for t := range sim.TiersPerAxis {
+					c := color.Color(panelDim)
+					if t < o.Tiers[f] {
+						c = familyColor[f]
+					}
+					p.dot(px+t*p.px(10), y+(h-p.px(8))/2, 8, c)
+				}
+				share, progress := 0.0, 0.0
+				if total > 0 {
+					share = o.Culture[f] / total
+				}
+				note := "en sommeil"
+				noteC := color.Color(dimColor)
+				if int(f) == o.Axis {
+					progress, note, noteC = o.Progress, "les savants y travaillent", textColor
+				}
+				gx := px + p.px(10)*sim.TiersPerAxis + p.px(10)
+				gw := x0 + inW - p.width("les savants y travaillent") - p.px(10) - gx
+				p.gauge(image.Rect(gx, y+(h-p.px(10))/2, gx+gw, y+(h-p.px(10))/2+p.px(6)), share, familyColor[f])
+				p.gauge(image.Rect(gx, y+(h-p.px(10))/2+p.px(8), gx+gw, y+(h-p.px(10))/2+p.px(10)), progress, textColor)
+				p.text(note, gx+gw+p.px(10), ty, noteC)
+			}})
+		}
+		found := "Aucune découverte encore."
+		if len(o.Discoveries) > 0 {
+			found = "Découvertes : " + strings.Join(o.Discoveries, ", ") + "."
+		}
+		text := p.wrap(found, inW)
+		lines = append(lines, bookLine{p.px(10) + len(text)*p.line(), func(y int) {
+			for i, l := range text {
+				p.text(l, x0, y+p.px(10)+i*p.line(), dimColor)
+			}
+		}})
+	} else {
+		if len(st.Annals) == 0 {
+			lines = append(lines, bookLine{p.line(), func(y int) {
+				p.text("Aucune civilisation n'est encore tombée.", x0, y, dimColor)
+			}})
+		}
+		for i := len(st.Annals) - 1; i >= 0 && len(lines) < 8; i-- {
+			a := st.Annals[i]
+			fam := min(max(a.Culture, 0), int(sim.NumFamilies)-1)
+			text := p.wrap(fmt.Sprintf("%.1f jours · apogée %.0f · %d paliers · %s", a.DaysLived, a.PeakPower, a.Tiers, a.Cause), inW)
+			lines = append(lines, bookLine{(len(text)+1)*p.line() + p.px(6), func(y int) {
+				p.styled(fmt.Sprintf("%s, génération %d", a.Name, a.Generation), x0, y, familyColor[fam], bold)
+				for j, l := range text {
+					p.text(l, x0, y+(j+1)*p.line(), dimColor)
+				}
+			}})
+		}
+	}
+	h := 0
+	for _, l := range lines {
+		h += l.h
+	}
+	r := image.Rect(m, top, m+w, top+p.px(20)+tabH+p.px(10)+h)
+	in := p.panel(r)
+	tab := func(x int, label string, on bool, culture bool) int {
+		tw := p.widthOf(label, bold) + p.px(20)
+		kind := ghostButton
+		if on {
+			kind = primaryButton
+		}
+		p.buttonAs(image.Rect(x, in.Min.Y, x+tw, in.Min.Y+tabH), label, func() {
+			g.showCulture, g.showAnnals = culture, !culture
+		}, kind, panelEdge)
+		return x + tw + p.px(4)
+	}
+	x := tab(in.Min.X, "Culture et savoir", g.showCulture, true)
+	tab(x, "Annales", g.showAnnals, false)
+	p.buttonAs(image.Rect(in.Max.X-tabH, in.Min.Y, in.Max.X, in.Min.Y+tabH), "×", func() {
+		g.showCulture, g.showAnnals = false, false
+	}, ghostButton, panelEdge)
+	y := in.Min.Y + tabH + p.px(10)
+	for _, l := range lines {
+		l.draw(y)
+		y += l.h
 	}
 }

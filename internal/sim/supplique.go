@@ -16,6 +16,10 @@ const (
 	roomCooldown     = 2 * 3600.0
 )
 
+// SuppliqueTimeout is how long, in seconds, a supplique waits for its
+// answer: the client shows the time running out against it.
+const SuppliqueTimeout = suppliqueTimeout
+
 // SuppliqueKind tells what a supplique is about.
 type SuppliqueKind int
 

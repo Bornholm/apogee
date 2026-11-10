@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"image/color"
 	"io"
 	"log/slog"
 	"math"
@@ -17,7 +18,6 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
-	"github.com/hajimehoshi/ebiten/v2/text/v2"
 
 	"apogee/internal/art"
 	"apogee/internal/discovery"
@@ -378,7 +378,8 @@ func repeat(k ebiten.Key) bool {
 	return d == 1 || (d > 30 && d%4 == 0)
 }
 
-// Draw draws the current screen.
+// Draw draws the current screen: the sky, and on its left the column of
+// the menu (the design's home screen).
 func (a *App) Draw(screen *ebiten.Image) {
 	if a.screen == playingScreen {
 		a.game.Draw(screen)
@@ -388,32 +389,37 @@ func (a *App) Draw(screen *ebiten.Image) {
 	a.backdrop.draw(screen, a.outW, a.outH, a.uiScale())
 	a.buttons = a.buttons[:0]
 	p := painter{dst: screen, k: a.uiScale(), buttons: &a.buttons}
-	k := int(p.k)
-	title := "APOGÉE"
-	tk := p.k * 4
-	tw := textWidth(title) * tk
-	var op text.DrawOptions
-	op.GeoM.Scale(tk, tk)
-	op.GeoM.Translate(math.Round((float64(a.outW)-tw)/2), float64(40*k))
-	op.ColorScale.ScaleWithColor(goldColor)
-	text.Draw(screen, title, face, &op)
-	tag := "Souffle tes intentions à ton peuple. Porte-le au plus haut, avant sa chute."
-	p.text(tag, (a.outW-p.width(tag))/2, 40*k+int(lineHeight*tk)+8*k, textColor)
-
-	w := 380 * k
-	top := 40*k + int(lineHeight*tk) + 40*k
+	x := p.px(72)
+	if a.outW < p.px(640) {
+		x = p.px(24)
+	}
+	w := min(p.px(440), a.outW-x-p.px(24))
+	y := p.px(56)
+	p.styled("Un dieu · un peuple · une chute", x, y, dimColor, small)
+	y += p.lineOf(small) + p.px(8)
+	p.styled("Apogée", x+p.px(4), y+p.px(4), inkColor, hero) // its shadow
+	p.styled("Apogée", x, y, goldColor, hero)
+	y += p.lineOf(hero) + p.px(8)
+	for _, l := range p.wrap("Souffle tes intentions à ton peuple. Porte-le au plus haut, avant sa chute.", w-p.px(40)) {
+		p.text(l, x, y, dimColor)
+		y += p.line()
+	}
+	y += p.px(24)
+	col := image.Rect(x, y, x+w, y)
 	switch a.screen {
 	case connectingScreen:
-		msg := "Ouverture du ciel…"
-		p.text(msg, (a.outW-p.width(msg))/2, a.outH/2, goldColor)
+		p.styled("Ouverture du ciel…", x, y, goldColor, large)
+		y += p.lineOf(large)
 	case homeScreen:
-		a.drawHome(p, image.Rect((a.outW-w)/2, top, (a.outW+w)/2, top), k)
+		y = a.drawHome(p, col)
 	case joinScreen:
-		a.drawJoin(p, image.Rect((a.outW-w)/2, top, (a.outW+w)/2, top), k)
+		y = a.drawJoin(p, col)
 	}
 	if a.status != "" {
-		for i, l := range p.wrap(a.status, w*3/2) {
-			p.text(l, (a.outW-p.width(l))/2, a.outH-(3-i)*p.line()-20*k, alertColor)
+		y += p.px(16)
+		for _, l := range p.wrap(a.status, w) {
+			p.text(l, x, y, alertText)
+			y += p.line()
 		}
 	}
 	if a.OnFrame != nil {
@@ -421,56 +427,58 @@ func (a *App) Draw(screen *ebiten.Image) {
 	}
 }
 
-func textWidth(s string) float64 {
-	w, _ := text.Measure(s, face, lineHeight)
-	return w
+// heading draws the small title of a group of the menu.
+func heading(p painter, s string, x, y int) int {
+	p.styled(s, x, y, dimColor, small)
+	return y + p.lineOf(small) + p.px(6)
 }
 
-// drawField draws a text field and makes it clickable.
+// drawField draws a text field and makes it clickable: a line of text over
+// a gold rule.
 func (a *App) drawField(p painter, r image.Rectangle, f *field) {
-	p.fill(r, barBack)
-	edge := panelEdge
-	if f.focused {
-		edge = goldColor
+	edge := goldColor
+	if !f.focused {
+		edge = panelEdge
 	}
-	p.strokeRect(r, edge)
+	p.fill(image.Rect(r.Min.X, r.Max.Y-p.px(2), r.Max.X, r.Max.Y), edge)
 	v := f.value
 	if f.focused && (time.Now().UnixMilli()/500)%2 == 0 {
 		v += "_"
 	}
-	p.text(v, r.Min.X+int(6*p.k), r.Min.Y+(r.Dy()-p.line())/2+int(p.k), textColor)
-	*p.buttons = append(*p.buttons, button{r, func() { f.focused = true }})
+	p.styled(v, r.Min.X, r.Min.Y+(r.Dy()-p.px(2)-p.line())/2, textColor, bold)
+	*p.buttons = append(*p.buttons, button{r: r, action: func() { f.focused = true }})
 }
 
-func (a *App) drawHome(p painter, r image.Rectangle, k int) {
-	bh := p.line() + 10*k
-	gap := 8 * k
+// drawHome draws the menu and returns where it ends.
+func (a *App) drawHome(p painter, r image.Rectangle) int {
+	x, w := r.Min.X, r.Dx()
+	y := r.Min.Y
+	// The god's name.
+	nameBox := image.Rect(x, y, x+p.px(260), y+p.px(40))
+	p.fill(nameBox, buttonFill)
+	p.frame(nameBox, 2, panelEdge)
+	p.styled("Dieu", x+p.px(12), y+(p.px(40)-p.lineOf(small))/2, dimColor, small)
+	a.drawField(p, image.Rect(x+p.px(56), y+p.px(6), nameBox.Max.X-p.px(12), nameBox.Max.Y-p.px(6)), &a.name)
+	y += p.px(40) + p.px(24)
+
+	big, bh := p.px(48), p.px(40)
 	_, hasSolo := SoloSave()
-	rows := 7
-	if hasSolo {
-		rows++
-	}
-	last := a.settings.LastServer
-	if last != "" {
-		rows++
-	}
-	r.Max.Y = r.Min.Y + p.line() + gap + bh + gap*3 + rows*(bh+gap) + 12*k
-	in := p.panel(r)
-	p.text("Ton nom de dieu", in.Min.X, in.Min.Y, goldColor)
-	y := in.Min.Y + p.line() + gap/2
-	a.drawField(p, image.Rect(in.Min.X, y, in.Max.X, y+bh), &a.name)
-	y += bh + gap*3
-	btn := func(label string, action func()) {
-		p.button(image.Rect(in.Min.X, y, in.Max.X, y+bh), label, action)
-		y += bh + gap
+	y = heading(p, "Ton ciel", x, y)
+	solo := func(fresh bool) func() {
+		return func() { a.launch(func() launchResult { return a.solo(fresh) }) }
 	}
 	if hasSolo {
-		btn("Continuer ma partie solo", func() { a.launch(func() launchResult { return a.solo(false) }) })
-		btn("Nouvelle partie solo", func() { a.launch(func() launchResult { return a.solo(true) }) })
+		p.buttonAs(image.Rect(x, y, x+w, y+big), "Continuer ma partie", solo(false), primaryButton, panelEdge)
+		y += big + p.px(8)
+		p.button(image.Rect(x, y, x+w, y+bh), "Nouvelle partie solo", solo(true))
 	} else {
-		btn("Jouer en solo", func() { a.launch(func() launchResult { return a.solo(true) }) })
+		p.buttonAs(image.Rect(x, y, x+w, y+big), "Jouer en solo", solo(true), primaryButton, panelEdge)
+		y += big - bh
 	}
-	if last != "" {
+	y += bh + p.px(24)
+
+	y = heading(p, "Ciels partagés", x, y)
+	if last := a.settings.LastServer; last != "" {
 		label := a.settings.LastSky
 		if label == "" {
 			label = last
@@ -478,31 +486,47 @@ func (a *App) drawHome(p painter, r image.Rectangle, k int) {
 		if r := []rune(label); len(r) > 24 {
 			label = string(r[:23]) + "…"
 		}
-		btn("Revenir sur « "+label+" »", func() { a.launch(func() launchResult { return a.join(last) }) })
+		p.buttonAs(image.Rect(x, y, x+w, y+bh), "Revenir sur « "+label+" »", func() {
+			a.launch(func() launchResult { return a.join(last) })
+		}, ghostButton, aetherColor)
+		y += bh + p.px(8)
 	}
-	btn("Héberger un ciel sur le réseau", func() { a.launch(a.host) })
-	btn("Rejoindre un ciel", func() {
+	half := (w - p.px(8)) / 2
+	p.button(image.Rect(x, y, x+half, y+bh), "Héberger", func() { a.launch(a.host) })
+	p.button(image.Rect(x+w-half, y, x+w, y+bh), "Rejoindre…", func() {
 		a.screen, a.status = joinScreen, ""
 		a.browse()
 	})
-	btn("Revoir le tutoriel au prochain lancement", a.resetTutorial())
-	level, tune := "coupé", "non"
+	y += bh + p.px(32)
+
+	// The settings, on one line.
+	level, tune := "Son coupé", "Musique non"
 	if !a.settings.Muted {
-		level = volumeNames[a.settings.Volume]
+		level = "Son " + volumeNames[a.settings.Volume]
 	}
 	if a.settings.Music {
-		tune = "oui"
+		tune = "Musique oui"
 	}
 	var cycle, music func()
 	if a.Options.Sound != nil {
 		cycle, music = a.cycleVolume, a.toggleMusic
 	} else {
 		// No sound device, or -sound=false: say so rather than a level.
-		level, tune = "indisponible", "indisponible"
+		level, tune = "Son indisponible", "Musique indisponible"
 	}
-	btn("Son : "+level, cycle)
-	btn("Musique : "+tune, music)
-	btn("Quitter", func() { a.quit = true })
+	sx := x
+	small := func(label string, action func(), kind buttonKind) {
+		bw := p.width(label) + p.px(24)
+		p.buttonAs(image.Rect(sx, y, sx+bw, y+p.px(34)), label, action, kind, panelEdge)
+		sx += bw + p.px(6)
+	}
+	small(level, cycle, plainButton)
+	small(tune, music, plainButton)
+	small("Revoir le tutoriel", a.resetTutorial(), ghostButton)
+	quit := "Quitter"
+	qw := p.width(quit) + p.px(24)
+	p.buttonAs(image.Rect(max(sx, x+w-qw), y, max(sx, x+w-qw)+qw, y+p.px(34)), quit, func() { a.quit = true }, ghostButton, dimColor)
+	return y + p.px(34)
 }
 
 // applySound gives the sound engine the player's settings.
@@ -547,45 +571,42 @@ func (a *App) resetTutorial() func() {
 	}
 }
 
-func (a *App) drawJoin(p painter, r image.Rectangle, k int) {
-	bh := p.line() + 10*k
-	gap := 8 * k
+// drawJoin lists the skies found on the network, and an address to join;
+// it returns where it ends.
+func (a *App) drawJoin(p painter, r image.Rectangle) int {
+	x, w := r.Min.X, r.Dx()
+	bh := p.px(40)
+	gap := p.px(8)
 	a.mu.Lock()
 	servers, browsing := append([]discovery.Server(nil), a.servers...), a.browsing
 	found := len(servers)
 	a.mu.Unlock()
+	y := heading(p, "Ciels découverts sur le réseau", x, r.Min.Y)
 	// Only as many skies as the window holds: the address field and the
 	// buttons below must stay reachable.
-	fixed := 3*p.line() + 3*(bh+gap) + bh + 30*k
-	// The rows the window holds; in a tiny one, a single line says how many
-	// skies were found.
-	room := max(1, (a.outH-r.Min.Y-fixed-2*p.line())/(bh+gap))
+	fixed := 2*bh + 3*gap + p.lineOf(small) + p.px(90)
+	room := max(1, (a.outH-y-fixed)/(bh+gap))
 	hidden := 0
 	if len(servers) > room {
 		hidden = len(servers) - (room - 1)
 		servers = servers[:room-1]
 	}
-	rows := max(1, len(servers))
-	if hidden > 0 {
-		rows++
-	}
-	r.Max.Y = r.Min.Y + fixed + rows*(bh+gap)
-	in := p.panel(r)
-	p.text("Ciels découverts sur le réseau", in.Min.X, in.Min.Y, goldColor)
-	y := in.Min.Y + p.line() + gap/2
 	switch {
 	case browsing:
-		p.text("Recherche en cours…", in.Min.X, y, dimColor)
-		y += bh + gap
+		p.text("Recherche en cours…", x, y, dimColor)
+		y += p.line() + gap
 	case found == 0:
-		p.text("Aucun ciel trouvé : le réseau bloque peut-être la découverte.", in.Min.X, y, dimColor)
-		y += bh + gap
+		for _, l := range p.wrap("Aucun ciel trouvé : le réseau bloque peut-être la découverte.", w) {
+			p.text(l, x, y, dimColor)
+			y += p.line()
+		}
+		y += gap
 	}
 	for _, s := range servers {
 		addr := s.Addr
-		p.button(image.Rect(in.Min.X, y, in.Max.X, y+bh), s.Name, func() {
+		p.buttonAs(image.Rect(x, y, x+w, y+bh), s.Name, func() {
 			a.launch(func() launchResult { return a.join(addr) })
-		})
+		}, ghostButton, aetherColor)
 		y += bh + gap
 	}
 	if hidden > 0 {
@@ -593,25 +614,25 @@ func (a *App) drawJoin(p painter, r image.Rectangle, k int) {
 		if len(servers) == 0 {
 			msg = fmt.Sprintf("%d ciels trouvés : agrandis la fenêtre pour les voir.", hidden)
 		}
-		p.text(msg, in.Min.X, y, dimColor)
-		y += bh + gap
+		p.text(msg, x, y, dimColor)
+		y += p.line() + gap
 	}
 	var refresh func()
 	if !browsing {
 		refresh = a.browse
 	}
-	p.button(image.Rect(in.Min.X, y, in.Max.X, y+bh), "Chercher à nouveau", refresh)
-	y += bh + gap*2
-	p.text("Ou rejoindre une adresse", in.Min.X, y, goldColor)
-	y += p.line() + gap/2
-	a.drawField(p, image.Rect(in.Min.X, y, in.Max.X, y+bh), &a.address)
-	y += bh + gap
-	half := (in.Dx() - gap) / 2
-	p.button(image.Rect(in.Min.X, y, in.Min.X+half, y+bh), "Rejoindre", func() {
+	p.button(image.Rect(x, y, x+w, y+bh), "Chercher à nouveau", refresh)
+	y += bh + p.px(24)
+	y = heading(p, "Ou rejoindre une adresse", x, y)
+	a.drawField(p, image.Rect(x, y, x+w, y+p.px(32)), &a.address)
+	y += p.px(32) + p.px(16)
+	half := (w - gap) / 2
+	p.buttonAs(image.Rect(x, y, x+half, y+bh), "Rejoindre", func() {
 		addr := strings.TrimSpace(a.address.value)
 		a.launch(func() launchResult { return a.join(addr) })
-	})
-	p.button(image.Rect(in.Max.X-half, y, in.Max.X, y+bh), "Retour", func() { a.screen = homeScreen })
+	}, primaryButton, panelEdge)
+	p.buttonAs(image.Rect(x+w-half, y, x+w, y+bh), "Retour", func() { a.screen = homeScreen }, ghostButton, panelEdge)
+	return y + bh
 }
 
 // Layout follows the game's: physical pixels.
@@ -633,9 +654,11 @@ func (a *App) LayoutF(w, h float64) (float64, float64) {
 
 func (a *App) uiScale() float64 { return math.Max(1, math.Round(max(a.dsf, 1))) }
 
-// backdrop is the home screen's sky: the portal turning among the clouds.
+// backdrop is the home screen's sky: the portal turning on the right, and
+// a shade on the left under the menu.
 type backdrop struct {
 	sky    *ebiten.Image
+	shade  *ebiten.Image
 	portal []*ebiten.Image
 	frame  int
 }
@@ -644,6 +667,17 @@ func newBackdrop(seed uint64) backdrop {
 	grad := image.NewRGBA(image.Rect(0, 0, 1, 256))
 	art.FillSky(grad)
 	b := backdrop{sky: ebiten.NewImageFromImage(grad)}
+	// The shade fades from the menu's ink to nothing.
+	shade := image.NewNRGBA(image.Rect(0, 0, 256, 1))
+	for x := range 256 {
+		t := float64(x) / 255
+		alpha := 0.92
+		if t > 0.55 {
+			alpha = 0.92 * (1 - (t-0.55)/0.45)
+		}
+		shade.SetNRGBA(x, 0, color.NRGBA{0x14, 0x12, 0x2b, uint8(alpha * 255)})
+	}
+	b.shade = ebiten.NewImageFromImage(shade)
 	for i := range portalFrames {
 		sp := art.PortalFrame(art.DefaultCamera, 90, 3, float64(i)/portalFrames)
 		b.portal = append(b.portal, ebiten.NewImageFromImage(sp.Img))
@@ -658,11 +692,13 @@ func (b *backdrop) draw(screen *ebiten.Image, w, h int, k float64) {
 	op.GeoM.Scale(float64(w), float64(h)/256)
 	screen.DrawImage(b.sky, &op)
 	img := b.portal[b.frame]
-	s := 2 * k
+	s := 2.5 * k
 	var po ebiten.DrawImageOptions
 	po.GeoM.Translate(-float64(img.Bounds().Dx())/2, -float64(img.Bounds().Dy())/2)
 	po.GeoM.Scale(s, s)
-	po.GeoM.Translate(math.Round(float64(w)/2), math.Round(float64(h)*0.8))
-	po.ColorScale.ScaleAlpha(0.55) // behind the menu, discreet
+	po.GeoM.Translate(math.Round(float64(w)*0.7), math.Round(float64(h)*0.45))
 	screen.DrawImage(img, &po)
+	var so ebiten.DrawImageOptions
+	so.GeoM.Scale(float64(w)*0.62/256, float64(h))
+	screen.DrawImage(b.shade, &so)
 }

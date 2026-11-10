@@ -837,23 +837,23 @@ Tout le son est **synthétisé par le jeu**, à la manière des consoles 8 bits 
 
 | Élément | Application |
 |---|---|
-| **Écran d'accueil** | Nom du dieu, continuer ou recommencer la partie solo, héberger un ciel sur le réseau (annoncé en mDNS), rejoindre un ciel découvert ou une adresse, quitter |
+| **Écran d'accueil** | Une colonne à gauche, sur le ciel où tourne le portail : le titre, le nom du dieu, puis « Ton ciel » (continuer la partie solo, mise en avant, ou en commencer une) et « Ciels partagés » (revenir sur le dernier ciel, héberger un ciel annoncé en mDNS, rejoindre un ciel découvert ou une adresse), enfin le son, la musique, le tutoriel et Quitter sur une ligne |
 | **Tutoriel** | Au premier lancement : dix étapes courtes, chacune encadrant l'élément dont elle parle (souffles, conviction, chronique, suppliques, ressources, ciel, autres îles, grandeur et chute). On peut le passer, le rouvrir avec H, ou le réactiver depuis l'accueil |
 
 ## 13.2 Éléments d'écran
 
+L'interface, dite « tablettes d'Aether », reste petite pour laisser voir le monde : des panneaux bleu nuit translucides cadrés d'un liseré, l'or pour l'action du moment, le rouge pour la menace, le bleu d'Aether pour ce qui regarde les autres îles. Le texte est en Pixelify Sans, les petites étiquettes en Silkscreen, deux polices pixel sous licence OFL, à des tailles qui tombent sur leur grille. Elle a été dessinée sur une maquette Claude Design avant d'être portée dans le jeu.
+
 | Élément | Contenu |
 |---|---|
-| **Gâteau d'intentions** | Les trois parts courantes, avec la cible et la conviction réelle du peuple |
-| **Intention extérieure** | L'intention en cours et son île cible, Rappeler toujours accessible |
-| **Supplique** | La supplique en attente, ses réponses et le temps avant que le peuple tranche seul |
-| **Chronique** | Les derniers événements, en quelques lignes |
-| **Culture et savoir** | Le profil de culture par famille, l'axe suivi par les savants et les découvertes acquises. **Consultation seule** |
-| **Panneau ressources** | Quatre ressources avec plafonds visibles |
-| **Indicateur de menace** | Pression PvE courante et tendance, y compris l'annonce de la nuit |
-| **Moment de la journée** | Position dans le cycle jour/nuit et temps avant le prochain moment |
-| **Liste des îles** | Voisins, leur axe dominant, statut (dont le déclin) |
-| **Annales du ciel** | Les civilisations passées et présentes, leur durée, leur apogée, leur chute (11.5) |
+| **Bandeau** | En haut, sur une ligne : le nom du ciel, le moment du jour (soleil ou lune, jauge et temps restant), la puissance et la défense, puis les menaces (vague, colosse), en rouge quand elles sont proches. À droite, les boutons C (culture et savoir), A (Annales) et Son ; en vue de l'île, « ‹ Ciel » pour revenir au ciel |
+| **Souffles** | À gauche, une ligne par intention : sa part en dix crans, la conviction réelle du peuple en filet doré, les boutons − et +. Souffler (doré) et Annuler en dessous. En vue de l'île, les souffles se résument à une petite barre dans le bandeau, qui les ouvre d'un clic |
+| **Intention extérieure** | Sous les souffles : l'intention en cours, son île cible et Rappeler |
+| **Île visée** | En vue du ciel, l'île cliquée est cadrée d'or et une carte s'ouvre à côté : son dieu, sa puissance et son cœur, sa culture, son statut (protégée, en déclin, menaçante), les quatre intentions possibles et Observer de près |
+| **Supplique** | Une carte dorée au bas de l'écran : la question, le temps qui reste avant que le peuple tranche seul (jauge), les réponses côte à côte |
+| **Chronique** | À droite en vue du ciel, les trois dernières nouvelles marquées d'une couleur par sorte, avec leur ancienneté ; « Tout lire » déplie la suite. En vue de l'île, seule la dernière nouvelle reste |
+| **Réserves** | Une barre en bas : les quatre ressources, chacune avec sa jauge face au plafond, puis les âmes, les défenseurs et les guerriers |
+| **Culture et savoir, Annales** | Un même panneau à onglets sur la gauche, à la place des souffles : une ligne par famille (paliers, ferveur, recherches en cours) et les découvertes ; ou les civilisations tombées (11.5). **Consultation seule** |
 | **Alerte de raid** | Notification claire quand une attaque approche, dans le jeu et en notification système |
 
 ## 13.3 Performances en arrière-plan
@@ -960,7 +960,7 @@ le serveur intégré l'embarque dans le client desktop.
 | **Rivaux IA** | ✅ | 4 profils, mêmes règles que les humains, ils répondent aux suppliques et lancent des raids (belliqueux, opportuniste) |
 | **Serveur** | ✅ | Autoritaire, intégré ou dédié, sauvegarde atomique du ciel, accélération du temps pour les tests (`-speed`), plafond de 10 îles |
 | **PvP** | ✅ | Convoiter, Punir, Anéantir, Secourir, Rappeler. Pillage limité à 25 % et à la charge des guerriers, bouclier de 15 min, protection des nouveaux venus pendant 12 h sauf s'ils attaquent eux-mêmes |
-| **Interface** | ✅ | Vues « Ciel » et « Île » pilotées par l'état du serveur, HUD en pixel art (police bitmap, typographie française), panneau de cible, bannières, raids et vagues visibles, teinte jour/nuit |
+| **Interface** | ✅ | Vues « Ciel » et « Île » pilotées par l'état du serveur, HUD en pixel art « tablettes d'Aether » (Pixelify Sans et Silkscreen, typographie française), panneau de cible, bannières, raids et vagues visibles, teinte jour/nuit |
 | **Notifications** | ✅ | `notify-send` sous Linux, catégories au choix (`-notify`), seulement fenêtre sans focus |
 | **Critère de sortie de la Phase 1** | ⏳ | « A-t-on envie de laisser ça tourner ? » : à juger par une partie réelle |
 | **Critère de sortie de la Phase 2** | ⏳ | 3 machines, 8 h : à faire sur un vrai réseau. Un test d'endurance local est passé : 3 clients, temps ×200, environ 16 h de jeu, 870 états reçus, aucune erreur, 18 Mo de mémoire côté serveur, sauvegarde propre à l'arrêt |

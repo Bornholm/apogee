@@ -65,3 +65,5 @@ Le [document de conception](GDD.md) détaille les règles, les décisions prises
 ## Licence
 
 Apogée est distribué sous [licence AGPL](LICENSE), version 3 ou ultérieure (AGPL-3.0-or-later). Si tu fais tourner une version modifiée du serveur pour d'autres joueurs, tu dois leur donner accès à son code source.
+
+Les polices Pixelify Sans et Silkscreen, embarquées dans le jeu, sont sous licence SIL Open Font License 1.1 (`internal/client/fonts`).

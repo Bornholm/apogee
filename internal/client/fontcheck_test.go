@@ -3,13 +3,21 @@ package client
 import (
 	"testing"
 
-	"github.com/hajimehoshi/bitmapfont/v4"
+	"golang.org/x/image/font/sfnt"
 )
 
-func TestFontCoversFrench(t *testing.T) {
-	for _, r := range "àâäçéèêëîïôöùûüÿœæÀÂÇÉÈÊËÎÏÔÙÛŒ«»’…—–·%×\u00a0" {
-		if _, ok := bitmapfont.Face.GlyphAdvance(r); !ok {
-			t.Errorf("missing glyph %q", r)
+// The fonts must draw every character of the French text.
+func TestFontsCoverFrench(t *testing.T) {
+	for name, b := range map[string][]byte{"Pixelify Sans": pixelifyTTF, "Silkscreen": silkscreenTTF} {
+		f, err := sfnt.Parse(b)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var buf sfnt.Buffer
+		for _, r := range "àâäçéèêëîïôöùûüÿœæÀÂÇÉÈÊËÎÏÔÙÛŒ«»’…—–·%× " {
+			if i, _ := f.GlyphIndex(&buf, r); i == 0 {
+				t.Errorf("%s: missing glyph %q", name, r)
+			}
 		}
 	}
 }

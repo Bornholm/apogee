@@ -80,8 +80,13 @@ type Game struct {
 	// draft is the pie the player is composing before whispering it.
 	draft    sim.Pie
 	drafting bool
-	// Panels shown on demand: culture and knowledge, the Annals.
+	// Panels shown on demand: culture and knowledge, the Annals; the pie
+	// in the island view, and the whole chronicle.
 	showCulture, showAnnals bool
+	pieOpen, chronicleAll   bool
+	// targetAt is where the island selected in the sky view stands on
+	// screen, for its card.
+	targetAt image.Rectangle
 
 	// Notify, when set, receives the chronicle entries the player chose to
 	// hear of while the window is not focused (GDD 13.1).
@@ -301,11 +306,9 @@ func (g *Game) shortcut(r rune) {
 	case 'm':
 		g.ToggleMute()
 	case 'c':
-		g.showCulture = !g.showCulture
-		g.dirty = true
+		g.togglePanel(true)
 	case 'a':
-		g.showAnnals = !g.showAnnals
-		g.dirty = true
+		g.togglePanel(false)
 	case '+', '=':
 		g.zoomBy(1)
 	case '-', '−':
@@ -595,7 +598,7 @@ func (g *Game) Update() error {
 			if b := g.buttons[i]; image.Pt(x, y).In(b.r) {
 				g.played = false
 				b.action()
-				if !g.played {
+				if !g.played && !b.silent {
 					g.play(sound.Click)
 				}
 				g.dirty = true
@@ -1021,6 +1024,7 @@ func (g *Game) drawRaids(at func(*ebiten.Image, float64, float64), islands []pro
 // registerIslands makes the islands of the sky view clickable: a click
 // selects one, to whisper an outer intention towards it.
 func (g *Game) registerIslands(islands []proto.IslandSummary, k, ox, oy float64) {
+	g.targetAt = image.Rectangle{}
 	for _, is := range islands {
 		if is.ID == g.src.Me() || is.FallingMs > 0 {
 			continue
@@ -1031,7 +1035,10 @@ func (g *Game) registerIslands(islands []proto.IslandSummary, k, ox, oy float64)
 		y0 := oy + float64(p.Y-sp.anchor.Y)*k
 		r := image.Rect(int(x0), int(y0), int(x0+float64(b.Dx())*k), int(y0+float64(b.Dy())*k))
 		id := is.ID
-		g.buttons = append(g.buttons, button{r, func() { g.selected = id }})
+		g.buttons = append(g.buttons, button{r: r, action: func() { g.selected = id }})
+		if id == g.selected {
+			g.targetAt = r
+		}
 	}
 }
 

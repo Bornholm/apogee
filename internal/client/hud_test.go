@@ -115,12 +115,15 @@ func TestNewsMakeOneSoundTheWeightiest(t *testing.T) {
 func TestShortcutsFollowTheLetterTyped(t *testing.T) {
 	g := &Game{}
 	g.shortcut('a')
-	g.shortcut('C')
-	if !g.showAnnals || !g.showCulture {
-		t.Fatalf("a and C should open the Annals and the culture: %v %v", g.showAnnals, g.showCulture)
+	if !g.showAnnals {
+		t.Fatal("a should open the Annals")
 	}
 	g.shortcut('q') // where A sits on an AZERTY keyboard's QWERTY code
 	if !g.showAnnals {
 		t.Fatal("q closed the Annals")
+	}
+	g.shortcut('C') // the culture takes the shared panel
+	if !g.showCulture || g.showAnnals {
+		t.Fatalf("C should turn the panel to the culture: %v %v", g.showCulture, g.showAnnals)
 	}
 }
