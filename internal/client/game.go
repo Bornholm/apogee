@@ -675,6 +675,9 @@ func (g *Game) homeIsland(st *proto.State) (sprite, bool) {
 	if !ok {
 		return sprite{}, false
 	}
+	if g.signs.rehearse == "relic" && g.viewing == 0 && sum.Relic == sim.NoRelic {
+		sum.Relic = sim.Shield // for screenshots
+	}
 	if sig := signature(sum, view); sig != g.homeSig || g.home.img == nil {
 		if g.home.img != nil {
 			g.home.img.Deallocate()

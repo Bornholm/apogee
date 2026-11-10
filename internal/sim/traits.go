@@ -87,10 +87,10 @@ func (t Trait) featureCounts() (groves, rocks, crystals int) {
 	return 3, 3, 2
 }
 
-// Mods are all the modifiers of a civilisation: its discoveries and the
-// trait of its island.
+// Mods are all the modifiers of a civilisation: its discoveries, the trait
+// of its island and its relic.
 func (c *Civ) Mods() Mods {
-	return c.Tech.Mods().add(c.Trait.Mods())
+	return c.Tech.Mods().add(c.Trait.Mods()).add(c.Relic.Mods())
 }
 
 // DescentSpeed is how fast this civilisation's island sinks, in sky units

@@ -27,6 +27,7 @@ const (
 	AskDiscovery SuppliqueKind = iota // the scholars hesitate (GDD 5.3)
 	AskRoom                           // the island is too small
 	AskFamine                         // the granaries are empty
+	AskRelic                          // which relic the survivors saved (relics.go)
 )
 
 // Supplique is a question awaiting an answer.
@@ -40,6 +41,8 @@ type Supplique struct {
 	// Axis and Tier locate the discovery at stake for AskDiscovery.
 	Axis Family
 	Tier int
+	// Relics are the treasures offered by AskRelic, in the options' order.
+	Relics []Relic `json:",omitempty"`
 }
 
 // ErrNoSupplique is returned when answering a supplique that is not pending.
@@ -126,6 +129,10 @@ func (c *Civ) resolve(option int, byGod bool, tick uint64) {
 			// The god said no: ask again later, and each time later still.
 			c.RoomRefusals++
 			c.RoomCooldown = roomCooldown * float64(int(1)<<min(c.RoomRefusals-1, 4))
+		}
+	case AskRelic:
+		if option < len(s.Relics) {
+			c.keepRelic(s.Relics[option], tick)
 		}
 	case AskFamine:
 		if option == 0 {

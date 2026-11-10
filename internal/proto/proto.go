@@ -157,6 +157,8 @@ type IslandSummary struct {
 	ProtectedMs int64 `json:"protectedMs,omitempty"`
 	// Trait is the character of the island (GDD 11.6).
 	Trait sim.Trait `json:"trait,omitempty"`
+	// Relic is the treasure saved from the civilisation before (GDD 11.6).
+	Relic sim.Relic `json:"relic,omitempty"`
 	Power float64   `json:"power"`
 }
 
@@ -178,7 +180,7 @@ func Summarize(sky *sim.Sky, is *sim.Island) IslandSummary {
 		Size: is.Civ.Size, AI: is.IsAI(), Culture: int(is.Civ.Dominant()),
 		Declining: is.Declining, FallingMs: int64(is.Falling * 1000), Heart: is.Civ.CoreHealth,
 		Protected: sky.Protected(is), ProtectedMs: sky.ProtectionLeft(is).Milliseconds(), Power: is.Civ.Power(),
-		Trait: is.Civ.Trait,
+		Trait: is.Civ.Trait, Relic: is.Civ.Relic,
 	}
 	if o := is.Civ.Outer; o.Kind == sim.Covet || o.Kind == sim.Annihilate {
 		sum.Banner, sum.BannerTarget = o.Kind, o.Target

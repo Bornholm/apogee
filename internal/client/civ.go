@@ -124,11 +124,18 @@ func (g *Game) civLines(p painter, st *proto.State, o *proto.Own, x0, w int) []b
 	if t := sum.Trait; t.Name() != "" {
 		trait = p.wrap(t.Name()+" : "+t.Text(), w)
 	}
-	lines = append(lines, bookLine{(2+len(trait))*p.line() + gap, func(y int) {
+	var relic []string
+	if r := sum.Relic; r.Name() != "" {
+		relic = p.wrap("Relique : "+r.Name()+", "+r.Text()+".", w)
+	}
+	lines = append(lines, bookLine{(2+len(trait)+len(relic))*p.line() + gap, func(y int) {
 		p.styled(generation(o.Generation), x0, y, textColor, bold)
 		p.text("Vit depuis "+span(age)+" · vénère "+familyArticle(sim.Family(worship)), x0, y+p.line(), dimColor)
 		for i, l := range trait {
 			p.text(l, x0, y+(2+i)*p.line(), aetherColor)
+		}
+		for i, l := range relic {
+			p.text(l, x0, y+(2+len(trait)+i)*p.line(), goldColor)
 		}
 		bw := p.widthOf(state, small) + p.px(12)
 		badge := image.Rect(x0+w-bw, y+p.px(4), x0+w, y+p.px(4)+p.lineOf(small)+p.px(4))

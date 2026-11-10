@@ -54,12 +54,28 @@ func signature(sum proto.IslandSummary, own *proto.Own) uint64 {
 	}
 	w(sum.Seed)
 	w(uint64(sum.Size * 10))
+	w(uint64(sum.Trait))
+	w(uint64(sum.Relic)) // chosen after the island rose
 	for _, b := range own.Buildings {
 		w(uint64(b.ID))
 		w(uint64(b.Kind))
 		w(uint64(b.Progress * 10)) // scaffolds rise in tenths
 	}
 	return h.Sum64()
+}
+
+// relicSpot is where the stele of an island's relic stands: just off the
+// heart's plinth, where nothing may be built.
+func relicSpot(sum proto.IslandSummary, own *proto.Own) (geo.Vec2, bool) {
+	if sum.Relic == sim.NoRelic {
+		return geo.Vec2{}, false
+	}
+	for _, b := range own.Buildings {
+		if b.Kind == sim.Core {
+			return geo.Vec2{X: b.X - 9.2, Y: b.Y + 2.4}, true
+		}
+	}
+	return geo.Vec2{}, false
 }
 
 // islandScene builds the island of the player as the simulation sees it:
@@ -112,6 +128,12 @@ func islandScene(cam art.Camera, sum proto.IslandSummary, own *proto.Own) art.Is
 			continue
 		}
 		add(meshFor(b.Kind, seed), b.X, b.Y)
+	}
+
+	// The stele of the relic saved from the civilisation before, beside
+	// the heart (GDD 11.6).
+	if c, ok := relicSpot(sum, own); ok {
+		add(art.RelicStele(), c.X, c.Y)
 	}
 
 	// The people are not part of this still picture: they walk on top of it

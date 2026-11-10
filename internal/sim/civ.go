@@ -157,6 +157,11 @@ type Civ struct {
 	NextID uint32
 	// Trait is the character of the island (traits.go).
 	Trait Trait `json:",omitempty"`
+	// Relic is the treasure saved from the civilisation before (relics.go);
+	// Repelled and Conquests count the deeds that earn the next one.
+	Relic     Relic `json:",omitempty"`
+	Repelled  int   `json:",omitempty"`
+	Conquests int   `json:",omitempty"`
 }
 
 // NewCiv founds a civilisation on a fresh island.

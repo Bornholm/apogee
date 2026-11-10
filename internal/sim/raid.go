@@ -320,6 +320,7 @@ func (s *Sky) clash(from, to *Island, r *Raid) {
 		return
 	}
 	// Victory: casualties on both sides follow the balance of forces.
+	from.Civ.Conquests++
 	fallen := math.Floor(r.Units * def / atk * 0.5)
 	r.Units -= fallen
 	from.Civ.Deaths += fallen

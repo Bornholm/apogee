@@ -24,6 +24,7 @@ const (
 	brazierLamp                 // a tower's fire, flickering
 	aetherLamp                  // the heart's or a crystal's glow, pulsing
 	lanternLamp                 // carried by a villager or a guard
+	relicLamp                   // the golden crystal of a relic's stele
 )
 
 // lamp is a light of the island, in island units.
@@ -72,6 +73,9 @@ func darkness(phase string, left time.Duration) float64 {
 // islandLamps lists the lights of an island's finished buildings.
 func islandLamps(sum proto.IslandSummary, own *proto.Own) []lamp {
 	var out []lamp
+	if c, ok := relicSpot(sum, own); ok {
+		out = append(out, lamp{x: c.X, y: c.Y, z: 8.5, kind: relicLamp, by: c.Y + 0.01, seed: 5})
+	}
 	for _, b := range own.Buildings {
 		if !validKind(b.Kind) || b.Progress < 1 {
 			continue
@@ -129,6 +133,8 @@ func (l lamp) glow(clock float64) (color.RGBA, int, float64) {
 			return aetherColour, 2, f
 		}
 		return aetherColour, 1, f * 0.8
+	case relicLamp:
+		return goldColor, 1, 0.7 + 0.3*math.Sin(clock*1.2+ph)
 	case lanternLamp:
 		if l.festive && l.kind == lanternLamp {
 			return festiveColours[l.seed%uint32(len(festiveColours))], 0, 0.9 + 0.1*math.Sin(clock*3+ph)

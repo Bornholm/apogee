@@ -117,6 +117,8 @@ type Rebirth struct {
 	Legend  Family
 	Count   int
 	Profile Profile
+	// Relics are the treasures the survivors may have saved.
+	Relics []Relic `json:",omitempty"`
 }
 
 func (s *Sky) rng(salt uint64) *rand.Rand {
@@ -231,6 +233,7 @@ func (s *Sky) attack(is *Island, factor float64, night bool, by string, foe Foe,
 	c.Defenders -= lost
 	c.Deaths += lost
 	if defense >= strength {
+		c.Repelled++
 		c.chronicleAs(VictoryNews, s.Tick, "%s", strings.TrimSpace("Ton peuple a repoussé "+by+". "+losses(lost)))
 		return
 	}
@@ -308,7 +311,7 @@ func (s *Sky) falls(dt float64) {
 				})
 				s.Waiting = append(s.Waiting, Rebirth{
 					Owner: is.Owner, Name: is.OwnerName, Legend: is.Civ.Dominant(), Count: is.Generation + 1,
-					Profile: is.Profile,
+					Profile: is.Profile, Relics: relicsOf(&is.Civ, is.PeakPower),
 				})
 				continue
 			}
@@ -330,6 +333,7 @@ func (s *Sky) rebirths() {
 		is.Profile = w.Profile
 		is.Civ.Culture[w.Legend] += legendBonus
 		is.Civ.chronicleAs(BirthNews, s.Tick, "Des nuages émerge une île nouvelle. Ton peuple garde la légende de ses ancêtres, qui vénéraient les %s.", w.Legend.Name())
+		is.Civ.offerRelics(w.Relics, s.Tick)
 	}
 	s.Waiting = s.Waiting[:0]
 }

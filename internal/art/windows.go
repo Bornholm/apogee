@@ -68,6 +68,21 @@ func Stele(seed uint64) Mesh {
 	return m
 }
 
+// RelicStele is the stone a people raises to the treasure saved from the
+// civilisation before: a tall plinth under a golden crystal (GDD 11.6).
+func RelicStele() Mesh {
+	var m Mesh
+	box(&m, Stone, -2, -1.5, 0, 2, 1.5, 1)
+	box(&m, Stone, -1, -0.8, 1, 1, 0.8, 6.5)
+	var gem Mesh
+	rim := ring(Rng(3), 5, 1.6, 0, 8, 0.3)
+	fan(&gem, Self, rim, V(0, 0, 11))
+	fan(&gem, Self, rim, V(0, 0, 6.5))
+	gem.OrientOutward(V(0, 0, 8))
+	m.Merge(gem)
+	return m
+}
+
 // Sheep is a woolly grazer of the fields: a white fleece and a dark head.
 func Sheep(seed uint64) Mesh {
 	r := Rng(seed)

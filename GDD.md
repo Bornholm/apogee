@@ -680,7 +680,7 @@ Le jeu **ne cherche pas** la rétention par pression (pas de séries, pas de not
 |---|---|
 | **Renaissance** | Après sa chute, le joueur fonde une nouvelle civilisation sur une **nouvelle île**, avec une nouvelle graine. Elle émerge des nuages **en périphérie**, à l'aube suivante du cycle (3.6) |
 | **Nouveau venu** | La nouvelle civilisation bénéficie de toutes les mesures d'accueil (11.3) |
-| **Légende** | Le nouveau peuple garde la mémoire de ses ancêtres : sa culture de départ est légèrement teintée par la famille dominante de la civilisation précédente. **Aucun bonus de puissance**, pour ne pas désavantager les vrais nouveaux venus |
+| **Légende** | Le nouveau peuple garde la mémoire de ses ancêtres : sa culture de départ est légèrement teintée par la famille dominante de la civilisation précédente. **Aucun bonus de puissance**, pour ne pas désavantager les vrais nouveaux venus, à l'exception mesurée des reliques (11.6) |
 | **Annales du ciel** | Chaque civilisation y laisse une entrée, visible de tout le ciel : nom, joueur, durée, apogée (palier le plus haut, population), culture, cause de la chute (*« aspirée par le tourbillon sous les coups de l'île Rouge »*) |
 
 Les Annales donnent sa mesure au talent du joueur : il ne gagne pas, il marque l'histoire du ciel par la durée et la hauteur de ses civilisations. Entre collègues, elles nourrissent la dimension sociale (*« la mienne a tenu six jours »*).
