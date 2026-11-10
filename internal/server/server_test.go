@@ -305,3 +305,35 @@ func TestLookingShowsOnlyThePublicView(t *testing.T) {
 	}
 	t.Fatal("the server never sent the observed island")
 }
+
+// A god's lineage and the name of their civilisation are seen by the whole
+// sky (GDD 11.7).
+func TestTheSkySeesTheLineageAndTheName(t *testing.T) {
+	addr, _ := start(t)
+	ctx := context.Background()
+	lineage := &sim.Lineage{Name: "Les Cendres", Colour: 5, Emblem: 3, Style: 1}
+	c, err := netclient.DialAs(ctx, addr, "Ada", "lineage", lineage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	if err := c.Send(proto.Msg{Rename: &proto.Rename{Name: "  Les Enfants du Cristal  "}}); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		st, err := c.Next()
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, is := range st.Islands {
+			if is.ID == st.You && is.CivName == "Les Enfants du Cristal" {
+				if is.Lineage != *lineage {
+					t.Fatalf("lineage %+v, want %+v", is.Lineage, *lineage)
+				}
+				return
+			}
+		}
+	}
+	t.Fatal("the new name never showed")
+}

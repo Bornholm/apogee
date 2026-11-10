@@ -46,7 +46,6 @@ type Game struct {
 	clouds []cloud
 
 	islandSprites map[miniKey]sprite // sky view miniatures
-	beacon        sprite             // marks the player's island
 	swarm         sprite             // a wave of monsters
 	swarmAt       image.Point        // its position at the last redraw
 	banners       [sim.NumOuter]sprite
@@ -85,14 +84,20 @@ type Game struct {
 	// in the island view, and the whole chronicle.
 	book bookTab // the tab of the book panel open, if any
 	// stockLog samples the reserves, for their trend (civ.go).
-	stockLog              []stockSample
+	stockLog []stockSample
+	// renaming is set while the god names their civilisation, in
+	// newName (civ.go).
+	renaming              bool
+	newName               []rune
 	pieOpen, chronicleAll bool
 	// pieHidden puts the pie away in the sky view, where it shows by
 	// default; pieOpen shows it in the island view, where it does not.
 	pieHidden bool
 	// targetAt is where the island selected in the sky view stands on
-	// screen, for its card.
+	// screen, for its card; onScreen are all the islands of the sky view,
+	// for their pennants.
 	targetAt image.Rectangle
+	onScreen []islandOnScreen
 
 	// Notify, when set, receives the chronicle entries the player chose to
 	// hear of while the window is not focused (GDD 13.1).
@@ -519,8 +524,6 @@ func NewGame(src *Source, seed uint64) *Game {
 		dirty:         true,
 	}
 	g.scale = float64(zoomLevels[g.level])
-	b := cam.Render(art.Beacon())
-	g.beacon = sprite{ebiten.NewImageFromImage(b.Img), b.Anchor}
 	for i, mat := range []art.Material{art.Roof, art.Team} { // villagers, defenders
 		v := cam.Render(art.Person(seed+uint64(i), mat))
 		g.walkerArt[i] = sprite{ebiten.NewImageFromImage(v.Img), v.Anchor}
@@ -748,14 +751,18 @@ func (g *Game) Update() error {
 			g.dirty = true
 		}
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) && g.viewing != 0 {
+	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) && g.viewing != 0 && !g.renaming {
 		g.Observe(0)
 	}
 	// Letter shortcuts follow the characters typed, not the physical keys:
 	// they stay on their letter whatever the layout, AZERTY or QWERTY.
 	g.chars = ebiten.AppendInputChars(g.chars[:0])
-	for _, r := range g.chars {
-		g.shortcut(r)
+	if g.renaming {
+		g.typeName()
+	} else {
+		for _, r := range g.chars {
+			g.shortcut(r)
+		}
 	}
 	if _, wy := ebiten.Wheel(); wy != 0 {
 		g.zoomBy(int(math.Copysign(1, wy)))
@@ -1050,11 +1057,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 				top := p.Y - sp.anchor.Y + 6
 				at(b.img, float64(p.X+sp.anchor.X/3-b.anchor.X), float64(top-b.anchor.Y))
 			}
-			if is.ID == g.src.Me() && is.FallingMs == 0 {
-				// Float the beacon above the island's highest point.
-				top := p.Y - sp.anchor.Y - 4
-				at(g.beacon.img, float64(p.X-g.beacon.anchor.X), float64(top-g.beacon.anchor.Y))
-			}
 		}
 		if p, ok := g.swarmPixel(islands, time.Now()); ok {
 			at(g.swarm.img, float64(p.X-g.swarm.anchor.X), float64(p.Y-g.swarm.anchor.Y))
@@ -1162,6 +1164,17 @@ func (g *Game) drawRaids(at func(*ebiten.Image, float64, float64), islands []pro
 // selects one, to whisper an outer intention towards it.
 func (g *Game) registerIslands(islands []proto.IslandSummary, k, ox, oy float64) {
 	g.targetAt = image.Rectangle{}
+	g.onScreen = g.onScreen[:0]
+	for _, is := range islands {
+		if is.FallingMs > 0 {
+			continue
+		}
+		sp, p := g.miniature(is), g.orbitPixel(is)
+		b := sp.img.Bounds()
+		x0 := ox + float64(p.X-sp.anchor.X)*k
+		y0 := oy + float64(p.Y-sp.anchor.Y)*k
+		g.onScreen = append(g.onScreen, islandOnScreen{image.Rect(int(x0), int(y0), int(x0+float64(b.Dx())*k), int(y0+float64(b.Dy())*k)), is})
+	}
 	for _, is := range islands {
 		if is.ID == g.src.Me() || is.FallingMs > 0 {
 			continue

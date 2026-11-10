@@ -1,6 +1,6 @@
 # 📘 GAME DESIGN DOCUMENT : *APOGÉE*
 
-> **Version** 0.30 · 10 novembre 2026
+> **Version** 0.31 · 10 novembre 2026
 > **Statut** : Phase 3 (bêta) en cours
 > **Auteur** : GameForge, avec le concepteur
 > **Cible** : développeur senior solo, Go + Ebitengine
@@ -730,6 +730,20 @@ Le combat les montre : l'essaim nombreux et petit, les dévoreurs qui se posent 
 | **Pierre des bâtisseurs** | Les bâtiments | Construction +20 % plus rapide |
 
 > 📌 **Décision.** Les reliques font une exception mesurée à la règle « aucun bonus de puissance » de la Légende : chacune oriente la vie suivante dans **un seul domaine**, à hauteur de 20 % environ, et ne dure qu'une génération. Le rattrapage des nouveaux venus (11.3) compense l'écart.
+
+## 11.7 Lignées : l'identité des dieux
+
+> **Être reconnu dans le ciel**, sans rien y gagner. Le joueur règle sa lignée dans l'écran « Ma lignée » de l'accueil ; elle part au serveur à chaque connexion, le ciel la garde par joueur, et elle traverse les renaissances. Les dieux de l'IA reçoivent une lignée tirée de leur nom, comme le joueur qui n'en a pas choisi.
+
+| Élément | Détail |
+|---|---|
+| **Nom de la lignée** | Libre, 28 lettres au plus (*« Les Cendres »*) |
+| **Couleur** | Huit teintes (terre cuite, ardoise, mousse, lie-de-vin, ocre, améthyste, sarcelle, charbon), pour les toits et les étoffes : maisons, cabanes, entrepôts, casernes, toits des tours, bannières |
+| **Emblème** | Douze sigles de 7 × 7 pixels (épi, tour, œil, flamme, aile, étoile, lune, soleil, couronne, arbre, ancre, clé), sur le fanion de l'île dans la vue du ciel, sa carte, les Annales, l'accueil |
+| **Architecture** | Toits pentus, dômes ou terrasses : la silhouette des maisons, cabanes, entrepôts et casernes |
+| **Nom de la civilisation** | Tiré à la naissance d'un peuple et d'un lieu que suggère le trait de l'île (*« Les Gardiens des Sources »*) ; le dieu le change quand il veut depuis l'onglet Civilisation, ou dès la supplique de renaissance |
+
+Dans la vue du ciel, chaque île porte un **fanion** à la couleur et à l'emblème de sa lignée, sous le nom de sa civilisation ; celui du joueur est cerclé d'or. La carte d'une île visée et les Annales nomment la civilisation, sa lignée et son dieu.
 
 ---
 

@@ -14,31 +14,34 @@ import (
 // the client knows, so that it can index the specs with it.
 func validKind(k sim.Kind) bool { return k >= 0 && k < sim.NumKinds }
 
-// meshFor returns the mesh of a finished building of a kind.
-func meshFor(k sim.Kind, seed uint64) art.Mesh {
+// meshFor returns the mesh of a finished building of a kind, in the
+// style and the colour of its lineage (GDD 11.7).
+func meshFor(k sim.Kind, seed uint64, l sim.Lineage) art.Mesh {
+	style := art.Style(l.Style)
+	var m art.Mesh
 	switch k {
 	case sim.Core:
-		return art.Core(seed)
+		m = art.Core(seed)
 	case sim.House:
-		return art.House(seed)
+		m = art.HouseIn(seed, style)
 	case sim.Farm:
-		return art.Field(seed)
+		m = art.Field(seed)
 	case sim.Woodcutter:
-		return art.Hut(seed)
+		m = art.HutIn(seed, style)
 	case sim.Quarry:
-		return art.QuarryPit(seed)
+		m = art.QuarryPit(seed)
 	case sim.Extractor:
-		return art.ExtractorTower(seed)
+		m = art.ExtractorTower(seed)
 	case sim.Warehouse:
-		return art.Barn(seed)
+		m = art.BarnIn(seed, style)
 	case sim.Tower:
-		return art.WatchTower(seed)
+		m = art.WatchTower(seed)
 	case sim.Barracks:
-		return art.Barracks(seed)
+		m = art.BarracksIn(seed, style)
 	case sim.Library:
-		return art.Library(seed)
+		m = art.Library(seed)
 	}
-	return art.Mesh{}
+	return art.Dress(m, int(l.Colour))
 }
 
 // signature summarises what the island view shows, to re-render it only
@@ -55,7 +58,8 @@ func signature(sum proto.IslandSummary, own *proto.Own) uint64 {
 	w(sum.Seed)
 	w(uint64(sum.Size * 10))
 	w(uint64(sum.Trait))
-	w(uint64(sum.Relic)) // chosen after the island rose
+	w(uint64(sum.Relic))                                             // chosen after the island rose
+	w(uint64(sum.Lineage.Colour)<<16 | uint64(sum.Lineage.Style)<<8) // the god may change them
 	for _, b := range own.Buildings {
 		w(uint64(b.ID))
 		w(uint64(b.Kind))
@@ -127,7 +131,7 @@ func islandScene(cam art.Camera, sum proto.IslandSummary, own *proto.Own) art.Is
 			add(art.Scaffold(sim.Specs[b.Kind].Radius, b.Progress), b.X, b.Y)
 			continue
 		}
-		add(meshFor(b.Kind, seed), b.X, b.Y)
+		add(meshFor(b.Kind, seed, sum.Lineage), b.X, b.Y)
 	}
 
 	// The stele of the relic saved from the civilisation before, beside

@@ -21,11 +21,14 @@ func Field(seed uint64) Mesh {
 }
 
 // Hut is a woodcutter's cabin with its log pile.
-func Hut(seed uint64) Mesh {
+func Hut(seed uint64) Mesh { return HutIn(seed, Gabled) }
+
+// HutIn is a woodcutter's cabin in a style.
+func HutIn(seed uint64, style Style) Mesh {
 	r := Rng(seed)
 	var m Mesh
 	box(&m, Wood, -1.8, -1.5, 0, 1.8, 1.5, 3)
-	gable(&m, Wood, Wood, 1.8, 1.5, 3, 1.8, 0.4)
+	roofOf(&m, style, Roof, Wood, 1.8, 1.5, 3, 1.8, 0.4)
 	for i := range 3 {
 		z := float64(i) * 0.7
 		box(&m, Wood, 2.2, -1+float64(i)*0.2, z, 3.2, 1.2-float64(i)*0.2, z+0.6)
@@ -68,12 +71,15 @@ func ExtractorTower(seed uint64) Mesh {
 }
 
 // Barn is a warehouse: a wide wooden barn under a large roof.
-func Barn(seed uint64) Mesh {
+func Barn(seed uint64) Mesh { return BarnIn(seed, Gabled) }
+
+// BarnIn is a warehouse in a style.
+func BarnIn(seed uint64, style Style) Mesh {
 	r := Rng(seed)
 	var m Mesh
 	w, d, h := between(r, 3.2, 3.8), 2.6, between(r, 3.5, 4.2)
 	box(&m, Wood, -w, -d, 0, w, d, h)
-	gable(&m, Roof, Wood, w, d, h, 2.6, 0.5)
+	roofOf(&m, style, Roof, Wood, w, d, h, 2.6, 0.5)
 	m.RotZ(float64(r.IntN(2)) * math.Pi / 2)
 	return m
 }
@@ -100,11 +106,14 @@ func WatchTower(seed uint64) Mesh {
 }
 
 // Barracks is a long plastered hall flying the team's banner.
-func Barracks(seed uint64) Mesh {
+func Barracks(seed uint64) Mesh { return BarracksIn(seed, Gabled) }
+
+// BarracksIn is a barracks in a style.
+func BarracksIn(seed uint64, style Style) Mesh {
 	r := Rng(seed)
 	var m Mesh
 	box(&m, Plaster, -4, -2.4, 0, 4, 2.4, 4)
-	gable(&m, Roof, Plaster, 4, 2.4, 4, 2.4, 0.5)
+	roofOf(&m, style, Roof, Plaster, 4, 2.4, 4, 2.4, 0.5)
 	box(&m, Wood, 4.4, -0.2, 0, 4.8, 0.2, 9)
 	box(&m, Team, 4.8, -0.1, 6.2, 7, 0.1, 8.8)
 	m.RotZ(float64(r.IntN(2)) * math.Pi)

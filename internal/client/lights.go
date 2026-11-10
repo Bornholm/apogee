@@ -82,7 +82,7 @@ func islandLamps(sum proto.IslandSummary, own *proto.Own) []lamp {
 		}
 		seed := sum.Seed*977 + uint64(b.ID)
 		add := func(k lampKind, at float64, mats ...art.Material) {
-			for i, w := range art.Windows(meshFor(b.Kind, seed), at, mats...) {
+			for i, w := range art.Windows(meshFor(b.Kind, seed, sum.Lineage), at, mats...) {
 				out = append(out, lamp{x: b.X + w.X, y: b.Y + w.Y, z: w.Z, kind: k, by: b.Y,
 					seed: uint32(seed)*31 + uint32(i)})
 			}

@@ -37,6 +37,13 @@ type Msg struct {
 	Answer  *Answer  `json:"answer,omitempty"`
 	Aim     *Aim     `json:"aim,omitempty"`
 	Look    *Look    `json:"look,omitempty"`
+	// Rename names the god's living civilisation (GDD 11.7).
+	Rename *Rename `json:"rename,omitempty"`
+}
+
+// Rename names the god's living civilisation.
+type Rename struct {
+	Name string `json:"name"`
 }
 
 // Look asks to see another island up close (GDD pilier 2: every island is
@@ -96,6 +103,9 @@ type Hello struct {
 	Version int    `json:"version"`
 	Name    string `json:"name"`
 	Key     string `json:"key"`
+	// Lineage is how the god wants to be known (GDD 11.7); an older
+	// client sends none, and keeps the one drawn for them.
+	Lineage *sim.Lineage `json:"lineage,omitempty"`
 }
 
 // Welcome answers a valid Hello with the player's island, which is 0 while
@@ -159,7 +169,10 @@ type IslandSummary struct {
 	Trait sim.Trait `json:"trait,omitempty"`
 	// Relic is the treasure saved from the civilisation before (GDD 11.6).
 	Relic sim.Relic `json:"relic,omitempty"`
-	Power float64   `json:"power"`
+	// CivName and Lineage tell whose island it is (GDD 11.7).
+	CivName string      `json:"civName,omitempty"`
+	Lineage sim.Lineage `json:"lineage"`
+	Power   float64     `json:"power"`
 }
 
 // RaidView is a group crossing the sky, as everyone sees it.
@@ -181,6 +194,7 @@ func Summarize(sky *sim.Sky, is *sim.Island) IslandSummary {
 		Declining: is.Declining, FallingMs: int64(is.Falling * 1000), Heart: is.Civ.CoreHealth,
 		Protected: sky.Protected(is), ProtectedMs: sky.ProtectionLeft(is).Milliseconds(), Power: is.Civ.Power(),
 		Trait: is.Civ.Trait, Relic: is.Civ.Relic,
+		CivName: is.CivName, Lineage: sky.LineageOf(is.Owner),
 	}
 	if o := is.Civ.Outer; o.Kind == sim.Covet || o.Kind == sim.Annihilate {
 		sum.Banner, sum.BannerTarget = o.Kind, o.Target
@@ -253,11 +267,17 @@ type Supplique struct {
 	Question string   `json:"question"`
 	Options  []string `json:"options"`
 	LeftMs   int64    `json:"leftMs"`
+	// Rebirth marks the supplique of a newborn people, which also names
+	// itself (GDD 11.7).
+	Rebirth bool `json:"rebirth,omitempty"`
 }
 
 // Annal is a fallen civilisation, as the Annals of the sky tell it.
 type Annal struct {
 	Name       string  `json:"name"`
+	CivName    string  `json:"civName,omitempty"`
+	Colour     int8    `json:"colour,omitempty"`
+	Emblem     int8    `json:"emblem,omitempty"`
 	Generation int     `json:"generation"`
 	DaysLived  float64 `json:"daysLived"`
 	PeakPower  float64 `json:"peakPower"`
@@ -304,7 +324,7 @@ func Detail(sky *sim.Sky, is *sim.Island) *Own {
 	}
 	if p := c.Pending; p != nil {
 		o.Pending = &Supplique{ID: p.ID, Question: p.Question,
-			Options: append([]string(nil), p.Options...), LeftMs: int64(p.Left * 1000)}
+			Options: append([]string(nil), p.Options...), LeftMs: int64(p.Left * 1000), Rebirth: p.Kind == sim.AskRelic}
 	}
 	start := max(0, len(c.Chronicle)-chronicleLines)
 	o.Chronicle = append([]sim.Entry(nil), c.Chronicle[start:]...)
@@ -319,8 +339,9 @@ func Annals(sky *sim.Sky, n int) []Annal {
 	start := max(0, len(sky.Annals)-n)
 	out := make([]Annal, 0, len(sky.Annals)-start)
 	for _, a := range sky.Annals[start:] {
+		l := sky.LineageOf(a.Owner)
 		out = append(out, Annal{
-			Name: a.Name, Generation: a.Generation,
+			Name: a.Name, CivName: a.CivName, Colour: l.Colour, Emblem: l.Emblem, Generation: a.Generation,
 			DaysLived: float64(a.Fell-a.Born) * sim.TickDuration.Seconds() / 86400,
 			PeakPower: a.PeakPower, Tiers: a.Tiers, Culture: int(a.Culture), Cause: a.Cause,
 		})

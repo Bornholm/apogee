@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"apogee/internal/proto"
+	"apogee/internal/sim"
 )
 
 // StateTimeout is how long a client waits for the next state before it
@@ -34,6 +35,12 @@ type Conn struct {
 
 // Dial connects to addr and performs the handshake.
 func Dial(ctx context.Context, addr, name, key string) (*Conn, error) {
+	return DialAs(ctx, addr, name, key, nil)
+}
+
+// DialAs connects as a god of a lineage (GDD 11.7); nil keeps the one the
+// sky drew.
+func DialAs(ctx context.Context, addr, name, key string, lineage *sim.Lineage) (*Conn, error) {
 	// Bound the TCP connection like the handshake: a wrong address or a stale
 	// mDNS record must not hang for the OS timeout.
 	d := net.Dialer{Timeout: 10 * time.Second}
@@ -43,7 +50,7 @@ func Dial(ctx context.Context, addr, name, key string) (*Conn, error) {
 	}
 	enc, dec := proto.NewEncoder(c), proto.NewDecoder(c)
 	c.SetDeadline(time.Now().Add(10 * time.Second))
-	if err := enc.Encode(proto.Msg{Hello: &proto.Hello{Version: proto.Version, Name: name, Key: key}}); err != nil {
+	if err := enc.Encode(proto.Msg{Hello: &proto.Hello{Version: proto.Version, Name: name, Key: key, Lineage: lineage}}); err != nil {
 		c.Close()
 		return nil, err
 	}

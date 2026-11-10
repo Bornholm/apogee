@@ -5,7 +5,11 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"strings"
 	"time"
+
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
 	"apogee/internal/proto"
 	"apogee/internal/sim"
@@ -128,8 +132,34 @@ func (g *Game) civLines(p painter, st *proto.State, o *proto.Own, x0, w int) []b
 	if r := sum.Relic; r.Name() != "" {
 		relic = p.wrap("Relique : "+r.Name()+", "+r.Text()+".", w)
 	}
-	lines = append(lines, bookLine{(2+len(trait)+len(relic))*p.line() + gap, func(y int) {
-		p.styled(generation(o.Generation), x0, y, textColor, bold)
+	civ := sum.CivName
+	if civ == "" {
+		civ = generation(o.Generation)
+	}
+	lineage := strings.ToLower(generation(o.Generation)[:1]) + generation(o.Generation)[1:]
+	if l := sum.Lineage.Name; l != "" {
+		lineage = l + " · " + lineage
+	}
+	lines = append(lines, bookLine{(3+len(trait)+len(relic))*p.line() + gap, func(y int) {
+		if g.renaming {
+			field := image.Rect(x0, y-p.px(2), x0+w-p.px(170), y+p.line()+p.px(2))
+			p.fill(field, barBack)
+			p.frame(field, 1, goldColor)
+			text := string(g.newName)
+			if (time.Now().UnixMilli()/500)%2 == 0 {
+				text += "_"
+			}
+			p.styled(text, field.Min.X+p.px(6), y, textColor, bold)
+			p.buttonAs(image.Rect(field.Max.X+p.px(6), field.Min.Y, field.Max.X+p.px(80), field.Max.Y), "Nommer", g.confirmName, primaryButton, panelEdge)
+			p.buttonAs(image.Rect(field.Max.X+p.px(86), field.Min.Y, x0+w, field.Max.Y), "Annuler", func() { g.renaming = false }, ghostButton, panelEdge)
+		} else {
+			p.styled(civ, x0, y, textColor, bold)
+			rw := p.width("Renommer") + p.px(16)
+			rx := x0 + p.widthOf(civ, bold) + p.px(10)
+			p.buttonAs(image.Rect(rx, y-p.px(1), rx+rw, y+p.line()+p.px(1)), "Renommer", func() { g.startRenaming(civ) }, ghostButton, panelEdge)
+		}
+		y += p.line()
+		p.text(lineage, x0, y, dimColor)
 		p.text("Vit depuis "+span(age)+" · vénère "+familyArticle(sim.Family(worship)), x0, y+p.line(), dimColor)
 		for i, l := range trait {
 			p.text(l, x0, y+(2+i)*p.line(), aetherColor)
@@ -375,4 +405,39 @@ func bannerWord(o sim.Outer) string {
 		return "de châtiment"
 	}
 	return "de convoitise"
+}
+
+// startRenaming opens the name of the civilisation to typing.
+func (g *Game) startRenaming(current string) {
+	g.renaming, g.newName = true, []rune(current)
+	g.dirty = true
+}
+
+// typeName types into the name of the civilisation: Enter sends it to the
+// sky, Escape gives up.
+func (g *Game) typeName() {
+	for _, r := range g.chars {
+		if r >= ' ' && len(g.newName) < sim.MaxName {
+			g.newName = append(g.newName, r)
+		}
+	}
+	if d := inpututil.KeyPressDuration(ebiten.KeyBackspace); len(g.newName) > 0 && (d == 1 || (d > 30 && d%4 == 0)) {
+		g.newName = g.newName[:len(g.newName)-1]
+	}
+	switch {
+	case inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeyKPEnter):
+		g.confirmName()
+	case inpututil.IsKeyJustPressed(ebiten.KeyEscape):
+		g.renaming = false
+	}
+	g.dirty = true
+}
+
+// confirmName sends the new name to the sky.
+func (g *Game) confirmName() {
+	if name := sim.CleanName(string(g.newName)); name != "" {
+		g.src.Rename(name)
+	}
+	g.renaming = false
+	g.dirty = true
 }

@@ -104,7 +104,10 @@ func Rock(seed uint64) Mesh {
 
 // House is a small dwelling: plaster walls under a gabled roof. Its yaw comes
 // from the seed; tones are computed after rotation, so the light stays right.
-func House(seed uint64) Mesh {
+func House(seed uint64) Mesh { return HouseIn(seed, Gabled) }
+
+// HouseIn is a house in an architectural style (GDD 11.7).
+func HouseIn(seed uint64, style Style) Mesh {
 	r := Rng(seed)
 	var m Mesh
 	w := between(r, 2.8, 3.8) // half length along the ridge
@@ -112,20 +115,7 @@ func House(seed uint64) Mesh {
 	h := between(r, 5, 6.5)   // wall height
 	rh := between(r, 3, 4)
 	box(&m, Plaster, -w, -d, 0, w, d, h)
-
-	o := 0.6 // eaves overhang
-	var roof Mesh
-	a, b := V(-w-o, -d-o, h), V(w+o, -d-o, h)
-	c, e := V(w+o, d+o, h), V(-w-o, d+o, h)
-	ra, rb := V(-w-o, 0, h+rh), V(w+o, 0, h+rh)
-	roof.Add(Roof, a, b, rb, ra)                                     // north slope
-	roof.Add(Roof, e, c, rb, ra)                                     // south slope
-	roof.Add(Plaster, V(-w, -d, h), V(-w, d, h), V(-w, 0, h+rh-0.4)) // west gable
-	roof.Add(Plaster, V(w, -d, h), V(w, d, h), V(w, 0, h+rh-0.4))    // east gable
-	roof.Add(Roof, a, b, c, e)                                       // underside
-	roof.OrientOutward(V(0, 0, h+0.3))
-	m.Merge(roof)
-
+	roofOf(&m, style, Roof, Plaster, w, d, h, rh, 0.6)
 	m.RotZ(float64(r.IntN(4)) * math.Pi / 2)
 	return m
 }

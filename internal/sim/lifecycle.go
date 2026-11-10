@@ -100,6 +100,7 @@ type Threat struct {
 // Annal records a civilisation in the Annals of the sky (GDD 11.5).
 type Annal struct {
 	Name       string
+	CivName    string `json:",omitempty"`
 	Owner      string
 	Generation int
 	Born       uint64 // ticks
@@ -310,7 +311,7 @@ func (s *Sky) falls(dt float64) {
 			is.Falling -= dt
 			if is.Falling <= 0 {
 				s.Annals = append(s.Annals, Annal{
-					Name: is.Name, Owner: is.Owner, Generation: is.Generation, Born: is.Born, Fell: s.Tick,
+					Name: is.Name, CivName: is.CivName, Owner: is.Owner, Generation: is.Generation, Born: is.Born, Fell: s.Tick,
 					PeakPower: is.PeakPower, Tiers: is.Civ.Tech.Total(),
 					Culture: is.Civ.Dominant(), Cause: is.Cause,
 				})

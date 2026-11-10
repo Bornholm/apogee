@@ -43,7 +43,9 @@ type IslandID uint32
 type Island struct {
 	ID   IslandID
 	Name string
-	Seed uint64
+	// CivName is the name of the civilisation living on it (GDD 11.7).
+	CivName string `json:",omitempty"`
+	Seed    uint64
 	// Orbit around the portal (GDD 3.1): distance in sky units and angle.
 	Radius float64
 	Angle  float64
@@ -93,6 +95,9 @@ type Sky struct {
 	// LastPhase is the time of day at the previous tick. A new sky starts
 	// at dawn, so the first dawn does not count as a new one.
 	LastPhase Phase
+	// Lineages are how the gods are known, by owner (lineage.go): maps are
+	// fine here, the simulation never iterates them.
+	Lineages map[string]Lineage `json:",omitempty"`
 }
 
 // Sky geometry, in sky units. New civilisations are born at the rim and
@@ -120,7 +125,9 @@ func (s *Sky) Found(owner, ownerName string, seed uint64, angle float64) IslandI
 		Civ:   NewCiv(seed),
 		Owner: owner, OwnerName: ownerName, Generation: 1, Born: s.Tick,
 	})
-	c := &s.Islands[len(s.Islands)-1].Civ
+	is := &s.Islands[len(s.Islands)-1]
+	is.CivName = CivName(is.Civ.Trait, seed, 0)
+	c := &is.Civ
 	if t := c.Trait; t != NoTrait {
 		c.chronicle(s.Tick, "Ton peuple découvre son île : %s. %s", lower(t.Name()), t.Text())
 	}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 
+	"apogee/internal/art"
 	"apogee/internal/proto"
 	"apogee/internal/sim"
 	"apogee/internal/sound"
@@ -50,6 +51,9 @@ func (g *Game) drawHUD(screen *ebiten.Image, st *proto.State) {
 	if st == nil {
 		p.text("Connexion au ciel…", m, m, textColor)
 		return
+	}
+	if g.level == 0 {
+		g.drawPennants(p) // under the bar and the panels
 	}
 	g.drawTopBar(p, st)
 	o := st.Own
@@ -99,10 +103,10 @@ func (g *Game) drawHUD(screen *ebiten.Image, st *proto.State) {
 	}
 	g.areas["stock"] = g.drawStock(p, o)
 	if o.Pending != nil {
-		g.drawSupplique(p, o.Pending)
+		g.drawSupplique(p, st, o.Pending)
 	} else if g.signs.rehearse == "supplique" {
 		// For screenshots: a supplique as the people ask it in a famine.
-		g.drawSupplique(p, &proto.Supplique{Question: "Les greniers sont vides. Que devons-nous faire ?",
+		g.drawSupplique(p, st, &proto.Supplique{Question: "Les greniers sont vides. Que devons-nous faire ?",
 			Options: []string{"Rationner : les soldats retournent aux champs", "Bâtir des fermes avant toute chose"}, LeftMs: 220_000})
 	}
 	if book {
@@ -508,9 +512,9 @@ func (g *Game) drawTarget(p painter, st *proto.State, o *proto.Own) (image.Recta
 	}
 	// The island is framed in gold.
 	p.frame(g.targetAt.Inset(-p.px(4)), 2, goldColor)
-	w := p.px(250)
+	w := p.px(280)
 	bh := p.px(28)
-	h := p.px(20) + 4*p.line() + p.px(10) + 3*(bh+p.px(4)) - p.px(4)
+	h := p.px(20) + 5*p.line() + p.px(10) + 3*(bh+p.px(4)) - p.px(4)
 	x := g.targetAt.Max.X + p.px(12)
 	if x+w > g.outW-p.px(hudMargin) {
 		x = g.targetAt.Min.X - p.px(12) - w // no room on the right
@@ -518,14 +522,26 @@ func (g *Game) drawTarget(p painter, st *proto.State, o *proto.Own) (image.Recta
 	y := min(max(g.targetAt.Min.Y, p.px(panelTop)), g.outH-h-p.px(50))
 	r := image.Rect(x, y, x+w, y+h)
 	in := p.panelEdged(r, goldColor)
-	name := target.Name
-	if target.AI {
-		name += " (IA)"
+	civ := target.CivName
+	if civ == "" {
+		civ = target.Name
 	}
-	p.styled(name, in.Min.X, in.Min.Y, textColor, bold)
+	ramp := lineageRamp(target.Lineage)
+	mark := image.Rect(in.Min.X, in.Min.Y+(p.line()-p.px(11))/2, in.Min.X+p.px(11), in.Min.Y+(p.line()+p.px(11))/2)
+	p.fill(mark, ramp[1])
+	emblem(p, mark.Min.X+p.px(2), mark.Min.Y+p.px(2), 1, int(target.Lineage.Emblem), textColor)
+	p.styled(civ, mark.Max.X+p.px(6), in.Min.Y, textColor, bold)
+	god := "dieu " + target.Name
+	if target.AI {
+		god += " (IA)"
+	}
+	if l := target.Lineage.Name; l != "" {
+		god = l + " · " + god
+	}
+	p.text(god, in.Min.X, in.Min.Y+p.line(), dimColor)
 	figures := fmt.Sprintf("P %.0f · cœur %d%%", target.Power, int(math.Round(target.Heart*100)))
-	p.styled(figures, in.Max.X-p.widthOf(figures, small), in.Min.Y+(p.line()-p.lineOf(small))/2, dimColor, small)
-	ty := in.Min.Y + p.line()
+	p.styled(figures, in.Max.X-p.widthOf(figures, small), in.Min.Y+p.line()*2+(p.line()-p.lineOf(small))/2, dimColor, small)
+	ty := in.Min.Y + 2*p.line()
 	culture := min(max(target.Culture, 0), int(sim.NumFamilies)-1)
 	p.text("Vénère "+familyArticle(sim.Family(culture)), in.Min.X, ty, familyColor[culture])
 	ty += p.line()
@@ -787,7 +803,7 @@ func (g *Game) drawStock(p painter, o *proto.Own) image.Rectangle {
 
 // drawSupplique draws the question of the people and its answers
 // (GDD 6.5). Unanswered, the people decide alone when the time runs out.
-func (g *Game) drawSupplique(p painter, s *proto.Supplique) {
+func (g *Game) drawSupplique(p painter, st *proto.State, s *proto.Supplique) {
 	w := p.px(460)
 	inW := w - p.px(20)
 	q := p.wrap(s.Question, inW)
@@ -804,6 +820,16 @@ func (g *Game) drawSupplique(p painter, s *proto.Supplique) {
 	}
 	bh = max(bh, lines*p.line()+p.px(10))
 	h := p.px(20) + p.line() + p.px(10) + len(q)*p.line() + p.px(8) + rows*(bh+p.px(6)) - p.px(6)
+	// A newborn people names itself too.
+	civ := ""
+	if s.Rebirth {
+		for _, is := range st.Islands {
+			if is.ID == st.You {
+				civ = is.CivName
+			}
+		}
+		h += p.px(30) + p.px(8)
+	}
 	bottom := g.outH - p.px(50)
 	r := image.Rect((g.outW-w)/2, bottom-h, (g.outW+w)/2, bottom)
 	in := p.panelEdged(r, goldColor)
@@ -813,6 +839,17 @@ func (g *Game) drawSupplique(p painter, s *proto.Supplique) {
 	y := in.Min.Y + p.line() + p.px(3)
 	p.gauge(image.Rect(in.Min.X, y, in.Max.X, y+p.px(3)), float64(s.LeftMs)/1000/sim.SuppliqueTimeout, goldColor)
 	y += p.px(7)
+	if s.Rebirth {
+		p.styled("Ton peuple", in.Min.X, y+(p.px(30)-p.lineOf(small))/2, dimColor, small)
+		nx := in.Min.X + p.widthOf("Ton peuple", small) + p.px(10)
+		p.styled(civ, nx, y+(p.px(30)-p.line())/2, textColor, bold)
+		rw := p.width("Renommer") + p.px(20)
+		p.buttonAs(image.Rect(in.Max.X-rw, y, in.Max.X, y+p.px(30)), "Renommer", func() {
+			g.book = civTab
+			g.startRenaming(civ)
+		}, ghostButton, panelEdge)
+		y += p.px(30) + p.px(8)
+	}
 	for _, l := range q {
 		p.text(l, in.Min.X, y, textColor)
 		y += p.line()
@@ -910,7 +947,14 @@ func (g *Game) drawBook(p painter, st *proto.State, o *proto.Own) {
 			fam := min(max(a.Culture, 0), int(sim.NumFamilies)-1)
 			text := p.wrap(fmt.Sprintf("%.1f jours · apogée %.0f · %d paliers · %s", a.DaysLived, a.PeakPower, a.Tiers, a.Cause), inW)
 			lines = append(lines, bookLine{(len(text)+1)*p.line() + p.px(6), func(y int) {
-				p.styled(fmt.Sprintf("%s, génération %d", a.Name, a.Generation), x0, y, familyColor[fam], bold)
+				who := a.CivName
+				if who == "" {
+					who = a.Name
+				}
+				mark := image.Rect(x0, y+(p.line()-p.px(11))/2, x0+p.px(11), y+(p.line()+p.px(11))/2)
+				p.fill(mark, lineageRamp(sim.Lineage{Colour: a.Colour})[1])
+				emblem(p, mark.Min.X+p.px(2), mark.Min.Y+p.px(2), 1, int(a.Emblem), textColor)
+				p.styled(fmt.Sprintf("%s, génération %d de %s", who, a.Generation, a.Name), mark.Max.X+p.px(6), y, familyColor[fam], bold)
 				for j, l := range text {
 					p.text(l, x0, y+(j+1)*p.line(), dimColor)
 				}
@@ -940,5 +984,60 @@ func (g *Game) drawBook(p painter, st *proto.State, o *proto.Own) {
 	for _, l := range lines {
 		l.draw(y)
 		y += l.h
+	}
+}
+
+// islandOnScreen is an island of the sky view and where it stands.
+type islandOnScreen struct {
+	r  image.Rectangle
+	is proto.IslandSummary
+}
+
+// emblem draws the emblem of a lineage, each of its pixels n interface
+// pixels wide.
+func emblem(p painter, x, y, n, which int, c color.Color) {
+	if which < 0 || which >= len(art.Emblems) {
+		which = 0
+	}
+	for row, line := range art.Emblems[which] {
+		for col, ch := range line {
+			if ch == '#' {
+				p.fill(image.Rect(x+col*p.px(n), y+row*p.px(n), x+(col+1)*p.px(n), y+(row+1)*p.px(n)), c)
+			}
+		}
+	}
+}
+
+// lineageRamp is the colour of a lineage, from lit to dark.
+func lineageRamp(l sim.Lineage) art.Ramp {
+	c := int(l.Colour)
+	if c < 0 || c >= len(art.LineageColours) {
+		c = 0
+	}
+	return art.LineageColours[c]
+}
+
+// drawPennants raises over each island of the sky view the pennant of its
+// lineage, with the name of its civilisation (GDD 11.7).
+func (g *Game) drawPennants(p painter) {
+	for _, o := range g.onScreen {
+		ramp := lineageRamp(o.is.Lineage)
+		flag := p.px(11)
+		x := o.r.Min.X + o.r.Dx()/2
+		y := o.r.Min.Y - flag - p.px(10)
+		p.fill(image.Rect(x-p.px(1), y, x+p.px(1), o.r.Min.Y+p.px(6)), color.RGBA{0x59, 0x3d, 0x2a, 0xff})
+		f := image.Rect(x+p.px(1), y, x+p.px(1)+flag, y+flag)
+		if o.is.ID == g.src.Me() {
+			p.frame(f.Inset(-p.px(2)), 2, goldColor) // the god's own
+		}
+		p.fill(f, ramp[1])
+		p.fill(image.Rect(f.Min.X, f.Max.Y-p.px(2), f.Max.X, f.Max.Y), ramp[2])
+		emblem(p, f.Min.X+p.px(2), f.Min.Y+p.px(1), 1, int(o.is.Lineage.Emblem), textColor)
+		if name := o.is.CivName; name != "" && o.is.ID != g.selected {
+			w := p.widthOf(name, small)
+			lx := x - w/2
+			p.fill(image.Rect(lx-p.px(3), f.Max.Y+p.px(2), lx+w+p.px(3), f.Max.Y+p.px(2)+p.lineOf(small)), color.NRGBA{0x14, 0x12, 0x2b, 0xc0})
+			p.styled(name, lx, f.Max.Y+p.px(2), textColor, small)
+		}
 	}
 }

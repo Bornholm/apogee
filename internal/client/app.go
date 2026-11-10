@@ -24,6 +24,7 @@ import (
 	"apogee/internal/netclient"
 	"apogee/internal/proto"
 	"apogee/internal/server"
+	"apogee/internal/sim"
 	"apogee/internal/sound"
 	"apogee/internal/update"
 )
@@ -53,6 +54,11 @@ type App struct {
 	outW     int
 	outH     int
 	dsf      float64
+	// editing is the lineage on the lineage screen, lineName its name, and
+	// previews the islands drawn for it (lineage.go).
+	editing  sim.Lineage
+	lineName field
+	previews map[[2]int]*ebiten.Image
 	mu       sync.Mutex // guards servers, browsing and newer, filled by goroutines
 	// newer is a version published since this one, once GitHub told.
 	newer *update.Release
@@ -97,6 +103,7 @@ type appScreen int
 const (
 	homeScreen appScreen = iota
 	joinScreen
+	lineageScreen
 	connectingScreen
 	playingScreen
 )
@@ -213,7 +220,7 @@ func (a *App) dial(addr string, stop func()) launchResult {
 	key, err := netclient.PlayerKey()
 	if err == nil {
 		var conn *netclient.Conn
-		conn, err = netclient.Dial(context.Background(), addr, a.settings.Name, key)
+		conn, err = netclient.DialAs(context.Background(), addr, a.settings.Name, key, a.settings.Lineage)
 		if err == nil {
 			return launchResult{conn: conn, stop: stop, target: addr}
 		}
@@ -360,7 +367,7 @@ func (a *App) Update() error {
 	a.editFields()
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		x, y := ebiten.CursorPosition()
-		a.name.focused, a.address.focused = false, false
+		a.name.focused, a.address.focused, a.lineName.focused = false, false, false
 		for i := len(a.buttons) - 1; i >= 0; i-- {
 			if b := a.buttons[i]; image.Pt(x, y).In(b.r) {
 				if s := a.Options.Sound; s != nil {
@@ -376,7 +383,7 @@ func (a *App) Update() error {
 
 // editFields types into the focused text field.
 func (a *App) editFields() {
-	for _, f := range []*field{&a.name, &a.address} {
+	for _, f := range []*field{&a.name, &a.address, &a.lineName} {
 		if !f.focused {
 			continue
 		}
@@ -409,7 +416,7 @@ func (a *App) Draw(screen *ebiten.Image) {
 		return
 	}
 	screen.Clear()
-	a.backdrop.draw(screen, a.outW, a.outH, a.uiScale())
+	a.backdrop.draw(screen, a.outW, a.outH, a.uiScale(), a.screen != lineageScreen)
 	a.buttons = a.buttons[:0]
 	p := painter{dst: screen, k: a.uiScale(), buttons: &a.buttons}
 	x := p.px(72)
@@ -423,7 +430,11 @@ func (a *App) Draw(screen *ebiten.Image) {
 	p.styled("Apogée", x+p.px(4), y+p.px(4), inkColor, hero) // its shadow
 	p.styled("Apogée", x, y, goldColor, hero)
 	y += p.lineOf(hero) + p.px(8)
-	for _, l := range p.wrap("Souffle tes intentions à ton peuple. Porte-le au plus haut, avant sa chute.", w-p.px(40)) {
+	tagline := "Souffle tes intentions à ton peuple. Porte-le au plus haut, avant sa chute."
+	if a.screen == lineageScreen {
+		tagline = "Ta lignée, c'est ce que le ciel verra de toi : rien de tout cela ne rend ton peuple plus fort, mais tes collègues te reconnaîtront."
+	}
+	for _, l := range p.wrap(tagline, w-p.px(40)) {
 		p.text(l, x, y, dimColor)
 		y += p.line()
 	}
@@ -437,6 +448,8 @@ func (a *App) Draw(screen *ebiten.Image) {
 		y = a.drawHome(p, col)
 	case joinScreen:
 		y = a.drawJoin(p, col)
+	case lineageScreen:
+		y = a.drawLineage(p, col)
 	}
 	if r := a.Newer(); r != nil {
 		a.drawNewer(p, r)
@@ -519,6 +532,15 @@ func (a *App) drawHome(p painter, r image.Rectangle) int {
 	p.frame(nameBox, 2, panelEdge)
 	p.styled("Dieu", x+p.px(12), y+(p.px(40)-p.lineOf(small))/2, dimColor, small)
 	a.drawField(p, image.Rect(x+p.px(56), y+p.px(6), nameBox.Max.X-p.px(12), nameBox.Max.Y-p.px(6)), &a.name)
+	// The lineage beside the name: its emblem in its colour.
+	lr := image.Rect(nameBox.Max.X+p.px(8), y, x+w, y+p.px(40))
+	p.buttonAs(lr, "      Ma lignée", a.openLineage, plainButton, panelEdge)
+	if l := a.settings.Lineage; l != nil {
+		ramp := lineageRamp(*l)
+		mark := image.Rect(lr.Min.X+p.px(10), lr.Min.Y+p.px(9), lr.Min.X+p.px(32), lr.Min.Y+p.px(31))
+		p.fill(mark, ramp[1])
+		emblem(p, mark.Min.X+p.px(4), mark.Min.Y+p.px(4), 2, int(l.Emblem), textColor)
+	}
 	y += p.px(40) + p.px(24)
 
 	big, bh := p.px(48), p.px(40)
@@ -747,17 +769,19 @@ func newBackdrop(seed uint64) backdrop {
 
 func (b *backdrop) update() { b.frame = portalFrame(time.Now().UnixMilli()) }
 
-func (b *backdrop) draw(screen *ebiten.Image, w, h int, k float64) {
+func (b *backdrop) draw(screen *ebiten.Image, w, h int, k float64, portal bool) {
 	var op ebiten.DrawImageOptions
 	op.GeoM.Scale(float64(w), float64(h)/256)
 	screen.DrawImage(b.sky, &op)
-	img := b.portal[b.frame]
-	s := 2.5 * k
-	var po ebiten.DrawImageOptions
-	po.GeoM.Translate(-float64(img.Bounds().Dx())/2, -float64(img.Bounds().Dy())/2)
-	po.GeoM.Scale(s, s)
-	po.GeoM.Translate(math.Round(float64(w)*0.7), math.Round(float64(h)*0.45))
-	screen.DrawImage(img, &po)
+	if portal { // the lineage screen shows its island there instead
+		img := b.portal[b.frame]
+		s := 2.5 * k
+		var po ebiten.DrawImageOptions
+		po.GeoM.Translate(-float64(img.Bounds().Dx())/2, -float64(img.Bounds().Dy())/2)
+		po.GeoM.Scale(s, s)
+		po.GeoM.Translate(math.Round(float64(w)*0.7), math.Round(float64(h)*0.45))
+		screen.DrawImage(img, &po)
+	}
 	var so ebiten.DrawImageOptions
 	so.GeoM.Scale(float64(w)*0.62/256, float64(h))
 	screen.DrawImage(b.shade, &so)

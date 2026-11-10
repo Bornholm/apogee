@@ -27,7 +27,7 @@ func islandChimneys(sum proto.IslandSummary, own *proto.Own) []art.Vec3 {
 		if b.Progress < 1 || (b.Kind != sim.House && b.Kind != sim.Woodcutter) {
 			continue
 		}
-		c := art.Chimney(meshFor(b.Kind, sum.Seed*977+uint64(b.ID)))
+		c := art.Chimney(meshFor(b.Kind, sum.Seed*977+uint64(b.ID), sum.Lineage))
 		out = append(out, art.V(b.X+c.X, b.Y+c.Y, c.Z))
 	}
 	return out

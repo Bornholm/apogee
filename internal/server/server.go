@@ -274,6 +274,11 @@ func (s *Server) handle(ctx context.Context, conn net.Conn) {
 
 	key, name := m.Hello.Key, cleanName(m.Hello.Name)
 	id, ok := s.join(key, name)
+	if ok && m.Hello.Lineage != nil {
+		s.mu.Lock()
+		s.sky.SetLineage(key, *m.Hello.Lineage)
+		s.mu.Unlock()
+	}
 	if !ok {
 		log.Info("sky full, player refused", "name", name)
 		enc.Encode(proto.Msg{Error: &proto.Error{Message: "the sky is full"}})
@@ -352,6 +357,11 @@ func (s *Server) apply(key string, m proto.Msg) error {
 		return is.Civ.SetPie(m.Whisper.Pie)
 	case m.Answer != nil:
 		return is.Civ.Answer(m.Answer.ID, m.Answer.Option, s.sky.Tick)
+	case m.Rename != nil:
+		if !s.sky.Rename(key, m.Rename.Name) {
+			return errors.New("no living civilisation to name")
+		}
+		return nil
 	case m.Aim != nil:
 		if m.Aim.Kind < 0 || m.Aim.Kind >= sim.NumOuter {
 			return errors.New("unknown outer intention")

@@ -56,6 +56,7 @@ func main() {
 	culture := flag.Bool("culture", false, "open the culture and knowledge panel at start")
 	annals := flag.Bool("annals", false, "open the Annals panel at start")
 	civ := flag.Bool("civ", false, "open the panel of the civilization at start")
+	lineageFlag := flag.Bool("lineage", false, "open the lineage screen of the home at start")
 	selectID := flag.Uint("select", 0, "select this island at start, as a click would")
 	observe := flag.Uint("observe", 0, "observe this island at start")
 	notifyFlag := flag.String("notify", "raid,wave,decline,fall", "desktop notifications while the window is hidden: raid, wave, decline, supplique, fall, or none")
@@ -136,6 +137,9 @@ func main() {
 		}
 	}
 	app.OnFrame = onFrame
+	if *lineageFlag {
+		app.OpenLineage()
+	}
 	app.Options.Configure = func(g *client.Game) {
 		g.SetZoom(*zoom)
 		g.ShowPanels(*civ, *culture, *annals)

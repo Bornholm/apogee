@@ -1,6 +1,7 @@
 package client
 
 import (
+	"apogee/internal/sim"
 	"encoding/json"
 	"errors"
 	"os"
@@ -21,6 +22,9 @@ type Settings struct {
 	// and LastSky its name, to go back there in one click.
 	LastServer string `json:"lastServer,omitempty"`
 	LastSky    string `json:"lastSky,omitempty"`
+	// Lineage is how the god is known in the sky (GDD 11.7); nil until
+	// they chose, and the sky draws one.
+	Lineage *sim.Lineage `json:"lineage,omitempty"`
 }
 
 // Sound levels: the game plays on a second screen, low by default.

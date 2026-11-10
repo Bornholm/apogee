@@ -1,6 +1,9 @@
 package sim
 
-import "hash/fnv"
+import (
+	"hash/fnv"
+	"unicode"
+)
 
 // Trait is the character of an island (GDD 11.6): drawn from its seed at
 // birth, known to the whole sky, it changes how the civilisation is
@@ -113,8 +116,8 @@ func (c *Civ) ExpandCost() Stock {
 // cristal » in the middle of a sentence.
 func lower(s string) string {
 	r := []rune(s)
-	if len(r) > 0 && r[0] >= 'A' && r[0] <= 'Z' {
-		r[0] += 'a' - 'A'
+	if len(r) > 0 {
+		r[0] = unicode.ToLower(r[0])
 	}
 	return string(r)
 }

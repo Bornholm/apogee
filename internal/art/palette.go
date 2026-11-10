@@ -33,6 +33,16 @@ const (
 	Cloud
 	Lush  // the grass of fertile lands
 	Shade // the shades of the whirlpool, night-dark
+	// lineage0 and the seven after it are the colours of the lineages
+	// (lineage.go), filled from LineageColours.
+	lineage0
+	lineage1
+	lineage2
+	lineage3
+	lineage4
+	lineage5
+	lineage6
+	lineage7
 	materialCount
 )
 
@@ -78,3 +88,9 @@ var (
 	SkyTop    = hex(0x86bdd6)
 	SkyBottom = hex(0xd3e9ea)
 )
+
+func init() {
+	for i, r := range LineageColours {
+		Palette[lineage0+Material(i)] = r
+	}
+}
