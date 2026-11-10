@@ -110,3 +110,17 @@ func TestNewsMakeOneSoundTheWeightiest(t *testing.T) {
 		t.Fatalf("an entry without sound played %v", heard[1:])
 	}
 }
+
+// Shortcuts follow the letter typed, whatever the keyboard layout.
+func TestShortcutsFollowTheLetterTyped(t *testing.T) {
+	g := &Game{}
+	g.shortcut('a')
+	g.shortcut('C')
+	if !g.showAnnals || !g.showCulture {
+		t.Fatalf("a and C should open the Annals and the culture: %v %v", g.showAnnals, g.showCulture)
+	}
+	g.shortcut('q') // where A sits on an AZERTY keyboard's QWERTY code
+	if !g.showAnnals {
+		t.Fatal("q closed the Annals")
+	}
+}

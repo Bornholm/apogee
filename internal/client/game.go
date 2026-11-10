@@ -9,6 +9,7 @@ import (
 	"math"
 	"sort"
 	"time"
+	"unicode"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -105,6 +106,7 @@ type Game struct {
 	mood   sound.Mood
 	played bool               // an action of the last click played its own effect
 	onPlay func(sound.Effect) // tests listen here
+	chars  []rune             // characters typed this tick
 	OnMute func(muted bool)
 
 	// heard is the tick of the newest chronicle entry already considered.
@@ -244,6 +246,27 @@ func (g *Game) play(fx sound.Effect) {
 	}
 	if g.Sound != nil {
 		g.Sound.Play(fx)
+	}
+}
+
+// shortcut runs the keyboard shortcut of a typed character. The keypad's
+// + and − type characters too.
+func (g *Game) shortcut(r rune) {
+	switch unicode.ToLower(r) {
+	case 'h':
+		g.OpenTutorial()
+	case 'm':
+		g.ToggleMute()
+	case 'c':
+		g.showCulture = !g.showCulture
+		g.dirty = true
+	case 'a':
+		g.showAnnals = !g.showAnnals
+		g.dirty = true
+	case '+', '=':
+		g.zoomBy(1)
+	case '-', '−':
+		g.zoomBy(-1)
 	}
 }
 
@@ -510,28 +533,14 @@ func (g *Game) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) && g.viewing != 0 {
 		g.Observe(0)
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyH) {
-		g.OpenTutorial()
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyM) {
-		g.ToggleMute()
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyC) {
-		g.showCulture = !g.showCulture
-		g.dirty = true
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyA) {
-		g.showAnnals = !g.showAnnals
-		g.dirty = true
+	// Letter shortcuts follow the characters typed, not the physical keys:
+	// they stay on their letter whatever the layout, AZERTY or QWERTY.
+	g.chars = ebiten.AppendInputChars(g.chars[:0])
+	for _, r := range g.chars {
+		g.shortcut(r)
 	}
 	if _, wy := ebiten.Wheel(); wy != 0 {
 		g.zoomBy(int(math.Copysign(1, wy)))
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyEqual) || inpututil.IsKeyJustPressed(ebiten.KeyKPAdd) {
-		g.zoomBy(1)
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyMinus) || inpututil.IsKeyJustPressed(ebiten.KeyKPSubtract) {
-		g.zoomBy(-1)
 	}
 
 	if g.anim > 0 {
