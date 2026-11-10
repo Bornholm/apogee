@@ -26,11 +26,16 @@ const (
 	strikeLen  = 0.8
 )
 
-// Sprites of the assailants: three monsters, the colossus, a raider.
+// Sprites of the assailants: three monsters, the colossus, a raider, and
+// the species of the bestiary (GDD 11.6).
 const (
 	colossusArt = 3
 	raiderArt   = 4
-	foeArts     = 5
+	swarmArt    = 5
+	devourerArt = 6
+	breakerArt  = 7
+	shadeArt    = 8
+	foeArts     = 9
 )
 
 // foe is one assailant of the battle, in island units.
@@ -101,17 +106,29 @@ func (b *battle) start(bt sim.Battle, sh shore, own *proto.Own) {
 	if len(b.guns) == 0 {
 		b.guns = []gun{{0, 0, 9}}
 	}
+	// Devourers swoop on the fields, breakers on the towers; the others on
+	// the heart.
+	var marks []geo.Vec2
+	for _, bd := range own.Buildings {
+		if bd.Progress >= 1 && ((bt.Species == sim.Devourers && bd.Kind == sim.Farm) || (bt.Species == sim.Breakers && bd.Kind == sim.Tower)) {
+			marks = append(marks, geo.Vec2{X: bd.X, Y: bd.Y})
+		}
+	}
 	// The assailants come together, from one side of the sky.
 	bearing := r.Float64() * 2 * math.Pi
 	far := math.Max(sh.size, 20) * 1.7
-	n := min(max(bt.Foes, 1), 10)
+	n := min(max(bt.Foes, 1), 16)
 	if bt.By == sim.ColossusFoe {
 		n = 1 // the colossus comes alone
 	}
 	for i := range n {
 		a := r.Float64() * 2 * math.Pi
 		d := 9 + r.Float64()*16
-		h := sh.inside(geo.Vec2{X: b.heart.x + d*math.Cos(a), Y: b.heart.y + d*math.Sin(a)})
+		centre := geo.Vec2{X: b.heart.x, Y: b.heart.y}
+		if len(marks) > 0 {
+			centre, d = marks[i%len(marks)], 3+r.Float64()*5
+		}
+		h := sh.inside(geo.Vec2{X: centre.X + d*math.Cos(a), Y: centre.Y + d*math.Sin(a)})
 		from := bearing + (r.Float64()*2-1)*0.4
 		f := foe{hx: h.X, hy: h.Y, fx: far * math.Cos(from), fy: far * math.Sin(from),
 			fz: 25 + r.Float64()*15, phase: r.Float64() * 6, art: i % 3}
@@ -120,6 +137,17 @@ func (b *battle) start(bt sim.Battle, sh shore, own *proto.Own) {
 			f.art = colossusArt
 		case sim.RaiderFoe:
 			f.art = raiderArt
+		default:
+			switch bt.Species {
+			case sim.Swarm:
+				f.art = swarmArt
+			case sim.Devourers:
+				f.art = devourerArt
+			case sim.Breakers:
+				f.art = breakerArt
+			case sim.Shades:
+				f.art = shadeArt
+			}
 		}
 		f.x, f.y, f.z = f.fx, f.fy, f.fz
 		b.foes = append(b.foes, f)
@@ -168,11 +196,19 @@ func (b *battle) step(dt float64, dust *particles, emit bool, guards []walker) {
 		}
 	}
 	hz := b.hoverZ()
+	// A swarm darts about; shades drift slowly.
+	pace, reach := 1.0, 1.0
+	switch b.b.Species {
+	case sim.Swarm:
+		pace, reach = 2.4, 2.2
+	case sim.Shades:
+		pace = 0.45
+	}
 	for i := range b.foes {
 		f := &b.foes[i]
 		lag := float64(i) * 0.12
-		sx := f.hx + math.Sin(t*2.7+f.phase)*1.2
-		sy := f.hy + math.Cos(t*2.1+f.phase)*0.8
+		sx := f.hx + math.Sin(t*2.7*pace+f.phase)*1.2*reach
+		sy := f.hy + math.Cos(t*2.1*pace+f.phase)*0.8*reach
 		sz := hz + math.Sin(t*4.3+f.phase)*0.5*math.Min(hz, 1)
 		switch {
 		case t < arriveTime+lag:

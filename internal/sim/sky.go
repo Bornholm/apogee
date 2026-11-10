@@ -197,10 +197,9 @@ func (s *Sky) Elapsed() time.Duration { return time.Duration(s.Tick) * TickDurat
 // TimeOfDay returns the current phase and the time left before the next one.
 func (s *Sky) TimeOfDay() (Phase, time.Duration) {
 	t := s.Elapsed() % DayLength
-	for i, end := range phaseEnds {
-		if t < end {
-			return Phase(i), end - t
-		}
+	p := phaseAt(t)
+	if int(p) < len(phaseEnds) {
+		return p, phaseEnds[p] - t
 	}
 	return Night, DayLength - t
 }

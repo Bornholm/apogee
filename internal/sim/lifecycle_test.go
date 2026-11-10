@@ -62,7 +62,7 @@ func TestAWaveIsAnnouncedThenStrikes(t *testing.T) {
 	c := s.Island(id).Civ
 	found := false
 	for _, e := range c.Chronicle {
-		if strings.Contains(e.Text, "vague") {
+		if strings.Contains(e.Text, "du tourbillon") { // whatever the species
 			found = true
 		}
 	}
@@ -79,7 +79,7 @@ func TestBrokenHeartSwallowsTheIslandAndItsPeopleIsReborn(t *testing.T) {
 	is.Civ.Defenders = 0
 	is.Civ.Buildings = is.Civ.Buildings[:1]
 	is.Civ.CoreHealth = 0.01
-	s.attack(is, 5, false, "une vague du tourbillon", WaveFoe)
+	s.attack(is, 5, false, "une vague du tourbillon", WaveFoe, Monsters)
 	if is.Falling <= 0 {
 		t.Fatal("the heart broke but the island does not fall")
 	}

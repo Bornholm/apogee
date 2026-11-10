@@ -89,6 +89,8 @@ func WaveStrength(power, radius, age float64, night bool) float64 {
 // Threat is an announced attack.
 type Threat struct {
 	Boss bool
+	// Species is the kind of monsters of a wave (bestiary.go).
+	Species Species `json:",omitempty"`
 	// Target is the island a wave aims at; a boss strikes every island.
 	Target IslandID
 	// In is the time in seconds before the attack.
@@ -162,7 +164,8 @@ func (s *Sky) waves(dt float64, night bool) {
 	}
 	if s.Wave == nil {
 		r := s.rng(0x77)
-		s.Wave = &Threat{Target: s.pickTarget(r), In: waveMin + r.Float64()*(waveMax-waveMin)}
+		in := waveMin + r.Float64()*(waveMax-waveMin)
+		s.Wave = &Threat{Target: s.pickTarget(r), In: in, Species: s.drawSpecies(r, in)}
 	}
 	if s.Boss == nil {
 		r := s.rng(0xb055)
@@ -172,14 +175,14 @@ func (s *Sky) waves(dt float64, night bool) {
 	s.Boss.In -= dt
 	if s.Wave.In <= 0 {
 		if is := s.island(s.Wave.Target); is != nil && is.Falling == 0 {
-			s.attack(is, 1, night, "une vague du tourbillon", WaveFoe)
+			s.attack(is, 1, night, s.Wave.Species.Name(), WaveFoe, s.Wave.Species)
 		}
 		s.Wave = nil
 	}
 	if s.Boss.In <= 0 {
 		for i := range s.Islands {
 			if s.Islands[i].Falling == 0 {
-				s.attack(&s.Islands[i], bossFactor, night, "le colosse du tourbillon", ColossusFoe)
+				s.attack(&s.Islands[i], bossFactor, night, "le colosse du tourbillon", ColossusFoe, Monsters)
 			}
 		}
 		s.Boss = nil
@@ -209,19 +212,19 @@ func (s *Sky) pickTarget(r *rand.Rand) IslandID {
 
 // attack resolves an attack against an island, as an autobattler: defense
 // against strength (GDD 6.9).
-func (s *Sky) attack(is *Island, factor float64, night bool, by string, foe Foe) {
+func (s *Sky) attack(is *Island, factor float64, night bool, by string, foe Foe, sp Species) {
 	c := &is.Civ
 	age := float64(s.Tick-is.Born) * TickDuration.Seconds()
 	strength := WaveStrength(c.Power(), is.Radius, age, night) * factor
-	defense := c.Defense() + s.relief(is.ID) // help from neighbours counts too
+	defense := c.defenseAgainst(sp) + s.relief(is.ID) // help from neighbours counts too
 	if c.CoreHealth < ruinThreshold {
 		defense *= ruinFactor
 	}
 	foes := 1 // the colossus comes alone
 	if foe == WaveFoe {
-		foes = min(max(3+int(strength/4), 3), 10)
+		foes = swarmSize(sp, strength)
 	}
-	c.LastBattle = Battle{Tick: s.Tick, By: foe, Foes: foes, Repelled: defense >= strength}
+	c.LastBattle = Battle{Tick: s.Tick, By: foe, Foes: foes, Repelled: defense >= strength, Species: sp}
 	m := c.Mods()
 	// Defenders fall in proportion to the strength they faced.
 	lost := math.Min(c.Defenders, strength*0.03/(1+m.DefenderStrength))
@@ -231,7 +234,8 @@ func (s *Sky) attack(is *Island, factor float64, night bool, by string, foe Foe)
 		c.chronicleAs(VictoryNews, s.Tick, "%s", strings.TrimSpace("Ton peuple a repoussé "+by+". "+losses(lost)))
 		return
 	}
-	harm := (strength - defense) / strength * 0.35 / (1 + m.CoreArmor)
+	share, ravaged := c.ravage(sp)
+	harm := (strength - defense) / strength * 0.35 / (1 + m.CoreArmor) * share
 	c.CoreHealth -= harm
 	for r := range c.Stock {
 		c.Stock[r] *= 1 - 0.15*harm/0.35
@@ -243,8 +247,15 @@ func (s *Sky) attack(is *Island, factor float64, night bool, by string, foe Foe)
 		c.chronicleAs(FallNews, s.Tick, "Le cœur s'est brisé sous les coups %s. L'île sombre dans le tourbillon.", of(by))
 		return
 	}
-	c.chronicleAs(WaveNews, s.Tick, "%s", strings.TrimSpace(fmt.Sprintf("%s a frappé le cœur (%d %% de vigueur restante). %s",
-		capitalize(by), int(math.Round(c.CoreHealth*100)), losses(lost))))
+	struck := "a frappé"
+	if sp != Monsters && foe == WaveFoe {
+		struck = "ont frappé" // un essaim aside, they are many
+		if sp == Swarm {
+			struck = "a frappé"
+		}
+	}
+	c.chronicleAs(WaveNews, s.Tick, "%s", strings.TrimSpace(fmt.Sprintf("%s %s le cœur (%d %% de vigueur restante). %s %s",
+		capitalize(by), struck, int(math.Round(c.CoreHealth*100)), ravaged, losses(lost))))
 }
 
 func losses(n float64) string {

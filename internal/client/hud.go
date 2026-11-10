@@ -170,9 +170,9 @@ func (g *Game) drawTopBar(p painter, st *proto.State) {
 	x := block(p.px(hudMargin), panelFill, panelEdge, parts...)
 	if o := st.Own; o != nil && o.WaveInMs >= 0 {
 		if o.WaveInMs < 60_000 {
-			x = block(x, alertFill, alertColor, label("Une vague dans", alertText, body), label(clock(o.WaveInMs), textColor, bold))
+			x = block(x, alertFill, alertColor, label(o.WaveSpecies.Short()+" dans", alertText, body), label(clock(o.WaveInMs), textColor, bold))
 		} else {
-			x = block(x, panelFill, panelEdge, label("Une vague dans", dimColor, body), label(clock(o.WaveInMs), textColor, body))
+			x = block(x, panelFill, panelEdge, label(o.WaveSpecies.Short()+" dans", dimColor, body), label(clock(o.WaveInMs), textColor, body))
 		}
 	}
 	if st.BossInMs >= 0 {

@@ -542,6 +542,14 @@ func NewGame(src *Source, seed uint64) *Game {
 			m = art.Creature(seed+99, 4.5)
 		case raiderArt:
 			m = art.Person(seed+7, art.Blood)
+		case swarmArt:
+			m = art.Creature(seed+11, 1.1)
+		case devourerArt:
+			m = art.CreatureOf(seed+13, 2, art.Foliage)
+		case breakerArt:
+			m = art.CreatureOf(seed+17, 2.8, art.Blood)
+		case shadeArt:
+			m = art.CreatureOf(seed+19, 2.2, art.Shade)
 		default:
 			m = art.Creature(seed+uint64(i), 2)
 		}
@@ -1370,8 +1378,8 @@ func (g *Game) startBattle(st *proto.State, bt sim.Battle) {
 
 // ShowBattle plays out an attack on the player's island, as if it had just
 // happened: for screenshots and for trying the scene.
-func (g *Game) ShowBattle(by sim.Foe, foes int, repelled bool) {
-	g.rehearse = &sim.Battle{By: by, Foes: foes, Repelled: repelled}
+func (g *Game) ShowBattle(by sim.Foe, sp sim.Species, foes int, repelled bool) {
+	g.rehearse = &sim.Battle{By: by, Species: sp, Foes: foes, Repelled: repelled}
 	g.lastTick = 0 // hear the current state again
 }
 

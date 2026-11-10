@@ -335,12 +335,18 @@ func Swarm(seed uint64) Mesh {
 // Creature is one monster of a wave, fought on the island: a dark shard
 // floating above the ground. The colossus is the same, larger.
 func Creature(seed uint64, scale float64) Mesh {
+	return CreatureOf(seed, scale, Monster)
+}
+
+// CreatureOf is a creature of the whirlpool in a material: each species
+// of the bestiary has its colour (GDD 11.6).
+func CreatureOf(seed uint64, scale float64, mat Material) Mesh {
 	r := Rng(seed)
 	var m Mesh
 	c := V(0, 0, 4*scale)
 	rim := ring(r, 4, between(r, 1.6, 2.2)*scale, 0.25, c.Z, r.Float64()*math.Pi)
-	fan(&m, Monster, rim, c.Add(V(0, 0, between(r, 2.6, 3.4)*scale)))
-	fan(&m, Monster, rim, c.Add(V(0, 0, -between(r, 2, 2.8)*scale)))
+	fan(&m, mat, rim, c.Add(V(0, 0, between(r, 2.6, 3.4)*scale)))
+	fan(&m, mat, rim, c.Add(V(0, 0, -between(r, 2, 2.8)*scale)))
 	m.OrientOutward(c)
 	return m
 }

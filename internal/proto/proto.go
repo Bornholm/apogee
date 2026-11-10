@@ -125,7 +125,9 @@ type State struct {
 	// sky sees it coming (GDD pilier 2).
 	WaveTarget IslandID `json:"waveTarget"`
 	WaveInMs   int64    `json:"waveInMs"`
-	Annals     []Annal  `json:"annals,omitempty"`
+	// WaveSpecies is what the next wave brings (GDD 11.6).
+	WaveSpecies sim.Species `json:"waveSpecies,omitempty"`
+	Annals      []Annal     `json:"annals,omitempty"`
 }
 
 // IslandID is re-exported for the clients.
@@ -220,6 +222,8 @@ type Own struct {
 	// WaveInMs is the time before the next wave, when it aims at this island
 	// (GDD 8.2), or -1.
 	WaveInMs int64 `json:"waveInMs"`
+	// WaveSpecies is what that wave brings.
+	WaveSpecies sim.Species `json:"waveSpecies,omitempty"`
 	// Starving is set during a famine.
 	Starving bool `json:"starving,omitempty"`
 	// Battle is the last attack the island suffered, for the client to
@@ -303,7 +307,7 @@ func Detail(sky *sim.Sky, is *sim.Island) *Own {
 	start := max(0, len(c.Chronicle)-chronicleLines)
 	o.Chronicle = append([]sim.Entry(nil), c.Chronicle[start:]...)
 	if w := sky.Wave; w != nil && w.Target == is.ID {
-		o.WaveInMs = int64(w.In * 1000)
+		o.WaveInMs, o.WaveSpecies = int64(w.In*1000), w.Species
 	}
 	return o
 }

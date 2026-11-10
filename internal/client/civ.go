@@ -300,7 +300,10 @@ func (g *Game) civLines(p painter, st *proto.State, o *proto.Own, x0, w int) []b
 	// The threats.
 	var threats []string
 	if o.WaveInMs >= 0 {
-		threats = append(threats, "Une vague dans "+clock(o.WaveInMs)+".")
+		threats = append(threats, o.WaveSpecies.Short()+" dans "+clock(o.WaveInMs)+".")
+		if hint := o.WaveSpecies.Hint(); hint != "" {
+			threats = append(threats, p.wrap(hint, w)...)
+		}
 	}
 	if st.BossInMs >= 0 {
 		threats = append(threats, "Le colosse dans "+clock(st.BossInMs)+".")

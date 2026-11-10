@@ -63,7 +63,7 @@ func main() {
 	quit := flag.Duration("quit", 0, "quit after this duration")
 	width := flag.Int("width", 1280, "initial window width")
 	height := flag.Int("height", 800, "initial window height")
-	battleFlag := flag.String("battle", "", "play out an attack on your island at start: wave, colossus or raid, with ,lost when the island does not hold")
+	battleFlag := flag.String("battle", "", "play out an attack on your island at start: wave, swarm, devourers, breakers, shades, colossus or raid, with ,lost when the island does not hold")
 	signFlag := flag.String("sign", "", "show a sign on your island, for screenshots: finished, grown, discovery, whisper, birth, cradle, funeral, feast, wave, wound, decline, supplique or fall")
 	weatherFlag := flag.String("weather", "", "force the weather, for screenshots: clear, rain, wind or fog")
 	phaseFlag := flag.String("phase", "", "force the time of day, for screenshots: dawn, day, dusk or night")
@@ -156,8 +156,13 @@ func main() {
 		g.ForceWeather = *weatherFlag
 		if *battleFlag != "" {
 			by, lost, _ := strings.Cut(*battleFlag, ",")
-			foe := map[string]sim.Foe{"wave": sim.WaveFoe, "colossus": sim.ColossusFoe, "raid": sim.RaiderFoe}[by]
-			g.ShowBattle(foe, 6, lost != "lost")
+			foe := map[string]sim.Foe{"colossus": sim.ColossusFoe, "raid": sim.RaiderFoe}[by]
+			species := map[string]sim.Species{"swarm": sim.Swarm, "devourers": sim.Devourers, "breakers": sim.Breakers, "shades": sim.Shades}[by]
+			foes := 6
+			if species == sim.Swarm {
+				foes = 12
+			}
+			g.ShowBattle(foe, species, foes, lost != "lost")
 		}
 		g.NotifyKinds = notifyKinds(*notifyFlag)
 		g.Notify = func(text string) { notifier.Send("Apogée", text) }

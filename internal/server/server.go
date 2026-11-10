@@ -405,7 +405,7 @@ func (s *Server) baseLocked() proto.State {
 	}
 	st.WaveInMs = -1
 	if w := s.sky.Wave; w != nil {
-		st.WaveTarget, st.WaveInMs = w.Target, int64(w.In*1000)
+		st.WaveTarget, st.WaveInMs, st.WaveSpecies = w.Target, int64(w.In*1000), w.Species
 	}
 	return st
 }

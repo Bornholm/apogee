@@ -90,8 +90,10 @@ const (
 type Battle struct {
 	Tick     uint64 `json:",omitempty"`
 	By       Foe    `json:",omitempty"`
-	Foes     int    `json:",omitempty"` // assailants to show, 1 to 10
+	Foes     int    `json:",omitempty"` // assailants to show, 1 to 16
 	Repelled bool   `json:",omitempty"`
+	// Species is the kind of monsters of a wave (bestiary.go).
+	Species Species `json:",omitempty"`
 }
 
 // Civ is the civilisation living on an island: its people, economy and
