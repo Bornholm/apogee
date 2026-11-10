@@ -29,9 +29,10 @@ var waterColours = []color.RGBA{{0xc8, 0xf0, 0xff, 0xff}, {0x8c, 0xd2, 0xf4, 0xf
 type scenery struct {
 	id       proto.IslandID
 	size     float64
-	falls    []geo.Vec2 // springs on the front shore
+	falls    []geo.Vec2 // where the streams fall over the cliff
 	front    []geo.Vec2 // the shore seen from the camera, where stones fall
 	exposure float64    // 0 at the rim, 1 at the whirlpool
+	rivers   [][]geo.Vec2
 	r        *rand.Rand
 }
 
@@ -50,14 +51,10 @@ func (s *scenery) keep(sum proto.IslandSummary) {
 			s.front = append(s.front, p.Scale(sum.Size))
 		}
 	}
-	// One or two springs, never side by side.
-	if len(s.front) == 0 {
-		return
-	}
-	n := 1 + int(sum.Seed%2)
-	for i := range n {
-		k := (int(sum.Seed>>3) + i*len(s.front)/2) % len(s.front)
-		s.falls = append(s.falls, s.front[k])
+	// The streams fall where they reach the shore.
+	s.rivers = geo.Rivers(sum.Seed, sum.Size)
+	for _, path := range s.rivers {
+		s.falls = append(s.falls, path[len(path)-1])
 	}
 }
 
@@ -79,6 +76,19 @@ func (s *scenery) step(dt float64, dust *particles) {
 				vx: out.X*v + (r.Float64()*2-1)*0.2, vy: out.Y * v, vz: 0.5,
 				life: 2.2 + r.Float64()*0.8, col: pick(r, waterColours), heavy: true, deep: true})
 		}
+	}
+	// Glints drift down the streams with the current.
+	for _, path := range s.rivers {
+		if len(path) < 2 || r.Float64() > 6*dt {
+			continue
+		}
+		i := 1 + r.IntN(len(path)-1)
+		a, b := path[i-1], path[i]
+		t := r.Float64()
+		dx, dy := b.X-a.X, b.Y-a.Y
+		l := math.Max(math.Hypot(dx, dy), 0.01)
+		dust.add(particle{x: a.X + dx*t, y: a.Y + dy*t, z: 0.05, vx: dx / l * 2.5, vy: dy / l * 2.5,
+			life: 0.5 + r.Float64()*0.5, col: waterColours[3]})
 	}
 	// Stones come loose under the island: seldom at the rim, often near
 	// the whirlpool.

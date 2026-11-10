@@ -2,9 +2,12 @@ package sim
 
 import (
 	"math"
+	"math/rand/v2"
 	"reflect"
 	"testing"
 	"time"
+
+	"apogee/internal/geo"
 )
 
 func TestDayCycle(t *testing.T) {
@@ -60,6 +63,29 @@ func TestStepIsDeterministic(t *testing.T) {
 	for k := range a.Islands {
 		if !reflect.DeepEqual(a.Islands[k], b.Islands[k]) {
 			t.Fatalf("island %d differs: %+v vs %+v", k, a.Islands[k], b.Islands[k])
+		}
+	}
+}
+
+func TestNothingIsBuiltOnTheStreams(t *testing.T) {
+	for seed := uint64(1); seed <= 6; seed++ {
+		c := NewCiv(seed)
+		rivers := geo.Rivers(seed, c.Size)
+		for _, f := range c.Features {
+			if d := geo.RiverDistance(rivers, geo.Vec2{X: f.X, Y: f.Y}); d < f.Radius {
+				t.Fatalf("seed %d: a natural site on a stream (%.1f)", seed, d)
+			}
+		}
+		r := rand.New(rand.NewPCG(seed, 1))
+		for range 20 {
+			p, ok := c.place(House, r)
+			if !ok {
+				break
+			}
+			if d := geo.RiverDistance(rivers, p); d < Specs[House].Radius {
+				t.Fatalf("seed %d: a house on a stream (%.1f)", seed, d)
+			}
+			c.Buildings = append(c.Buildings, Building{ID: uint32(len(c.Buildings) + 10), Kind: House, X: p.X, Y: p.Y, Progress: 1})
 		}
 	}
 }

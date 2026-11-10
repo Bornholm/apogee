@@ -38,7 +38,7 @@ func TestStonesFallMoreNearTheWhirlpool(t *testing.T) {
 	count := func(radius float64) int {
 		var s scenery
 		s.keep(proto.IslandSummary{ID: 1, Seed: 6, Size: 40, Radius: radius})
-		s.falls = nil // the stones only
+		s.falls, s.rivers = nil, nil // the stones only
 		var p particles
 		n := 0
 		for range 60 * 60 {

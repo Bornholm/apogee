@@ -69,3 +69,90 @@ func EdgeDistance(poly []Vec2, k float64, p Vec2) float64 {
 	r := (poly[i].Len()*(1-t) + poly[(i+1)%n].Len()*t) * k
 	return r - p.Len()
 }
+
+// RiverWidth is how wide a stream is at its mouth, in island units; it
+// narrows to its spring.
+const RiverWidth = 3.6
+
+// Rivers returns the streams of an island of a size: each a path from its
+// spring inland to its mouth on the shore, where it falls over the cliff.
+// The streams run towards the viewer, so that their falls show. Their
+// course is fixed in island units: when the island grows, they only reach
+// further to the new shore, and never run under what was built.
+func Rivers(seed uint64, size float64) [][]Vec2 {
+	outline := Outline(seed)
+	var front []int
+	for i, p := range outline {
+		if p.Y > 0.35 {
+			front = append(front, i)
+		}
+	}
+	if len(front) == 0 {
+		return nil
+	}
+	r := rand.New(rand.NewPCG(seed, 0x71fe2))
+	n := 1 + int(seed%2)
+	out := make([][]Vec2, 0, n)
+	for i := range n {
+		k := front[(int(seed>>3)+i*len(front)/2)%len(front)]
+		a := math.Atan2(outline[k].Y, outline[k].X)
+		phase, sway := r.Float64()*6, 1.5+r.Float64()*1.5
+		var path []Vec2
+		for d := 13.0; d < 1000; d += riverStep {
+			lat := sway * math.Sin(d*0.28+phase)
+			p := Vec2{d*math.Cos(a) - lat*math.Sin(a), d*math.Sin(a) + lat*math.Cos(a)}
+			if e := EdgeDistance(outline, size, p); e < 1 {
+				// The mouth, on the shore along the same ray.
+				path = append(path, p.Scale((p.Len()+e)/p.Len()))
+				break
+			}
+			path = append(path, p)
+		}
+		out = append(out, path)
+	}
+	return out
+}
+
+// SpringRadius is the size of the pool a stream springs from.
+const SpringRadius = 2.2
+
+// RiverDistance returns how far p is from the nearest stream's bank, or its
+// spring's: zero or less on the water.
+func RiverDistance(rivers [][]Vec2, p Vec2) float64 {
+	best := math.Inf(1)
+	for _, path := range rivers {
+		if len(path) > 0 {
+			best = math.Min(best, p.Dist(path[0])-SpringRadius)
+		}
+		for i := 1; i < len(path); i++ {
+			d, t := segment(path[i-1], path[i], p)
+			w := RiverHalfWidth(path, i-1, t)
+			best = math.Min(best, d-w)
+		}
+	}
+	return best
+}
+
+// RiverHalfWidth is the half width of a stream along its path, at segment i
+// and fraction t of it: narrow at the spring, wider downstream. It depends
+// on the distance from the spring only, so that it stays put as the island
+// grows.
+func RiverHalfWidth(path []Vec2, i int, t float64) float64 {
+	k := math.Min((float64(i)+t)*riverStep/20, 1)
+	return RiverWidth / 2 * (0.5 + 0.5*k)
+}
+
+// riverStep is the length of a segment of a stream's path.
+const riverStep = 2.0
+
+// segment returns the distance from p to the segment ab, and where along it
+// the nearest point lies, from 0 to 1.
+func segment(a, b, p Vec2) (float64, float64) {
+	dx, dy := b.X-a.X, b.Y-a.Y
+	l := dx*dx + dy*dy
+	t := 0.0
+	if l > 0 {
+		t = math.Min(math.Max(((p.X-a.X)*dx+(p.Y-a.Y)*dy)/l, 0), 1)
+	}
+	return p.Dist(Vec2{a.X + t*dx, a.Y + t*dy}), t
+}

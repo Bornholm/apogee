@@ -175,18 +175,22 @@ func (c *Civ) foodBalance() float64 {
 	return in*dayAverage - c.Population*foodPerPerson - (c.Defenders+c.Assailants)*foodPerSoldier
 }
 
+// riverMargin keeps footprints this far from the banks of the streams.
+const riverMargin = 1.0
+
 // place picks a free spot for a building of kind k: inside the island, off
 // the cliffs, without overlapping anything, and where the kind prefers to be
 // (GDD 3.5).
 func (c *Civ) place(k Kind, r *rand.Rand) (geo.Vec2, bool) {
 	outline := geo.Outline(c.Seed)
+	rivers := geo.Rivers(c.Seed, c.Size)
 	s := Specs[k]
 	best, bestScore, found := geo.Vec2{}, math.Inf(-1), false
 	for range placementTries {
 		a := r.Float64() * 2 * math.Pi
 		d := c.Size * 0.9 * math.Sqrt(r.Float64())
 		p := geo.Vec2{X: d * math.Cos(a), Y: d * math.Sin(a)}
-		if !c.free(outline, p, s.Radius) {
+		if !c.free(outline, p, s.Radius) || geo.RiverDistance(rivers, p) < s.Radius+riverMargin {
 			continue
 		}
 		if sc := c.preference(k, p); sc > bestScore {

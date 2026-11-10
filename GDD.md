@@ -150,6 +150,7 @@ Le joueur choisit entre **croître vite et mourir jeune**, ou **rester modeste e
 | Génération | Procédurale, déterminée par une **graine** unique par civilisation (une nouvelle à chaque renaissance, 11.5) |
 | Contenu initial | 1 cœur central, 3 ouvriers, 2 sites de ressources |
 | Expansion | Le contour **s'agrandit** quand le peuple s'étend (intention S'étendre, 6.3) |
+| Cours d'eau | Un ou deux ruisseaux, tirés de la graine, naissent d'une mare à l'intérieur des terres et serpentent jusqu'au rivage visible, d'où ils tombent en cascade. Leur tracé est fixé en unités de l'île : quand elle s'agrandit, ils s'allongent jusqu'au nouveau rivage sans bouger ailleurs. La géométrie est partagée entre simulation et rendu |
 
 ## 3.3 Le cœur
 
@@ -174,7 +175,7 @@ Les trois niveaux sont des **niveaux de détail** progressifs dans une même sc�
 | Règle | Détail |
 |---|---|
 | **Emprise** | Chaque bâtiment occupe une forme simple (cercle ou petit polygone convexe) |
-| **Validité** | Un emplacement est valide s'il est sur l'île et ne chevauche aucune emprise, avec une **marge minimale** 🔧 |
+| **Validité** | Un emplacement est valide s'il est sur l'île et ne chevauche aucune emprise ni aucun cours d'eau, avec une **marge minimale** 🔧. Les sites naturels évitent aussi les cours d'eau |
 | **Autorité** | Le serveur valide chaque placement (voir 10.3) |
 | **Portées et voisinage** | Bonus de proximité et portées de défense se mesurent en **rayon**, pas en cases |
 | **Remparts** | Tracés comme une **ligne brisée** entre des points, avec une tour générée à chaque angle |
@@ -822,7 +823,7 @@ Tout le son est **synthétisé par le jeu**, à la manière des consoles 8 bits 
 | **Atmosphère** | Une vague annoncée amasse des nuées violettes au-dessus de l'île, plus nombreuses à mesure qu'elle approche, et les défenseurs se regroupent au cœur. Un cœur blessé fume. Une découverte fait jaillir une colonne de lumière d'Aether de la bibliothèque. Une île qui s'agrandit soulève de la poussière sur tout son rivage. Une île en déclin pâlit et s'effrite par ses falaises. Une île qui chute tremble, s'enfonce et s'efface |
 | **Vie entre deux tâches** | Un villageois reposé ne retourne pas toujours au travail (60 %, 75 % s'il y a un chantier) : il peut rejoindre un voisin pour bavarder à mi-chemin de leurs maisons (ils parlent à tour de rôle), s'asseoir devant sa porte, ou marcher jusqu'au rivage regarder le ciel. Un villageois sur cinq est un enfant : il ne travaille pas, court autour de sa maison et poursuit les autres enfants, et dort la nuit. Dès que l'île compte deux maisons, un chien suit un villageois et furète autour de lui quand il s'arrête |
 | **Faune et fumées** | Une fumée grise monte des toits des maisons et des cabanes et dérive vers l'est. Deux moutons paissent au bord de chaque champ, en le contournant. Une volée d'oiseaux tourne haut au-dessus de l'île le jour ; elle s'éloigne à la tombée de la nuit, à l'approche d'une vague et pendant un combat, et revient quand le ciel s'apaise |
-| **Une île qui flotte** | L'île monte et redescend d'un pixel en une dizaine de secondes. Une ou deux sources, sur le rivage visible, déversent un filet d'eau par-dessus la falaise, dans le vide. Des pierres se détachent du dessous de l'île : rarement au bord du ciel, souvent près du tourbillon, si bien qu'on voit la descente sans la lire |
+| **Une île qui flotte** | L'île monte et redescend d'un pixel en une dizaine de secondes. Les cours d'eau de l'île (3.2) se jettent par-dessus la falaise en cascades, dans le vide, et des reflets descendent leur courant. Des pierres se détachent du dessous de l'île : rarement au bord du ciel, souvent près du tourbillon, si bien qu'on voit la descente sans la lire |
 | **Naissances et deuils** | La simulation compte les âmes nées et perdues (famine, combats, raids) et les transmet au client. Une naissance fait monter des étincelles roses au-dessus d'une maison, et quelques voisins viennent fêter devant sa porte. Une mort mène une procession lente jusqu'au cimetière, placé à l'écart des bâtiments vers le rivage : une stèle s'y dresse, une brume pâle s'en élève, et les villageois prient autour. Les stèles s'accumulent au fil de la civilisation (les douze dernières sont visibles) ; une île nouvelle n'en a aucune |
 | **Lumières de la nuit** | Dans la seconde moitié du crépuscule, l'île s'allume : les fenêtres des maisons, des casernes, des cabanes et de la bibliothèque, un brasero qui vacille en haut de chaque tour, la lueur d'Aether du cœur, des extracteurs et du dôme de la bibliothèque, et les lanternes des villageois et des gardes encore dehors. Au cœur de la nuit, quelques fenêtres s'éteignent et d'autres s'allument. Les lumières échappent à la teinte nocturne et s'ajoutent à la scène, en halos de pixels concentriques |
 | **Le peuple vit sans témoin** | Les villageois du joueur poursuivent leur journée en vue du ciel ou pendant qu'il observe une autre île |

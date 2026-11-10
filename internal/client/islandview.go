@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"apogee/internal/art"
+	"apogee/internal/geo"
 	"apogee/internal/proto"
 	"apogee/internal/sim"
 )
@@ -67,6 +68,7 @@ func signature(sum proto.IslandSummary, own *proto.Own) uint64 {
 func islandScene(cam art.Camera, sum proto.IslandSummary, own *proto.Own) art.IslandScene {
 	mesh, _ := art.Island(sum.Seed, sum.Size)
 	sc := art.IslandScene{Island: cam.Render(mesh)}
+	art.PaintRivers(cam, sc.Island, geo.Rivers(sum.Seed, sum.Size))
 	add := func(m art.Mesh, x, y float64) {
 		sc.Objects = append(sc.Objects, art.Placed{Sprite: cam.Render(m), Pos: art.V(x, y, 0)})
 	}

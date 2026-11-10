@@ -182,13 +182,14 @@ func NewCiv(seed uint64) Civ {
 func features(seed uint64) []Feature {
 	r := rand.New(rand.NewPCG(seed, 0x2545f4914f6cdd1d))
 	outline := geo.Outline(seed)
+	rivers := geo.Rivers(seed, startSize)
 	var fs []Feature
 	add := func(kind FeatureKind, n int, radius, lo, hi float64) {
 		for tries := 0; n > 0 && tries < 200; tries++ {
 			a := r.Float64() * 2 * math.Pi
 			d := startSize * (lo + r.Float64()*(hi-lo))
 			p := geo.Vec2{X: d * math.Cos(a), Y: d * math.Sin(a)}
-			if geo.EdgeDistance(outline, startSize, p) < radius+1 {
+			if geo.EdgeDistance(outline, startSize, p) < radius+1 || geo.RiverDistance(rivers, p) < radius+riverMargin {
 				continue
 			}
 			ok := p.Len() > Specs[Core].Radius+radius+2
