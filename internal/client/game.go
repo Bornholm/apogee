@@ -108,7 +108,7 @@ type Game struct {
 	foeArt    [foeArts]sprite
 	dust      particles
 	pixel     *ebiten.Image // one white pixel, tinted to draw particles
-	walkerArt [3]sprite // villager, defender, child
+	walkerArt [3]sprite     // villager, defender, child
 	dogArt    sprite
 	animTick  int
 	// atTinted draws an image in world coordinates with a colour, during a
