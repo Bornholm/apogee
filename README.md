@@ -6,48 +6,62 @@
 
 <p align="center"><em>Souffle tes intentions à ton peuple. Porte-le au plus haut, avant sa chute.</em></p>
 
-Apogée est un jeu de stratégie passive, pensé pour un second écran. Tu es un dieu distant : tu ne commandes pas ton peuple, tu lui souffles des intentions (prospérer, se fortifier, s'armer, étudier, s'étendre), et il décide lui-même comment les réaliser. Ton île flotte avec celles des autres joueurs autour d'un portail d'où surgissent des monstres. Avec l'âge et la puissance, elle descend vers lui, jusqu'à sa chute, puis ton peuple renaît.
+Apogée est un jeu de stratégie passive, fait pour tourner sur un second écran pendant qu'on travaille.
 
-Le ciel vit en continu sur un serveur, même quand le jeu est fermé. Tout le rendu (pixel art à facettes) et le son (chiptune) sont générés par le code.
+Tu joues un dieu distant. Tu ne donnes aucun ordre. Tu répartis ton attention entre cinq intentions (prospérer, se fortifier, s'armer, étudier, s'étendre) et ton peuple choisit seul quoi bâtir et où. Ton île flotte avec celles des autres joueurs autour d'un portail. Des vagues de monstres en sortent. Plus ton île vieillit et gagne en puissance, plus elle descend vers ce portail, et elle finit toujours par y tomber. Ton peuple renaît alors sur une île neuve.
+
+Une civilisation vit une semaine de temps réel au plus. Le serveur fait tourner le ciel en continu, jeu fermé ou non. Le jeu n'embarque aucune image ni aucun son. Il dessine ses îles en pixel art et compose sa musique 8 bits au lancement.
 
 ## Installer
 
-Les [releases](https://github.com/Bornholm/apogee/releases) fournissent, pour Linux amd64 et arm64 :
+Chaque [release](https://github.com/Bornholm/apogee/releases) contient, pour Linux amd64 et arm64, des paquets Arch et des archives `.tar.gz`.
 
-- des paquets Arch Linux : `sudo pacman -U apogee-*.pkg.tar.zst`, plus `apogee-server-*.pkg.tar.zst` pour un serveur dédié ;
-- des archives `.tar.gz`, avec un `INSTALL.md` pour les autres distributions.
+Sur Arch Linux :
+
+```sh
+sudo pacman -U apogee-*.pkg.tar.zst
+```
+
+Le paquet `apogee-server-*.pkg.tar.zst` ajoute un serveur dédié. Sur les autres distributions, chaque archive contient un `INSTALL.md`.
 
 ## Jouer
 
-Lance `apogee`. L'écran d'accueil propose :
+Lance `apogee`. L'écran d'accueil permet de jouer seul contre des dieux rivaux pilotés par l'ordinateur, d'héberger un ciel que tes collègues rejoignent sur le réseau local, ou de rejoindre un ciel existant. Un tutoriel ouvre la première partie.
 
-- une partie solo, avec des dieux rivaux joués par l'ordinateur ;
-- d'héberger un ciel sur le réseau local, que tes collègues rejoignent ;
-- de rejoindre un ciel trouvé sur le réseau, ou par son adresse.
+| Touche | Effet |
+|---|---|
+| Molette, + et − | Zoom |
+| Flèches | Faire défiler la vue |
+| C | Culture et savoir |
+| A | Annales des civilisations tombées |
+| H | Tutoriel |
+| M | Couper le son |
 
-Un tutoriel accompagne la première partie. En jeu : la molette zoome, les flèches font défiler la vue, **C** ouvre la culture et le savoir, **A** les Annales, **H** le tutoriel, **M** coupe le son.
-
-Pour un ciel permanent, le paquet `apogee-server` installe un service systemd :
+Pour un ciel qui tourne en permanence sur une machine du bureau, installe `apogee-server` puis active son service :
 
 ```sh
 sudo systemctl enable --now apogee-server
 ```
 
-Son nom et ses options se règlent dans `/etc/apogee/server.env`.
+Le nom du ciel et ses options se règlent dans `/etc/apogee/server.env`.
 
 ## Développer
 
-Il faut Go 1.27. Le `Makefile` réunit les commandes courantes, et `make` les liste :
+Il faut Go 1.27. `make` liste les commandes du `Makefile`. Les plus utiles :
 
 ```sh
 make run      # lance le jeu
 make check    # vet, formatage et tests
-make fast     # une partie accélérée, pour voir une île grandir
+make fast     # une partie à ×60, pour voir une île se bâtir
 make server   # un ciel dédié sur le réseau local
-make balance  # le banc d'équilibrage automatisé
+make balance  # compare les stratégies sur des ciels simulés
 make build    # le client et le serveur dans bin/
 ```
 
-Une release se publie en poussant un tag `v*` : GitHub Actions lance GoReleaser (`.goreleaser.yaml`).
+Pousser un tag `v*` publie une release. GitHub Actions lance alors GoReleaser avec `.goreleaser.yaml`.
 
-Le [document de conception](GDD.md) décrit le jeu en détail, les choix faits et l'état d'avancement.
+Le [document de conception](GDD.md) détaille les règles, les décisions prises et l'avancement.
+
+## Licence
+
+Apogée est distribué sous [licence AGPL](LICENSE), version 3 ou ultérieure (AGPL-3.0-or-later). Si tu fais tourner une version modifiée du serveur pour d'autres joueurs, tu dois leur donner accès à son code source.
