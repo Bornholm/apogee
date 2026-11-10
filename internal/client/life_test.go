@@ -1,7 +1,10 @@
 package client
 
 import (
+	"math/rand/v2"
 	"testing"
+
+	"apogee/internal/art"
 
 	"apogee/internal/geo"
 	"apogee/internal/proto"
@@ -89,5 +92,38 @@ func TestUnknownKindsFromTheWireAreIgnored(t *testing.T) {
 	l.sync(proto.IslandSummary{ID: 1, Seed: 3, Size: 50}, own, 1)
 	for range 600 {
 		l.step(1.0/60, false)
+	}
+}
+
+func TestIslandSceneIgnoresUnknownKinds(t *testing.T) {
+	own := &proto.Own{Buildings: []sim.Building{
+		{ID: 1, Kind: sim.Core, Progress: 1}, {ID: 2, Kind: 99, Progress: 0.5}, {ID: 3, Kind: -4, Progress: 0.2},
+	}}
+	sc := islandScene(art.DefaultCamera, proto.IslandSummary{ID: 1, Seed: 3, Size: 50}, own)
+	if len(sc.Objects) != 1 {
+		t.Fatalf("%d objects, want only the core", len(sc.Objects))
+	}
+}
+
+func TestRoutesNeverLeaveTheIsland(t *testing.T) {
+	for seed := uint64(1); seed <= 30; seed++ {
+		var l life
+		l.shore = shore{geo.Outline(seed), 50}
+		r := rand.New(rand.NewPCG(seed, 1))
+		for range 200 {
+			a := l.shore.inside(geo.Vec2{X: (r.Float64()*2 - 1) * 50, Y: (r.Float64()*2 - 1) * 50})
+			b := l.shore.inside(geo.Vec2{X: (r.Float64()*2 - 1) * 50, Y: (r.Float64()*2 - 1) * 50})
+			w := walker{x: a.X, y: a.Y}
+			l.route(&w, b)
+			legs := [][2]geo.Vec2{{a, {X: w.tx, Y: w.ty}}}
+			if w.via {
+				legs = append(legs, [2]geo.Vec2{{X: w.tx, Y: w.ty}, b})
+			}
+			for _, leg := range legs {
+				if !l.clear(leg[0], leg[1]) {
+					t.Fatalf("seed %d: a leg from %v to %v crosses the cliff", seed, leg[0], leg[1])
+				}
+			}
+		}
 	}
 }

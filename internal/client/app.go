@@ -441,8 +441,20 @@ func (a *App) drawJoin(p painter, r image.Rectangle, k int) {
 	a.mu.Lock()
 	servers, browsing := append([]discovery.Server(nil), a.servers...), a.browsing
 	a.mu.Unlock()
+	// Only as many skies as the window holds: the address field and the
+	// buttons below must stay reachable.
+	fixed := 3*p.line() + 3*(bh+gap) + bh + 30*k
+	room := max(1, (a.outH-r.Min.Y-fixed-2*p.line())/(bh+gap))
+	hidden := 0
+	if len(servers) > room {
+		hidden = len(servers) - (room - 1)
+		servers = servers[:room-1]
+	}
 	rows := max(1, len(servers))
-	r.Max.Y = r.Min.Y + 3*p.line() + rows*(bh+gap) + 3*(bh+gap) + bh + 30*k
+	if hidden > 0 {
+		rows++
+	}
+	r.Max.Y = r.Min.Y + fixed + rows*(bh+gap)
 	in := p.panel(r)
 	p.text("Ciels découverts sur le réseau", in.Min.X, in.Min.Y, goldColor)
 	y := in.Min.Y + p.line() + gap/2
@@ -459,6 +471,10 @@ func (a *App) drawJoin(p painter, r image.Rectangle, k int) {
 		p.button(image.Rect(in.Min.X, y, in.Max.X, y+bh), s.Name, func() {
 			a.launch(func() launchResult { return a.join(addr) })
 		})
+		y += bh + gap
+	}
+	if hidden > 0 {
+		p.text(fmt.Sprintf("… et %d autres ciels : agrandis la fenêtre pour les voir.", hidden), in.Min.X, y, dimColor)
 		y += bh + gap
 	}
 	var refresh func()

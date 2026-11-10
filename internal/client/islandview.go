@@ -9,6 +9,10 @@ import (
 	"apogee/internal/sim"
 )
 
+// validKind reports whether a building kind received from the wire is one
+// the client knows, so that it can index the specs with it.
+func validKind(k sim.Kind) bool { return k >= 0 && k < sim.NumKinds }
+
 // meshFor returns the mesh of a finished building of a kind.
 func meshFor(k sim.Kind, seed uint64) art.Mesh {
 	switch k {
@@ -85,6 +89,9 @@ func islandScene(cam art.Camera, sum proto.IslandSummary, own *proto.Own) art.Is
 		}
 	}
 	for _, b := range own.Buildings {
+		if !validKind(b.Kind) {
+			continue // from the wire: never index with an unknown kind
+		}
 		seed := sum.Seed*977 + uint64(b.ID)
 		if b.Progress < 1 {
 			add(art.Scaffold(sim.Specs[b.Kind].Radius, b.Progress), b.X, b.Y)

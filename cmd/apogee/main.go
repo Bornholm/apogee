@@ -68,14 +68,22 @@ func main() {
 	app := client.NewApp(client.AppOptions{Seed: *seed, Rivals: *rivals, Speed: *speed})
 	defer app.Close() // the embedded sky is saved before the process ends
 
+	// A screenshot of the game needs a game: options about the view launch
+	// the solo game when nothing else is asked; then only the game's frames
+	// count. Without them, the screenshot shows the home screen.
+	launched := *fresh || *solo || *host || *connect != "" || *discover
+	viewed := *onWave || *onPhase != "" || *zoom > 0 || *observe > 0 || *culture || *annals || *selectID > 0 || *tutoStep > 0
+	if viewed && !launched {
+		*solo, launched = true, true
+	}
 	n := 0
 	onFrame := func(screen *ebiten.Image) {
-		n++
 		g := app.Game()
-		ready := n >= *frames && time.Since(start) >= *after && done == nil
-		if *onWave || *onPhase != "" || *zoom > 0 || *observe > 0 {
-			ready = ready && g != nil // those wait for the game itself
+		if launched && g == nil {
+			return
 		}
+		n++
+		ready := n >= *frames && time.Since(start) >= *after && done == nil
 		if g != nil {
 			ready = ready && (!*onWave || g.WaveVisible()) && (*onPhase == "" || g.Phase() == *onPhase)
 		}

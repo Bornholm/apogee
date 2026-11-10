@@ -143,7 +143,7 @@ func (l *life) places(own *proto.Own) (sites, works []spot, homes []geo.Vec2) {
 			centre: geo.Vec2{X: x, Y: y}, radius: radius}
 	}
 	for _, b := range own.Buildings {
-		if b.Kind < 0 || b.Kind >= sim.NumKinds {
+		if !validKind(b.Kind) {
 			continue // from the wire: never index with an unknown kind
 		}
 		r := sim.Specs[b.Kind].Radius
@@ -295,9 +295,20 @@ func (l *life) route(w *walker, t geo.Vec2) {
 	if l.shore.outline == nil || l.clear(geo.Vec2{X: w.x, Y: w.y}, t) {
 		return
 	}
-	mid := l.shore.inside(geo.Vec2{X: (w.x + t.X) / 2 * 0.5, Y: (w.y + t.Y) / 2 * 0.5})
+	// Try waypoints ever closer to the centre, checking both legs. The island
+	// is star-shaped around its centre (its outline is a radius per angle),
+	// so the centre itself always works: both legs then run along radii.
+	from := geo.Vec2{X: w.x, Y: w.y}
+	mid := geo.Vec2{X: (w.x + t.X) / 2, Y: (w.y + t.Y) / 2}
+	via := geo.Vec2{}
+	for _, k := range []float64{0.6, 0.35, 0.15} {
+		if c := l.shore.inside(mid.Scale(k)); l.clear(from, c) && l.clear(c, t) {
+			via = c
+			break
+		}
+	}
 	w.via, w.fx, w.fy = true, t.X, t.Y
-	w.tx, w.ty = mid.X, mid.Y
+	w.tx, w.ty = via.X, via.Y
 }
 
 // clear reports whether the straight path between two points stays on the
