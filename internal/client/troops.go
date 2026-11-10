@@ -197,15 +197,18 @@ func (tr *troops) figures(clock float64) []figure {
 		}
 	}
 	for _, r := range tr.raiders {
-		// The raiders close in from the sky, until the battle.
+		// The raiders swoop down from high in the sky and land on the
+		// shore, where they wait for the battle: never hanging in the void
+		// beside the cliffs.
 		k := ease((r.Progress - 0.75) / 0.25)
 		b := float64(r.From) * 2.39996
 		edge := tr.edgeAt(b)
-		far := edge.Scale(1.9)
+		land := edge.Scale(0.85)
+		far := edge.Scale(1.6)
 		for i := range min(max(int(r.Units), 1), 6) {
 			off := float64(i%3-1) * 2.5
-			out = append(out, figure{x: far.X + (edge.X-far.X)*k + off, y: far.Y + (edge.Y-far.Y)*k + float64(i/3)*2,
-				z: 30 - 18*k, kind: raiderFigure})
+			out = append(out, figure{x: far.X + (land.X-far.X)*k + off, y: far.Y + (land.Y-far.Y)*k + float64(i/3)*2,
+				z: 70 * (1 - k) * (1 - k), kind: raiderFigure})
 		}
 	}
 	return out
