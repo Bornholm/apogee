@@ -532,8 +532,10 @@ func (g *Game) drawTarget(p painter, st *proto.State, o *proto.Own) (image.Recta
 	switch {
 	case target.Banner != 0 && target.BannerTarget == st.You && target.Banner != sim.Rescue:
 		p.text("Te menace de sa bannière.", in.Min.X, ty, alertText)
-	case target.Protected:
+	case target.Protected && target.ProtectedMs > 0:
 		p.text("Protégée encore "+countdown(target.ProtectedMs)+".", in.Min.X, ty, aetherColor)
+	case target.Protected: // an older sky does not tell for how long
+		p.text("Jeune civilisation, protégée.", in.Min.X, ty, aetherColor)
 	case target.Declining:
 		p.text("En déclin.", in.Min.X, ty, alertText)
 	default:

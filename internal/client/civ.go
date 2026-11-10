@@ -306,7 +306,11 @@ func (g *Game) civLines(p painter, st *proto.State, o *proto.Own, x0, w int) []b
 	}
 	var shield []string
 	if sum.Protected {
-		shield = p.wrap("Jeune civilisation : aucune île ne peut l'attaquer encore "+countdown(sum.ProtectedMs)+", tant qu'elle n'attaque pas elle-même.", w)
+		still := "pour l'instant"
+		if sum.ProtectedMs > 0 {
+			still = "encore " + countdown(sum.ProtectedMs)
+		}
+		shield = p.wrap("Jeune civilisation : aucune île ne peut l'attaquer "+still+", tant qu'elle n'attaque pas elle-même.", w)
 	}
 	lines = append(lines, bookLine{p.px(8) + p.line() + (len(shield)+len(threats)+len(banners))*p.line(), func(y int) {
 		p.fill(image.Rect(x0, y, x0+w, y+p.px(2)), buttonFill)
