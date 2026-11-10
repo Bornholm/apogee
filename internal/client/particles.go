@@ -25,6 +25,8 @@ type particle struct {
 	heavy bool
 	// deep particles fall past the ground, down the cliffs.
 	deep bool
+	// streak particles are drawn as a short slanting line: rain.
+	streak bool
 }
 
 // Particle colours, taken from the palette's ramps.
@@ -114,6 +116,9 @@ func (p *particles) step(dt float64) {
 			// vanish.
 			q.z, q.vx, q.vy, q.vz, q.sway, q.heavy = 0, 0, 0, 0, 0, false
 			q.life = math.Min(q.life, 0.6)
+			if q.streak { // a drop splashes and is gone
+				q.streak, q.life = false, math.Min(q.life, 0.12)
+			}
 		}
 		kept = append(kept, q)
 	}

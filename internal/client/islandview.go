@@ -72,6 +72,10 @@ func islandScene(cam art.Camera, sum proto.IslandSummary, own *proto.Own) art.Is
 	add := func(m art.Mesh, x, y float64) {
 		sc.Objects = append(sc.Objects, art.Placed{Sprite: cam.Render(m), Pos: art.V(x, y, 0)})
 	}
+	pine := func(m art.Mesh, x, y float64) {
+		add(m, x, y)
+		sc.Objects[len(sc.Objects)-1].Sways = true
+	}
 	for i, f := range own.Features {
 		seed := sum.Seed*131 + uint64(i)*7
 		switch f.Kind {
@@ -82,7 +86,7 @@ func islandScene(cam art.Camera, sum proto.IslandSummary, own *proto.Own) art.Is
 			for k := range n {
 				a := float64(k) * math.Pi * (3 - math.Sqrt(5))
 				d := f.Radius * 0.85 * math.Sqrt((float64(k)+0.5)/float64(n))
-				add(art.Pine(seed+uint64(k)), f.X+d*math.Cos(a), f.Y+d*math.Sin(a))
+				pine(art.Pine(seed+uint64(k)), f.X+d*math.Cos(a), f.Y+d*math.Sin(a))
 			}
 		case sim.Rock:
 			add(art.Rock(seed), f.X, f.Y)

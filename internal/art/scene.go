@@ -12,6 +12,8 @@ import (
 type Placed struct {
 	Sprite Sprite
 	Pos    Vec3
+	// Sways is set on what bends in the wind: the pines.
+	Sways bool
 }
 
 // IslandScene is everything needed to draw one island and what stands on it.

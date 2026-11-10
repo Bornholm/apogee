@@ -55,7 +55,7 @@ func TestSmokeRisesFromTheHomes(t *testing.T) {
 	}
 	var p particles
 	for range 60 * 5 {
-		p.smoke(cs, 1.0/60)
+		p.smoke(cs, 0.3, 1.0/60)
 		p.step(1.0 / 60)
 	}
 	if len(p.ps) == 0 {

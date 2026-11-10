@@ -761,6 +761,7 @@ L'éclairage des facettes est calculé dans les sprites : on ne fait pas tourner
 | **Lumières de nuit** | Fenêtres, torches et cristaux d'Aether en halos additifs |
 | **Transitions lentes** | Interpolation lente entre deux moments, compatible avec le budget CPU en arrière-plan (13.3) |
 | **Lisibilité** | La nuit reste assez claire pour se lire d'un coup d'œil sur un second écran |
+| **Météo** | Le temps change par périodes de 12 minutes, tirées du tick du ciel : tous les dieux d'un même ciel voient le même. Environ une période sur quatre est pluvieuse : la lumière grise, des gouttes obliques tombent sur l'île et éclaboussent le sol, les oiseaux s'abritent. Le vent, plus fort sous la pluie, couche les pins par rafales et pousse les fumées. Un matin sur deux, des bancs de brume couvrent l'île à l'aube et se lèvent dans les premières minutes du jour. On passe d'une période à l'autre en une minute |
 
 ## 12.6 Les îles dans le ciel
 

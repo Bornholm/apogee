@@ -116,8 +116,14 @@ type Game struct {
 	homeChimneys []art.Vec3
 	birds        birds
 	// scenery floats the island in view (float.go).
-	scenery  scenery
-	animTick int
+	scenery scenery
+	// wx is the weather of the moment (weather.go); ForceWeather names one
+	// for screenshots. atSkew draws a sprite leaning by a shear, from its
+	// base, during a redraw.
+	wx           weather
+	ForceWeather string
+	atSkew       func(img *ebiten.Image, x, y, baseY, shear float64)
+	animTick     int
 	// atTinted draws an image in world coordinates with a colour, during a
 	// redraw.
 	atTinted func(img *ebiten.Image, x, y float64, c color.RGBA)
@@ -547,7 +553,7 @@ func (g *Game) homeIsland(st *proto.State) (sprite, bool) {
 		for _, o := range scene.Sorted() {
 			g.homeObjs = append(g.homeObjs, object{
 				sprite: sprite{ebiten.NewImageFromImage(o.Sprite.Img), o.Sprite.Anchor},
-				x:      o.Pos.X, y: o.Pos.Y,
+				x:      o.Pos.X, y: o.Pos.Y, sways: o.Sways,
 			})
 		}
 		g.homeLamps = islandLamps(sum, view)
@@ -840,6 +846,20 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		screen.DrawImage(img, &op)
 	}
 	at := func(img *ebiten.Image, x, y float64) { atScaled(img, x, y, ebiten.ColorScale{}) }
+	// islandTint is the colour the island in view takes, falling,
+	// declining or struck; the leaning pines take it too.
+	var islandTint ebiten.ColorScale
+	g.atSkew = func(img *ebiten.Image, x, y, baseY, shear float64) {
+		var op ebiten.DrawImageOptions
+		op.GeoM.Translate(0, -baseY)
+		op.GeoM.Skew(-shear, 0)
+		op.GeoM.Translate(x, y+baseY)
+		op.GeoM.Scale(k, k)
+		op.GeoM.Translate(ox, oy)
+		op.ColorScale = islandTint
+		op.ColorScale.ScaleWithColorScale(light)
+		screen.DrawImage(img, &op)
+	}
 	g.atTinted = func(img *ebiten.Image, x, y float64, c color.RGBA) {
 		var cs ebiten.ColorScale
 		cs.ScaleWithColor(c)
@@ -911,11 +931,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			var cs ebiten.ColorScale
 			cs.ScaleAlpha(float32(1 - f))
 			at = func(img *ebiten.Image, x, y float64) { atScaled(img, x, y, cs) }
+			islandTint = cs
 		} else if g.viewing == 0 && g.signs.state.declining && g.battle.strike() == 0 {
 			// A declining island loses its colours.
 			var cs ebiten.ColorScale
 			cs.Scale(0.8, 0.76, 0.88, 1)
 			at = func(img *ebiten.Image, x, y float64) { atScaled(img, x, y, cs) }
+			islandTint = cs
 		} else if g.viewing == 0 {
 			// The heart struck: the island shakes and flushes red.
 			if s := g.battle.strike(); s > 0 {
@@ -923,6 +945,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 				var cs ebiten.ColorScale
 				cs.Scale(1, float32(1-0.45*s), float32(1-0.45*s), 1)
 				at = func(img *ebiten.Image, x, y float64) { atScaled(img, x, y, cs) }
+				islandTint = cs
 			}
 		}
 		at(home.img, -float64(home.anchor.X), -float64(home.anchor.Y))
@@ -930,6 +953,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		if g.viewing == 0 {
 			g.drawStorm(atScaled)
 		}
+		g.drawFog(atScaled, g.scenery.size)
 	}
 
 	g.drawHUD(screen, g.src.State())
@@ -1082,14 +1106,18 @@ func (g *Game) animate() {
 			g.dust.emit(w, dt)
 		}
 	}
-	g.dust.smoke(g.homeChimneys, dt)
+	g.wx = g.weatherNow(st)
+	g.dust.smoke(g.homeChimneys, g.wx.wind, dt)
+	if sum, _, ok := g.viewed(st); ok {
+		g.dust.rainOver(sum.Size, g.wx.rain, g.wx.wind, dt)
+	}
 	if sum, _, ok := g.viewed(st); ok {
 		g.scenery.keep(sum)
 		g.scenery.step(dt, &g.dust)
 	}
 	// The birds flee the night, a wave on its way and a battle.
 	threat := g.viewing == 0 && (g.battle.active() || (g.signs.state.waveIn >= 0 && g.signs.state.waveIn < 45))
-	g.birds.step(dt, threat || g.dark() > 0.6)
+	g.birds.step(dt, threat || g.dark() > 0.6 || g.wx.rain > 0.5)
 	g.dust.step(dt)
 	g.animTick++
 	if g.animTick%4 == 0 && (len(l.walkers) > 0 || len(g.dust.ps) > 0 || g.dark() > 0) {
@@ -1226,7 +1254,8 @@ func (g *Game) shown() *life {
 // from the ground so that people can pass behind it.
 type object struct {
 	sprite
-	x, y float64 // island units
+	x, y  float64 // island units
+	sways bool    // a pine, bending in the wind
 }
 
 // drawWalkers draws the island's objects and its people together, far to
@@ -1241,6 +1270,8 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 		tint   *color.RGBA
 		// lamp is a light, drawn at the depth of what holds it.
 		lamp *lamp
+		// shear leans a pine in the wind.
+		shear float64
 	}
 	people := g.shown().walkers
 	items := make([]item, 0, len(g.homeObjs)+len(people))
@@ -1254,8 +1285,12 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 		}
 	}
 	withered := color.RGBA{0xc8, 0xa0, 0x70, 0xff}
+	clock := float64(g.animTick) / 60
 	for _, o := range g.homeObjs {
 		it := item{sp: o.sprite, x: o.x, y: o.y}
+		if o.sways {
+			it.shear = g.wx.sway(clock, o.x)
+		}
 		for _, f := range farms {
 			if math.Abs(f.X-o.x) < 0.5 && math.Abs(f.Y-o.y) < 0.5 {
 				it.tint = &withered
@@ -1348,7 +1383,7 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 	}
 	// Stable: objects keep their order among themselves; at equal depth a
 	// person stands in front of the object it works at.
-	dark, clock := g.dark(), float64(g.animTick)/60
+	dark := g.dark()
 	if dark > 0 {
 		lamps := append(append([]lamp(nil), g.homeLamps...), lanterns(people)...)
 		for i := range lamps {
@@ -1371,6 +1406,10 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 		}
 		x, y := g.cam.Project(art.V(it.x, it.y, it.z))
 		px, py := math.Round(x), math.Round(y)-it.lift
+		if it.shear != 0 && g.atSkew != nil {
+			g.atSkew(it.sp.img, px-float64(it.sp.anchor.X), py-float64(it.sp.anchor.Y), float64(it.sp.anchor.Y), it.shear)
+			continue
+		}
 		if it.tint != nil {
 			g.atTinted(it.sp.img, px-float64(it.sp.anchor.X), py-float64(it.sp.anchor.Y), *it.tint)
 			continue
@@ -1380,7 +1419,14 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 	// Particles float above everything, one virtual pixel each.
 	for _, q := range g.dust.ps {
 		x, y := g.cam.Project(art.V(q.x, q.y, q.z))
-		g.atTinted(g.pixel, math.Round(x), math.Round(y), q.col)
+		px, py := math.Round(x), math.Round(y)
+		g.atTinted(g.pixel, px, py, q.col)
+		if q.streak {
+			// A raindrop: a short line slanting with the wind.
+			lean := math.Round(q.vx / 12)
+			g.atTinted(g.pixel, px-lean, py-1, q.col)
+			g.atTinted(g.pixel, px-2*lean, py-2, q.col)
+		}
 	}
 	// The birds, higher still: a body and two wings, beating.
 	if g.birds.visible() {

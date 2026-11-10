@@ -34,7 +34,7 @@ func islandChimneys(sum proto.IslandSummary, own *proto.Own) []art.Vec3 {
 }
 
 // smoke lets puffs out of the chimneys: they rise, spread and drift east.
-func (p *particles) smoke(chimneys []art.Vec3, dt float64) {
+func (p *particles) smoke(chimneys []art.Vec3, wind, dt float64) {
 	if p.r == nil {
 		p.r = rand.New(rand.NewPCG(7, 11))
 	}
@@ -47,7 +47,7 @@ func (p *particles) smoke(chimneys []art.Vec3, dt float64) {
 			continue
 		}
 		p.add(particle{x: c.X + (r.Float64()*2-1)*0.3, y: c.Y, z: c.Z,
-			vx: 0.6 + r.Float64()*0.6, vy: -(r.Float64() * 0.3), vz: 1.4 + r.Float64()*0.6,
+			vx: 0.3 + wind*2.2 + r.Float64()*0.6, vy: -(r.Float64() * 0.3), vz: 1.4 + r.Float64()*0.6,
 			sway: 0.4, phase: r.Float64() * 6,
 			life: 3 + r.Float64()*2.5, col: chimneyColours[r.IntN(len(chimneyColours))]})
 	}

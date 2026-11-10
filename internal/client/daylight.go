@@ -64,6 +64,11 @@ func (g *Game) daylight() ebiten.ColorScale {
 		return cs
 	}
 	t := tintAt(phase, left)
+	// Rain greys the light.
+	if r := float32(g.wx.rain); r > 0 {
+		grey := (t.r + t.g + t.b) / 3
+		t = mix(t, rgb{grey * 0.7, grey * 0.72, grey * 0.8}, r*0.75)
+	}
 	cs.Scale(t.r, t.g, t.b, 1)
 	return cs
 }
