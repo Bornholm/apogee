@@ -16,7 +16,7 @@ import (
 
 func main() {
 	out := flag.String("o", "preview.png", "output PNG file")
-	view := flag.String("view", "island", "view to render: island or sky")
+	view := flag.String("view", "island", "view to render: island, sky or icon")
 	seed := flag.Uint64("seed", 7, "seed")
 	scale := flag.Int("scale", 0, "integer upscale factor (default: 4 for island, 2 for sky)")
 	flag.Parse()
@@ -35,6 +35,11 @@ func main() {
 		canvas = skyView(*seed)
 		if *scale == 0 {
 			*scale = 2
+		}
+	case "icon":
+		canvas = iconView(*seed)
+		if *scale == 0 {
+			*scale = 4
 		}
 	default:
 		log.Fatalf("unknown view %q", *view)
@@ -58,6 +63,18 @@ func islandView(seed uint64) *image.RGBA {
 	clouds(canvas, cam, seed, w, h)
 	scene := art.DemoIsland(cam, seed, 60)
 	scene.Compose(cam, canvas, w/2, h*2/5)
+	return canvas
+}
+
+// iconView draws a small island on a transparent square: the application
+// icon of the packages.
+func iconView(seed uint64) *image.RGBA {
+	const size = 64
+	cam := art.DefaultCamera
+	sp := art.DemoIsland(cam, seed, 22).Flatten(cam)
+	canvas := image.NewRGBA(image.Rect(0, 0, size, size))
+	b := sp.Img.Bounds()
+	art.Blit(canvas, sp.Img, (size-b.Dx())/2, (size-b.Dy())/2)
 	return canvas
 }
 
