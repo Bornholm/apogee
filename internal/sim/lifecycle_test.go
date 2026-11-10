@@ -79,7 +79,7 @@ func TestBrokenHeartSwallowsTheIslandAndItsPeopleIsReborn(t *testing.T) {
 	is.Civ.Defenders = 0
 	is.Civ.Buildings = is.Civ.Buildings[:1]
 	is.Civ.CoreHealth = 0.01
-	s.attack(is, 5, false, "une vague du tourbillon")
+	s.attack(is, 5, false, "une vague du tourbillon", WaveFoe)
 	if is.Falling <= 0 {
 		t.Fatal("the heart broke but the island does not fall")
 	}

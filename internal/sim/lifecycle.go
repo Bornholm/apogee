@@ -166,14 +166,14 @@ func (s *Sky) waves(dt float64, night bool) {
 	s.Boss.In -= dt
 	if s.Wave.In <= 0 {
 		if is := s.island(s.Wave.Target); is != nil && is.Falling == 0 {
-			s.attack(is, 1, night, "une vague du tourbillon")
+			s.attack(is, 1, night, "une vague du tourbillon", WaveFoe)
 		}
 		s.Wave = nil
 	}
 	if s.Boss.In <= 0 {
 		for i := range s.Islands {
 			if s.Islands[i].Falling == 0 {
-				s.attack(&s.Islands[i], bossFactor, night, "le colosse du tourbillon")
+				s.attack(&s.Islands[i], bossFactor, night, "le colosse du tourbillon", ColossusFoe)
 			}
 		}
 		s.Boss = nil
@@ -203,7 +203,7 @@ func (s *Sky) pickTarget(r *rand.Rand) IslandID {
 
 // attack resolves an attack against an island, as an autobattler: defense
 // against strength (GDD 6.9).
-func (s *Sky) attack(is *Island, factor float64, night bool, by string) {
+func (s *Sky) attack(is *Island, factor float64, night bool, by string, foe Foe) {
 	c := &is.Civ
 	age := float64(s.Tick-is.Born) * TickDuration.Seconds()
 	strength := WaveStrength(c.Power(), is.Radius, age, night) * factor
@@ -211,6 +211,11 @@ func (s *Sky) attack(is *Island, factor float64, night bool, by string) {
 	if c.CoreHealth < ruinThreshold {
 		defense *= ruinFactor
 	}
+	foes := 1 // the colossus comes alone
+	if foe == WaveFoe {
+		foes = min(max(3+int(strength/4), 3), 10)
+	}
+	c.LastBattle = Battle{Tick: s.Tick, By: foe, Foes: foes, Repelled: defense >= strength}
 	m := c.Tech.Mods()
 	// Defenders fall in proportion to the strength they faced.
 	lost := math.Min(c.Defenders, strength*0.03/(1+m.DefenderStrength))

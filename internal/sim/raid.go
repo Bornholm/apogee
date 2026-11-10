@@ -300,6 +300,7 @@ func (s *Sky) clash(from, to *Island, r *Raid) {
 	atk := r.Units * (1 + from.Civ.Tech.Mods().AssailantStrength)
 	def := to.Civ.Defense() + s.relief(to.ID)
 	r.Returning = true
+	to.Civ.LastBattle = Battle{Tick: s.Tick, By: RaiderFoe, Foes: min(max(int(math.Round(r.Units)), 1), 10), Repelled: atk <= def}
 	if atk <= def {
 		lost := math.Min(r.Units, math.Ceil(r.Units*0.6))
 		r.Units -= lost

@@ -76,6 +76,24 @@ const (
 	BirthNews               // a new island rose from the clouds
 )
 
+// Foe is who attacked an island.
+type Foe int8
+
+const (
+	WaveFoe     Foe = iota // monsters of the whirlpool
+	ColossusFoe            // the colossus
+	RaiderFoe              // warriors of another island
+)
+
+// Battle is an attack against an island: when, by whom, how many came, and
+// whether the island held. The client plays it out on the island.
+type Battle struct {
+	Tick     uint64 `json:",omitempty"`
+	By       Foe    `json:",omitempty"`
+	Foes     int    `json:",omitempty"` // assailants to show, 1 to 10
+	Repelled bool   `json:",omitempty"`
+}
+
 // Civ is the civilisation living on an island: its people, economy and
 // buildings. It is the same for humans and rival AIs (GDD 9.2).
 type Civ struct {
@@ -106,6 +124,9 @@ type Civ struct {
 	// repeating itself.
 	Starving bool
 	Crowded  bool
+	// LastBattle is the last attack the island suffered, so that its god
+	// sees it fought on the island (GDD 13.1 bis).
+	LastBattle Battle `json:",omitempty"`
 
 	Tech Tech
 	// Pending is the supplique waiting for the god's answer, if any.

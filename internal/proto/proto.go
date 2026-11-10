@@ -212,6 +212,9 @@ type Own struct {
 	// WaveInMs is the time before the next wave, when it aims at this island
 	// (GDD 8.2), or -1.
 	WaveInMs int64 `json:"waveInMs"`
+	// Battle is the last attack the island suffered, for the client to
+	// play it out.
+	Battle sim.Battle `json:"battle"`
 	// Outer is the intention the god turned towards another island.
 	Outer       sim.Outer `json:"outer,omitempty"`
 	OuterTarget IslandID  `json:"outerTarget,omitempty"`
@@ -254,6 +257,7 @@ func Detail(sky *sim.Sky, is *sim.Island) *Own {
 		Axis:     int(c.Dominant()),
 		WaveInMs: -1,
 		Outer:    c.Outer.Kind, OuterTarget: c.Outer.Target,
+		Battle: c.LastBattle,
 	}
 	for f := range sim.NumFamilies {
 		o.Tiers[f] = c.Tech.Tier(f)
