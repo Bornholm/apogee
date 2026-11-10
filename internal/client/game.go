@@ -99,6 +99,8 @@ type Game struct {
 	// holds the sprites of the assailants.
 	battle   battle
 	rehearse *sim.Battle // a battle to show at the next state, for screenshots
+	// nextBattle waits for the battle being played out to end.
+	nextBattle *sim.Battle
 	// signs make the events of the player's island visible (signs.go),
 	// troops the groups that come and go (troops.go).
 	signs     signs
@@ -995,8 +997,17 @@ func (g *Game) animate() {
 			}
 		}
 		g.battle.step(dt, &g.dust, home, guards)
+		if c, ok := g.battle.reaction(); ok {
+			g.life.call(c)
+		}
 		if home {
 			g.dirty = true
+		}
+	} else if g.nextBattle != nil {
+		bt := *g.nextBattle
+		g.nextBattle = nil
+		if st.Own != nil {
+			g.startBattle(st, bt)
 		}
 	}
 	g.signs.step(dt, &g.dust, home)
@@ -1047,6 +1058,17 @@ func (g *Game) watchBattle(st *proto.State) {
 	if st.Tick > bt.Tick+uint64(5*time.Second/sim.TickDuration) {
 		return
 	}
+	if g.battle.active() {
+		// A second attack while one is played out: it follows, rather
+		// than cutting the first short.
+		g.nextBattle = &bt
+		return
+	}
+	g.startBattle(st, bt)
+}
+
+// startBattle plays out an attack on the player's island.
+func (g *Game) startBattle(st *proto.State, bt sim.Battle) {
 	for _, is := range st.Islands {
 		if is.ID == st.You {
 			g.battle.start(bt, shore{geo.Outline(is.Seed), is.Size}, st.Own)

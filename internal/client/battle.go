@@ -55,6 +55,9 @@ type battle struct {
 	fire  float64 // seconds until the next volley
 	heart gun
 	hit   bool // the heart was struck
+	// feared and cheered tell whether the people already fled the blow,
+	// or celebrated the victory, of this battle.
+	feared, cheered bool
 }
 
 func (b *battle) active() bool { return len(b.foes) > 0 && b.t < battleTime }
@@ -177,6 +180,21 @@ func (b *battle) step(dt float64, dust *particles, emit bool, guards []walker) {
 		b.hit = true
 		dust.burst(b.heart.x, b.heart.y, 6, 40, append(append([]color.RGBA(nil), monsterColours...), bloodColours...), b.r)
 	}
+}
+
+// reaction returns how the people answer the battle at this moment, once:
+// they flee home when the heart is struck, and cheer around it when the
+// assailants have fallen. The cues follow the animation's own clock.
+func (b *battle) reaction() (gathering, bool) {
+	switch {
+	case b.hit && !b.feared:
+		b.feared = true
+		return gathering{key: "fear", atHome: true, share: 1, act: hide, left: 10}, true
+	case b.b.Repelled && !b.cheered && b.t >= fightTime+1:
+		b.cheered = true
+		return gathering{key: "victory", at: geo.Vec2{X: b.heart.x, Y: b.heart.y}, radius: 8, share: 0.6, act: cheer, left: 6}, true
+	}
+	return gathering{}, false
 }
 
 // target picks an assailant still in the air.

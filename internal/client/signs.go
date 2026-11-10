@@ -116,12 +116,6 @@ func (s *signs) observe(sum proto.IslandSummary, own *proto.Own) {
 			case sim.BirthNews:
 				s.add(birthSign, 0, 0)
 				s.calls = append(s.calls, gathering{key: "birth", inPlace: true, share: 1, act: cheer, delay: 1, left: 4})
-			case sim.VictoryNews:
-				// Once the battle is over, the people cheer around the heart.
-				s.calls = append(s.calls, gathering{key: "victory", at: s.heart, radius: 8, share: 0.6, act: cheer, delay: battleTime - 2, left: 6})
-			case sim.WaveNews, sim.FallNews:
-				// The heart struck: the people flee home in fear.
-				s.calls = append(s.calls, gathering{key: "fear", atHome: true, share: 1, act: hide, delay: strikeTime, left: 10})
 			case sim.DeclineNews:
 				// The elders gather the people around the heart.
 				s.calls = append(s.calls, gathering{key: "decline", at: s.heart, radius: 7, share: 0.7, act: pray, left: 12})
