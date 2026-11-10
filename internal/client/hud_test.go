@@ -2,6 +2,7 @@ package client
 
 import (
 	"testing"
+	"time"
 
 	"apogee/internal/proto"
 	"apogee/internal/sim"
@@ -125,5 +126,25 @@ func TestShortcutsFollowTheLetterTyped(t *testing.T) {
 	g.shortcut('C') // the culture takes the shared panel
 	if !g.showCulture || g.showAnnals {
 		t.Fatalf("C should turn the panel to the culture: %v %v", g.showCulture, g.showAnnals)
+	}
+}
+
+func TestEventSoundsAreSpacedOut(t *testing.T) {
+	var g Game
+	now := time.Unix(1000, 0)
+	if !g.mayPlay(sound.Built, now) {
+		t.Fatal("the first effect is silent")
+	}
+	if g.mayPlay(sound.Victory, now.Add(time.Second)) {
+		t.Fatal("two events a second apart both sounded")
+	}
+	if g.mayPlay(sound.Built, now.Add(10*time.Second)) {
+		t.Fatal("the same effect again after ten seconds")
+	}
+	if !g.mayPlay(sound.Victory, now.Add(10*time.Second)) {
+		t.Fatal("another event after ten seconds is silent")
+	}
+	if !g.mayPlay(sound.Click, now.Add(10*time.Second)) {
+		t.Fatal("a click waited")
 	}
 }

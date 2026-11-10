@@ -47,84 +47,83 @@ func join(parts ...[]Note) []Note {
 	return out
 }
 
-// Note numbers: 60 is middle C.
+// Note numbers: 60 is middle C. The effects are soft (GDD 12.7): the
+// triangle carries them, thin pulses only colour them, nothing goes
+// shrill, and they stay short. The game runs all day beside other work.
 var effects = [NumEffects][]Note{
-	Click: {{Dur: 0.025, Freq: 1320, Wave: Pulse12, Vol: 0.25, Decay: 0.01}},
+	Click: {{Dur: 0.03, Freq: 660, Wave: Triangle, Vol: 0.12, Decay: 0.012}},
 	Whisper: join(
 		// A breath, then a rising chord.
-		[]Note{{Dur: 0.5, Freq: 9000, Wave: Noise, Vol: 0.12, Attack: 0.2, Decay: 0.15}},
-		arpeggio(0.12, 0.07, 0.35, Triangle, 0.5, 72, 76, 79, 84),
-		arpeggio(0.15, 0.07, 0.3, Pulse12, 0.15, 72, 76, 79, 84),
+		[]Note{{Dur: 0.5, Freq: 3000, Wave: Noise, Vol: 0.06, Attack: 0.2, Decay: 0.15}},
+		arpeggio(0.12, 0.08, 0.35, Triangle, 0.4, 60, 64, 67, 72),
 	),
 	Answer: {
-		pluck(0, 0.25, 79, Pulse25, 0.35),
-		pluck(0.1, 0.45, 86, Pulse25, 0.35),
-		pluck(0.1, 0.45, 74, Triangle, 0.4),
+		pluck(0, 0.3, 67, Triangle, 0.4),
+		pluck(0.12, 0.45, 74, Triangle, 0.35),
+		pluck(0.12, 0.45, 74, Pulse25, 0.08),
 	},
 	Built: join(
-		// Two hammer blows, then a satisfied pair of notes.
+		// Two soft knocks, then a satisfied pair of notes.
 		[]Note{
-			{Dur: 0.05, Freq: 2400, Wave: Noise, Vol: 0.35, Decay: 0.015},
-			{At: 0.14, Dur: 0.05, Freq: 2400, Wave: Noise, Vol: 0.35, Decay: 0.015},
+			{Dur: 0.04, Freq: 900, Wave: Noise, Vol: 0.12, Decay: 0.012},
+			{At: 0.16, Dur: 0.04, Freq: 900, Wave: Noise, Vol: 0.12, Decay: 0.012},
 		},
-		arpeggio(0.32, 0.1, 0.3, Pulse50, 0.3, 67, 72),
-		[]Note{pluck(0.32, 0.5, 48, Triangle, 0.5)},
+		arpeggio(0.34, 0.12, 0.35, Triangle, 0.4, 60, 67),
+		[]Note{pluck(0.34, 0.5, 43, Triangle, 0.35)},
 	),
 	Discovery: join(
-		arpeggio(0, 0.06, 0.25, Pulse12, 0.3, 84, 86, 88, 91, 93, 96),
-		arpeggio(0.18, 0.06, 0.25, Pulse12, 0.12, 84, 86, 88, 91, 93, 96), // echo
-		[]Note{held(0, 0.8, 60, Triangle, 0.35)},
+		arpeggio(0, 0.08, 0.3, Triangle, 0.35, 72, 74, 76, 79, 81, 84),
+		arpeggio(0.2, 0.08, 0.3, Pulse25, 0.06, 72, 74, 76, 79, 81, 84), // echo
+		[]Note{held(0, 0.8, 48, Triangle, 0.3)},
 	),
 	Supplique: {
 		// A call that waits for an answer: the last note rises.
-		pluck(0, 0.3, 76, Pulse25, 0.35),
-		pluck(0.18, 0.3, 79, Pulse25, 0.35),
-		{At: 0.36, Dur: 0.6, Freq: midi(81), Wave: Triangle, Vol: 0.5, Slide: 2, Decay: 0.4, Sustain: 0.5},
+		pluck(0, 0.3, 64, Triangle, 0.4),
+		pluck(0.2, 0.3, 67, Triangle, 0.4),
+		{At: 0.4, Dur: 0.6, Freq: midi(69), Wave: Triangle, Vol: 0.4, Slide: 2, Decay: 0.4, Sustain: 0.5},
 	},
 	Raid: {
-		// A war horn, twice, over a drum.
-		{Dur: 0.4, Freq: midi(62), Wave: Pulse25, Vol: 0.35, Attack: 0.04, Decay: 0.3, Sustain: 0.7},
-		{At: 0.45, Dur: 0.7, Freq: midi(57), Wave: Pulse25, Vol: 0.35, Attack: 0.04, Slide: -1, Decay: 0.5, Sustain: 0.6},
-		{Dur: 0.2, Freq: 110, Wave: Triangle, Vol: 0.6, Slide: -12, Decay: 0.08},
-		{At: 0.45, Dur: 0.2, Freq: 110, Wave: Triangle, Vol: 0.6, Slide: -12, Decay: 0.08},
+		// A distant horn, twice, over a drum.
+		{Dur: 0.45, Freq: midi(50), Wave: Pulse25, Vol: 0.14, Attack: 0.06, Decay: 0.3, Sustain: 0.7},
+		{At: 0.5, Dur: 0.75, Freq: midi(45), Wave: Pulse25, Vol: 0.14, Attack: 0.06, Slide: -1, Decay: 0.5, Sustain: 0.6},
+		{Dur: 0.45, Freq: midi(50), Wave: Triangle, Vol: 0.35, Attack: 0.06, Decay: 0.3, Sustain: 0.7},
+		{At: 0.5, Dur: 0.75, Freq: midi(45), Wave: Triangle, Vol: 0.35, Attack: 0.06, Decay: 0.5, Sustain: 0.6},
+		{Dur: 0.2, Freq: 90, Wave: Triangle, Vol: 0.45, Slide: -12, Decay: 0.08},
+		{At: 0.5, Dur: 0.2, Freq: 90, Wave: Triangle, Vol: 0.45, Slide: -12, Decay: 0.08},
 	},
 	Struck: {
 		// A low rumble and a falling blow.
-		{Dur: 1.2, Freq: 700, Wave: Noise, Vol: 0.4, Decay: 0.4},
-		{Dur: 0.9, Freq: midi(43), Wave: Triangle, Vol: 0.7, Slide: -7, Decay: 0.4},
+		{Dur: 1.0, Freq: 300, Wave: Noise, Vol: 0.16, Attack: 0.03, Decay: 0.35},
+		{Dur: 0.9, Freq: midi(38), Wave: Triangle, Vol: 0.55, Slide: -7, Decay: 0.4},
 	},
 	Victory: join(
-		arpeggio(0, 0.1, 0.18, Pulse50, 0.3, 72, 76, 79),
+		arpeggio(0, 0.12, 0.2, Triangle, 0.4, 60, 64, 67),
 		[]Note{
-			held(0.3, 0.6, 84, Pulse50, 0.3),
-			held(0.3, 0.6, 79, Pulse25, 0.18),
-			pluck(0, 0.3, 48, Triangle, 0.5),
-			pluck(0.3, 0.6, 48, Triangle, 0.5),
+			held(0.36, 0.7, 72, Triangle, 0.35),
+			held(0.36, 0.7, 67, Pulse25, 0.06),
+			pluck(0, 0.3, 36, Triangle, 0.4),
+			pluck(0.36, 0.6, 36, Triangle, 0.4),
 		},
 	),
-	Decline: join(
-		arpeggio(0, 0.35, 0.6, Triangle, 0.45, 69, 65, 62, 57),
-		arpeggio(0, 0.35, 0.5, Pulse12, 0.12, 69, 65, 62, 57),
-	),
+	Decline: arpeggio(0, 0.4, 0.7, Triangle, 0.4, 57, 53, 50, 45),
 	Fall: {
 		// The island slides down into the whirlpool.
-		{Dur: 2.6, Freq: midi(72), Wave: Pulse25, Vol: 0.3, Slide: -30, Decay: 1.5, Sustain: 0.3},
-		{Dur: 2.8, Freq: 5000, Wave: Noise, Vol: 0.25, Attack: 0.6, Slide: -24, Decay: 1.2},
-		{At: 2.2, Dur: 1.6, Freq: midi(33), Wave: Triangle, Vol: 0.7, Decay: 0.8},
+		{Dur: 2.6, Freq: midi(60), Wave: Triangle, Vol: 0.4, Slide: -24, Decay: 1.5, Sustain: 0.3},
+		{Dur: 2.8, Freq: 1500, Wave: Noise, Vol: 0.1, Attack: 0.8, Slide: -24, Decay: 1.2},
+		{At: 2.2, Dur: 1.6, Freq: midi(33), Wave: Triangle, Vol: 0.55, Decay: 0.8},
 	},
 	Birth: join(
 		// Dawn over a new island: a slow chord that opens.
 		[]Note{
-			held(0, 1.6, 67, Triangle, 0.4),
-			held(0.25, 1.35, 71, Pulse12, 0.18),
-			held(0.5, 1.1, 74, Pulse12, 0.18),
+			held(0, 1.6, 55, Triangle, 0.35),
+			held(0.3, 1.3, 59, Triangle, 0.25),
+			held(0.6, 1.0, 62, Triangle, 0.25),
 		},
-		arpeggio(0.75, 0.12, 0.6, Pulse25, 0.22, 79, 83, 86),
+		arpeggio(0.9, 0.14, 0.6, Triangle, 0.25, 67, 71, 74),
 	),
 	Feast: join(
 		// A dancing tune: a skipping melody over a bouncing bass.
-		arpeggio(0, 0.12, 0.14, Pulse25, 0.28, 72, 76, 79, 76, 81, 79, 76, 84),
-		arpeggio(0, 0.24, 0.2, Triangle, 0.5, 48, 55, 48, 55),
-		[]Note{{At: 0.96, Dur: 0.4, Freq: 7000, Wave: Noise, Vol: 0.12, Decay: 0.15}},
+		arpeggio(0, 0.13, 0.15, Triangle, 0.35, 60, 64, 67, 64, 69, 67, 64, 72),
+		arpeggio(0, 0.26, 0.2, Triangle, 0.35, 36, 43, 36, 43),
 	),
 }

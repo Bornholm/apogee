@@ -14,7 +14,7 @@ type Ambience struct {
 }
 
 // ambienceLevel keeps the ambience under the effects and the music.
-const ambienceLevel = 0.8
+const ambienceLevel = 0.4
 
 // slice is the stretch of time each draw of the ambience covers.
 const slice = 0.25
@@ -38,44 +38,44 @@ func (a *ambient) slice(m Ambience) []Note {
 	var out []Note
 	pan := func() float64 { return r.Float64()*1.6 - 0.8 }
 	at := func() float64 { return r.Float64() * slice }
-	// Birds: two or three quick chirps, high and bending.
-	if r.Float64() < m.Birds*0.35 {
+	// Birds: two or three soft chirps, now and then.
+	if r.Float64() < m.Birds*0.15 {
 		t, p := at(), pan()
-		base := 88 + float64(r.IntN(10))
+		base := 79 + float64(r.IntN(8))
 		for i := range 2 + r.IntN(2) {
-			out = append(out, Note{At: t + float64(i)*0.09, Dur: 0.06, Freq: midi(base + float64(r.IntN(3))),
-				Wave: Pulse12, Vol: 0.18, Slide: 3 - 6*r.Float64(), Decay: 0.03, Pan: p})
+			out = append(out, Note{At: t + float64(i)*0.1, Dur: 0.07, Freq: midi(base + float64(r.IntN(3))),
+				Wave: Triangle, Vol: 0.14, Slide: 2 - 4*r.Float64(), Attack: 0.01, Decay: 0.03, Pan: p})
 		}
 	}
-	// Crickets: a fast trill.
-	if r.Float64() < m.Crickets*0.45 {
+	// Crickets: a short, quiet trill.
+	if r.Float64() < m.Crickets*0.15 {
 		t, p := at(), pan()
-		f := 4000 + r.Float64()*800
-		for i := range 4 + r.IntN(4) {
-			out = append(out, Note{At: t + float64(i)*0.035, Dur: 0.018, Freq: f, Wave: Pulse12, Vol: 0.1, Pan: p})
+		f := 2200 + r.Float64()*400
+		for i := range 3 + r.IntN(3) {
+			out = append(out, Note{At: t + float64(i)*0.045, Dur: 0.022, Freq: f, Wave: Triangle, Vol: 0.07, Attack: 0.004, Pan: p})
 		}
 	}
-	// Rain: a steady hiss, and drops now and then.
+	// Rain: a muffled patter, and drops now and then.
 	if m.Rain > 0.02 {
-		out = append(out, Note{Dur: slice + 0.06, Freq: 14000, Wave: Noise, Vol: 0.09 * m.Rain, Attack: 0.05})
-		for range int(m.Rain * 3) {
-			out = append(out, Note{At: at(), Dur: 0.03, Freq: 6000 + r.Float64()*4000, Wave: Noise, Vol: 0.12, Decay: 0.01, Pan: pan()})
+		out = append(out, Note{Dur: slice + 0.06, Freq: 5000, Wave: Noise, Vol: 0.05 * m.Rain, Attack: 0.05})
+		for range int(m.Rain * 2) {
+			out = append(out, Note{At: at(), Dur: 0.03, Freq: 2500 + r.Float64()*1500, Wave: Noise, Vol: 0.06, Attack: 0.004, Decay: 0.01, Pan: pan()})
 		}
 	}
 	// Running water: a low murmur.
 	if m.Water > 0.02 {
-		out = append(out, Note{Dur: slice + 0.06, Freq: 2600, Wave: Noise, Vol: 0.07 * m.Water, Attack: 0.05})
+		out = append(out, Note{Dur: slice + 0.06, Freq: 1400, Wave: Noise, Vol: 0.04 * m.Water, Attack: 0.05})
 	}
 	// Wind: a gust rises and falls, now and then.
 	if r.Float64() < m.Wind*0.04 {
-		out = append(out, Note{At: at(), Dur: 2.5, Freq: 9000, Wave: Noise, Vol: 0.07 * m.Wind,
+		out = append(out, Note{At: at(), Dur: 2.5, Freq: 3000, Wave: Noise, Vol: 0.05 * m.Wind,
 			Attack: 1, Decay: 0.6, Sustain: 0, Pan: pan()})
 	}
 	// Hammers on the building sites: a knock, sometimes two.
-	if r.Float64() < m.Work*0.5 {
+	if r.Float64() < m.Work*0.2 {
 		t, p := at(), pan()
 		for i := range 1 + r.IntN(2) {
-			out = append(out, Note{At: t + float64(i)*0.16, Dur: 0.04, Freq: 1800 + r.Float64()*600, Wave: Noise, Vol: 0.2, Decay: 0.012, Pan: p})
+			out = append(out, Note{At: t + float64(i)*0.18, Dur: 0.04, Freq: 700 + r.Float64()*300, Wave: Noise, Vol: 0.08, Attack: 0.004, Decay: 0.012, Pan: p})
 		}
 	}
 	return out

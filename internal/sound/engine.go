@@ -89,6 +89,8 @@ func (e *Engine) Play(fx Effect) {
 		return
 	}
 	for _, n := range notes {
+		// A few milliseconds of attack: no effect starts with a click.
+		n.Attack = math.Max(n.Attack, 0.008)
 		e.add(n, effectsBus, e.clock)
 	}
 }
@@ -133,7 +135,7 @@ func (e *Engine) dropBus(b bus) {
 // Bus levels, under the master volume: the music stays in the background.
 const (
 	musicLevel   = 0.45
-	effectsLevel = 0.9
+	effectsLevel = 0.55
 )
 
 // Read fills p with float32 stereo frames. It never fails and never ends.
@@ -167,7 +169,7 @@ func (e *Engine) Read(p []byte) (int, error) {
 		gain = 0
 	}
 	const hpK = 0.997 // about 20 Hz
-	const lpK = 0.55  // about 6 kHz
+	const lpK = 0.4   // about 3.5 kHz: nothing shrill
 	for i := range frames {
 		now := e.clock + int64(i)
 		var mix [2]float64

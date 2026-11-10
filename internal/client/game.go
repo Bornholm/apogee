@@ -157,10 +157,13 @@ type Game struct {
 	// silences the game or brings the sound back, to remember it.
 	Sound  *sound.Engine
 	mood   sound.Mood
-	played bool               // an action of the last click played its own effect
-	onPlay func(sound.Effect) // tests listen here
-	chars  []rune             // characters typed this tick
-	OnMute func(muted bool)
+	played bool // an action of the last click played its own effect
+	// lastFx and lastAny space out the effects of events (mayPlay).
+	lastFx  [sound.NumEffects]time.Time
+	lastAny time.Time
+	onPlay  func(sound.Effect) // tests listen here
+	chars   []rune             // characters typed this tick
+	OnMute  func(muted bool)
 
 	// heard is the tick of the newest chronicle entry already considered.
 	heard  uint64
@@ -294,12 +297,36 @@ func newsRank(k sim.EntryKind) int {
 // play starts an effect, if the game has sound.
 func (g *Game) play(fx sound.Effect) {
 	g.played = true
+	if !g.mayPlay(fx, time.Now()) {
+		return
+	}
 	if g.onPlay != nil {
 		g.onPlay(fx)
 	}
 	if g.Sound != nil {
 		g.Sound.Play(fx)
 	}
+}
+
+// Effects of events are spaced out: the same one waits effectGap before it
+// sounds again, and any two wait eventGap. What the player does (a click,
+// a whisper, an answer) always sounds at once.
+const (
+	effectGap = 20 * time.Second
+	eventGap  = 4 * time.Second
+)
+
+// mayPlay tells whether an effect may sound now, and notes it if so.
+func (g *Game) mayPlay(fx sound.Effect, now time.Time) bool {
+	switch fx {
+	case sound.Click, sound.Whisper, sound.Answer:
+		return true
+	}
+	if fx < 0 || fx >= sound.NumEffects || now.Sub(g.lastFx[fx]) < effectGap || now.Sub(g.lastAny) < eventGap {
+		return false
+	}
+	g.lastFx[fx], g.lastAny = now, now
+	return true
 }
 
 // shortcut runs the keyboard shortcut of a typed character. The keypad's
