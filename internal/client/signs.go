@@ -73,6 +73,9 @@ type signs struct {
 	yard       bool
 	// feasts are the milestones feasted (festival.go).
 	feasts feasts
+	// seed is the island's: a new one, after a fall, is a new people,
+	// with nothing feasted nor buried yet.
+	seed uint64
 }
 
 // observe compares a new state of the player's island with the last one and
@@ -80,6 +83,12 @@ type signs struct {
 func (s *signs) observe(sum proto.IslandSummary, own *proto.Own) {
 	if s.r == nil {
 		s.r = rand.New(rand.NewPCG(sum.Seed, 0x5195))
+	}
+	if s.seed != sum.Seed {
+		s.seed = sum.Seed
+		s.feasts = feasts{}
+		s.built = nil // building ids start over
+		s.born, s.dead, s.yard = int(own.Births), int(own.Deaths), false
 	}
 	if s.built == nil || s.shore.outline == nil || s.size == 0 {
 		s.built = map[uint32]bool{}

@@ -35,6 +35,9 @@ type feasts struct {
 	left  float64
 	// begun is set when a feast starts, for the game to play its tune.
 	begun bool
+	// primed is set once the milestones of the people were first read:
+	// those reached before are not feasted.
+	primed bool
 }
 
 // watchFeasts starts a feast when the island reaches a milestone.
@@ -52,10 +55,10 @@ func (s *signs) watchFeasts(own *proto.Own) {
 	}
 	tens := int(own.Population) / 10
 	days := int(time.Duration(own.Age) * sim.TickDuration / (24 * time.Hour))
-	if s.primed && (first || tens > f.tens || days > f.days || s.rehearse == "feast" && f.left <= 0) {
+	if f.primed && (first || tens > f.tens || days > f.days || s.rehearse == "feast" && f.left <= 0) {
 		s.feast()
 	}
-	f.tens, f.days = max(f.tens, tens), max(f.days, days)
+	f.tens, f.days, f.primed = max(f.tens, tens), max(f.days, days), true
 }
 
 // feast starts the festivities.

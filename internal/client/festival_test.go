@@ -65,3 +65,24 @@ func TestTheFarandoleGoesRound(t *testing.T) {
 		t.Fatal("the farandole does not turn")
 	}
 }
+
+func TestANewPeopleFeastsAnew(t *testing.T) {
+	sum, own := kinIsland()
+	var s signs
+	own.Buildings = append(own.Buildings, sim.Building{ID: 9, Kind: sim.Library, X: -15, Progress: 1})
+	own.Deaths = 5
+	s.observe(sum, own)
+	s.observe(sum, own)
+	// The island fell; a new one rises from the clouds, its heart alone.
+	sum.Seed, own.Deaths = 99, 0
+	own.Buildings = own.Buildings[:1]
+	s.observe(sum, own)
+	if s.dead != 0 || s.feasting() {
+		t.Fatalf("the new island starts with %d steles, feasting %v", s.dead, s.feasting())
+	}
+	own.Buildings = append(own.Buildings, sim.Building{ID: 12, Kind: sim.Library, X: 15, Y: 15, Progress: 1})
+	s.observe(sum, own)
+	if !s.feasting() {
+		t.Fatal("the new people does not feast its first library")
+	}
+}
