@@ -47,7 +47,7 @@ func main() {
 	tutoStep := flag.Int("tutostep", 0, "open the tutorial at this step (1-based), for screenshots")
 	shot := flag.String("shot", "", "save a screenshot to this PNG file after -frames redraws, then quit")
 	frames := flag.Int("frames", 30, "redraws before the screenshot")
-	gifFrames := flag.Int("gifframes", 90, "with a -shot ending in .gif, the redraws it records (about 15 a second)")
+	gifFrames := flag.Int("gifframes", 90, "with a -shot ending in .gif, the redraws it records (about 15 a second; each is kept in memory until the end, so pair a long one with -crop)")
 	crop := flag.String("crop", "", "with -shot, keep only a centred area of this size, e.g. 1200x800")
 	after := flag.Duration("after", 0, "with -shot, wait at least this long before the screenshot")
 	onWave := flag.Bool("onwave", false, "with -shot, wait for a wave to fly across the sky")

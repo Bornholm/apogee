@@ -58,3 +58,21 @@ func TestNoTradeWithAnEnemy(t *testing.T) {
 		}
 	}
 }
+
+func TestARescueKeepsTheTrade(t *testing.T) {
+	st := tradeSky(10)
+	for i := range st.Islands {
+		st.Islands[i].Banner = sim.Rescue
+		st.Islands[i].BannerTarget = st.Islands[(i+1)%8].ID
+	}
+	found := false
+	for n := range uint64(20) {
+		st.Tick = n*uint64(tradeSpell/sim.TickDuration) + 10
+		for _, tr := range trades(st) {
+			found = found || tr.to == tr.from%8+1
+		}
+	}
+	if !found {
+		t.Fatal("no trader towards the island being rescued")
+	}
+}

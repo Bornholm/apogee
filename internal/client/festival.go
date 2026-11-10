@@ -100,7 +100,7 @@ func (s *signs) festiveLamps() []lamp {
 	if !s.feasting() {
 		return nil
 	}
-	out := []lamp{{x: s.bonfire().X, y: s.bonfire().Y, z: 1, kind: brazierLamp, by: s.bonfire().Y, seed: 7}}
+	out := []lamp{{x: s.bonfire().X, y: s.bonfire().Y, z: 1, kind: brazierLamp, by: s.bonfire().Y, seed: 7, festive: true}}
 	const n = 14
 	for i := range n {
 		a := float64(i) * 2 * math.Pi / n

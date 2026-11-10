@@ -338,8 +338,12 @@ func (l *life) step(dt float64, night bool) {
 			case len(works) > 0:
 				w.work = works[l.r.IntN(len(works))]
 			default:
-				// Nothing to work at: some leisure instead.
-				l.leisureOnly(i)
+				// Nothing to work at: some leisure instead, by day.
+				if night {
+					w.wait = 20 + l.r.Float64()*20
+				} else {
+					l.leisureOnly(i)
+				}
 				continue
 			}
 			// Spread along the front, never into the footprint nor off the

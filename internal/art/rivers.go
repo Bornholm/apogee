@@ -23,7 +23,16 @@ func PaintRivers(cam Camera, sp Sprite, rivers [][]geo.Vec2) {
 		return
 	}
 	s := math.Sin(cam.Pitch)
-	b := sp.Img.Rect
+	// Only the pixels around the streams are traced back.
+	area := image.Rectangle{}
+	for _, path := range rivers {
+		for _, p := range path {
+			x, y := sp.Anchor.X+int(math.Floor(p.X)), sp.Anchor.Y+int(math.Floor(p.Y*s))
+			r := int(math.Ceil(math.Max(geo.SpringRadius, geo.RiverWidth))) + 1
+			area = area.Union(image.Rect(x-r, y-r, x+r+1, y+r+1))
+		}
+	}
+	b := area.Intersect(sp.Img.Rect)
 	for y := b.Min.Y; y < b.Max.Y; y++ {
 		for x := b.Min.X; x < b.Max.X; x++ {
 			if !image.Pt(x, y).In(sp.Ground.Rect) || sp.Ground.AlphaAt(x, y).A == 0 {

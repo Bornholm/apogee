@@ -44,8 +44,8 @@ func (s *signs) watchKin(own *proto.Own) {
 		}
 	}
 	if dead > s.dead {
-		g := s.graves(dead)
-		last := g[len(g)-1]
+		// The newest stele: past the twelve places, the oldest gives way.
+		last := s.graves(maxGraves)[(dead-1)%maxGraves]
 		s.add(mournSign, last.X, last.Y)
 		s.calls = append(s.calls, gathering{key: "funeral", at: last, radius: 4, share: 0.4, act: pray, left: 16, pace: 0.45})
 	}
@@ -99,7 +99,7 @@ func (s *signs) placeGraveyard(own *proto.Own) {
 }
 
 // graves returns where the steles of n dead stand: rows of four around the
-// graveyard, the newest last.
+// graveyard, twelve places at most, which the newest dead take in turn.
 func (s *signs) graves(n int) []geo.Vec2 {
 	n = min(n, maxGraves)
 	out := make([]geo.Vec2, 0, n)

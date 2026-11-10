@@ -85,3 +85,17 @@ func TestTheDogStaysByItsMaster(t *testing.T) {
 		t.Fatalf("the dog is %.1f from its master", d)
 	}
 }
+
+func TestNobodyStrollsAtNight(t *testing.T) {
+	l, own := leisureIsland()
+	own.Buildings = own.Buildings[:3] // no field: nothing to work at
+	l.sync(proto.IslandSummary{ID: 1, Seed: 3, Size: 50}, own, 2)
+	for range 60 * 120 {
+		l.step(1.0/60, true)
+		for _, w := range l.walkers {
+			if w.state == idling {
+				t.Fatal("a villager went out for leisure at night")
+			}
+		}
+	}
+}

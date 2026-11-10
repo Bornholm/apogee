@@ -148,7 +148,7 @@ func (l *life) release(key string) {
 		if w.call != key {
 			continue
 		}
-		w.call = ""
+		w.call, w.pace = "", 0
 		w.state, w.wait = resting, 1+l.r.Float64()*3
 	}
 }

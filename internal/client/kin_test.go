@@ -67,3 +67,16 @@ func hasCall(cs []gathering, key string) bool {
 	}
 	return false
 }
+
+func TestAFuneralLeavesNoSlowGait(t *testing.T) {
+	l, _ := leisureIsland()
+	l.call(gathering{key: "funeral", at: l.homes[0], radius: 4, share: 1, act: pray, left: 1, pace: 0.45})
+	for range 120 {
+		l.step(1.0/60, false)
+	}
+	for _, w := range l.walkers {
+		if w.pace != 0 {
+			t.Fatal("a mourner keeps the slow gait of the procession")
+		}
+	}
+}

@@ -48,7 +48,7 @@ func trades(st *proto.State) []trade {
 		}
 		best, bd := proto.IslandID(0), math.Inf(1)
 		for _, b := range st.Islands {
-			if b.ID == a.ID || b.FallingMs > 0 || (a.Banner != 0 && a.BannerTarget == b.ID) || (b.Banner != 0 && b.BannerTarget == a.ID) {
+			if b.ID == a.ID || b.FallingMs > 0 || (hostile(a.Banner) && a.BannerTarget == b.ID) || (hostile(b.Banner) && b.BannerTarget == a.ID) {
 				continue
 			}
 			ax, ay := a.Radius*math.Cos(a.Angle), a.Radius*math.Sin(a.Angle)
@@ -62,6 +62,12 @@ func trades(st *proto.State) []trade {
 		}
 	}
 	return out
+}
+
+// hostile reports whether an island's intent towards another is war; a
+// rescue is not.
+func hostile(o sim.Outer) bool {
+	return o == sim.Covet || o == sim.Punish || o == sim.Annihilate
 }
 
 var (
