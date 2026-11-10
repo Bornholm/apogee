@@ -30,8 +30,10 @@ func PortalFrame(cam Camera, radius float64, arms int, t float64) Sprite {
 				continue
 			}
 			theta := math.Atan2(dy, dx)
-			// Logarithmic spiral: arms wind faster near the centre.
-			v := float64(arms)*theta/(2*math.Pi) + 2.2*math.Log(r+0.02) + t
+			// Logarithmic spiral: arms wind faster near the centre. The
+			// whirlpool turns the way its arms trail, like water down a
+			// drain: their outer ends lag behind.
+			v := float64(arms)*theta/(2*math.Pi) + 2.2*math.Log(r+0.02) - t
 			band := v - math.Floor(v) // position across an arm, in [0, 1)
 			// Darker towards the centre, lighter on the arm crests.
 			depth := r * float64(len(VoidRamp)-1)

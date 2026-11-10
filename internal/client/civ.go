@@ -304,11 +304,19 @@ func (g *Game) civLines(p painter, st *proto.State, o *proto.Own, x0, w int) []b
 	if len(threats)+len(banners) == 0 {
 		threats = append(threats, "Rien ne menace l'île pour l'instant.")
 	}
-	lines = append(lines, bookLine{p.px(8) + p.line() + (len(threats)+len(banners))*p.line(), func(y int) {
+	var shield []string
+	if sum.Protected {
+		shield = p.wrap("Jeune civilisation : aucune île ne peut l'attaquer encore "+countdown(sum.ProtectedMs)+", tant qu'elle n'attaque pas elle-même.", w)
+	}
+	lines = append(lines, bookLine{p.px(8) + p.line() + (len(shield)+len(threats)+len(banners))*p.line(), func(y int) {
 		p.fill(image.Rect(x0, y, x0+w, y+p.px(2)), buttonFill)
 		y += p.px(8)
 		label("Menaces", y)
 		y += p.line()
+		for _, l := range shield {
+			p.text(l, x0, y, aetherColor)
+			y += p.line()
+		}
 		for _, t := range threats {
 			p.text(t, x0, y, textColor)
 			y += p.line()

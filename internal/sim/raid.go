@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"time"
 )
 
 // Raids (GDD 7): the god whispers an outer intention towards another island,
@@ -131,6 +132,15 @@ func (s *Sky) Protected(is *Island) bool { return s.protected(is) }
 
 func (s *Sky) protected(is *Island) bool {
 	return !is.Aggressor && s.age(is) < newcomerShield
+}
+
+// ProtectionLeft returns how long a young civilisation stays shielded, or
+// zero when it no longer is.
+func (s *Sky) ProtectionLeft(is *Island) time.Duration {
+	if !s.protected(is) {
+		return 0
+	}
+	return time.Duration((newcomerShield - s.age(is)) * float64(time.Second))
 }
 
 // age returns how long an island has lived, in seconds.

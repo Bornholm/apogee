@@ -527,13 +527,13 @@ func (g *Game) drawTarget(p painter, st *proto.State, o *proto.Own) (image.Recta
 	p.styled(figures, in.Max.X-p.widthOf(figures, small), in.Min.Y+(p.line()-p.lineOf(small))/2, dimColor, small)
 	ty := in.Min.Y + p.line()
 	culture := min(max(target.Culture, 0), int(sim.NumFamilies)-1)
-	p.text("Vénère "+strings.ToLower(sim.Family(culture).Name()), in.Min.X, ty, familyColor[culture])
+	p.text("Vénère "+familyArticle(sim.Family(culture)), in.Min.X, ty, familyColor[culture])
 	ty += p.line()
 	switch {
 	case target.Banner != 0 && target.BannerTarget == st.You && target.Banner != sim.Rescue:
 		p.text("Te menace de sa bannière.", in.Min.X, ty, alertText)
 	case target.Protected:
-		p.text("Jeune civilisation, protégée.", in.Min.X, ty, dimColor)
+		p.text("Protégée encore "+countdown(target.ProtectedMs)+".", in.Min.X, ty, aetherColor)
 	case target.Declining:
 		p.text("En déclin.", in.Min.X, ty, alertText)
 	default:
@@ -611,6 +611,15 @@ func newsColor(k sim.EntryKind) color.Color {
 		return goldColor
 	}
 	return dimColor
+}
+
+// countdown tells a time left to the minute: 5 h 12, 47 min.
+func countdown(ms int64) string {
+	m := max((ms+59_999)/60_000, 1)
+	if m < 60 {
+		return fmt.Sprintf("%d\u00a0min", m)
+	}
+	return fmt.Sprintf("%d\u00a0h\u00a0%02d", m/60, m%60)
 }
 
 // ago tells how long ago an entry was written.

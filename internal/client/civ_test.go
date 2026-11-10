@@ -46,3 +46,16 @@ func TestSpanSpeaksPlainly(t *testing.T) {
 		t.Error("generations are misnamed")
 	}
 }
+
+func TestCountdownToTheMinute(t *testing.T) {
+	for ms, want := range map[int64]string{
+		1:                    "1 min",
+		47 * 60_000:          "47 min",
+		(5*60 + 12) * 60_000: "5 h 12",
+		12 * 3600_000:        "12 h 00",
+	} {
+		if got := countdown(ms); got != want {
+			t.Errorf("countdown(%d) = %q, want %q", ms, got, want)
+		}
+	}
+}

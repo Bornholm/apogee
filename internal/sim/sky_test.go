@@ -89,3 +89,19 @@ func TestNothingIsBuiltOnTheStreams(t *testing.T) {
 		}
 	}
 }
+
+func TestProtectionCountsDown(t *testing.T) {
+	var s Sky
+	is := &Island{Born: 0}
+	if left := s.ProtectionLeft(is); left != 12*time.Hour {
+		t.Fatalf("a newborn is protected for %v", left)
+	}
+	s.Tick = uint64(5 * time.Hour / TickDuration)
+	if left := s.ProtectionLeft(is); left != 7*time.Hour {
+		t.Fatalf("after five hours, %v left", left)
+	}
+	is.Aggressor = true
+	if s.ProtectionLeft(is) != 0 {
+		t.Fatal("an aggressor is still protected")
+	}
+}

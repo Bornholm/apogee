@@ -150,8 +150,10 @@ type IslandSummary struct {
 	Banner       sim.Outer `json:"banner,omitempty"`
 	BannerTarget IslandID  `json:"bannerTarget,omitempty"`
 	// Protected marks a newcomer no one may raid (GDD 11.3).
-	Protected bool    `json:"protected,omitempty"`
-	Power     float64 `json:"power"`
+	Protected bool `json:"protected,omitempty"`
+	// ProtectedMs is how long the protection lasts yet.
+	ProtectedMs int64   `json:"protectedMs,omitempty"`
+	Power       float64 `json:"power"`
 }
 
 // RaidView is a group crossing the sky, as everyone sees it.
@@ -171,7 +173,7 @@ func Summarize(sky *sim.Sky, is *sim.Island) IslandSummary {
 		ID: is.ID, Name: is.Name, Seed: is.Seed, Radius: is.Radius, Angle: is.Angle,
 		Size: is.Civ.Size, AI: is.IsAI(), Culture: int(is.Civ.Dominant()),
 		Declining: is.Declining, FallingMs: int64(is.Falling * 1000), Heart: is.Civ.CoreHealth,
-		Protected: sky.Protected(is), Power: is.Civ.Power(),
+		Protected: sky.Protected(is), ProtectedMs: sky.ProtectionLeft(is).Milliseconds(), Power: is.Civ.Power(),
 	}
 	if o := is.Civ.Outer; o.Kind == sim.Covet || o.Kind == sim.Annihilate {
 		sum.Banner, sum.BannerTarget = o.Kind, o.Target

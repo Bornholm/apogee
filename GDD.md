@@ -661,7 +661,7 @@ Dans un monde permanent, un nouveau venu arrive dans un ciel d'îles avancées. 
 |---|---|
 | **Naissance en périphérie** | Sa civilisation apparaît au bord du ciel, loin du portail (3.1) |
 | **Vagues à sa mesure** | Les vagues qui le visent sont calibrées sur sa puissance (8.3) |
-| **Protection temporaire** | Aucun raid possible contre lui pendant ses premières heures d'existence (environ 12 h 🔧), signalée par un halo autour de l'île. Elle cesse plus tôt s'il souffle lui-même Convoiter ou Punir |
+| **Protection temporaire** | Aucun raid possible contre lui pendant ses premières heures d'existence (environ 12 h 🔧), signalée par un halo autour de l'île. Elle cesse plus tôt s'il souffle lui-même Convoiter, Punir ou Anéantir (Secourir ne compte pas). Le temps qui reste s'affiche sur la carte de l'île visée et dans l'onglet Civilisation |
 | **Rattrapage** | Production et savoir légèrement accrus tant que sa puissance est nettement sous la moyenne du ciel |
 
 ## 11.4 Rétention
