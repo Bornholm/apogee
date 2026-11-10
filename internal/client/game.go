@@ -48,8 +48,7 @@ type Game struct {
 	islandSprites map[miniKey]sprite // sky view miniatures
 	swarm         sprite             // a wave of monsters
 	swarmAt       image.Point        // its position at the last redraw
-	banners       [sim.NumOuter]sprite
-	warbands      [3]sprite // by raid kind
+	warbands      [3]sprite          // by raid kind
 	// selected is the island the god looks at in the sky view, to whisper
 	// an outer intention towards it (GDD 6.3).
 	selected proto.IslandID
@@ -85,6 +84,8 @@ type Game struct {
 	book bookTab // the tab of the book panel open, if any
 	// stockLog samples the reserves, for their trend (civ.go).
 	stockLog []stockSample
+	// warBanners are the banners of the lineages, by colour and intent.
+	warBanners map[[2]int]sprite
 	// renaming is set while the god names their civilisation, in
 	// newName (civ.go).
 	renaming              bool
@@ -200,9 +201,11 @@ type Game struct {
 	phaseLeft int // seconds, as last displayed
 	dirty     bool
 
-	// pan scrolls the view with the arrow keys when the window is too small
-	// to show everything, in virtual pixels.
-	panX, panY float64
+	// pan scrolls the view with the arrow keys, or by dragging the void with
+	// the mouse, in virtual pixels.
+	panX, panY   float64
+	dragging     bool
+	dragX, dragY int
 
 	outW, outH int
 	// dsf is the monitor's device scale factor: the screen is in physical
@@ -568,10 +571,6 @@ func NewGame(src *Source, seed uint64) *Game {
 	}
 	sw := cam.Render(art.Swarm(seed))
 	g.swarm = sprite{ebiten.NewImageFromImage(sw.Img), sw.Anchor}
-	for k, mat := range map[sim.Outer]art.Material{sim.Covet: art.Roof, sim.Annihilate: art.Blood} {
-		b := cam.Render(art.Banner(mat))
-		g.banners[k] = sprite{ebiten.NewImageFromImage(b.Img), b.Anchor}
-	}
 	for k, mat := range map[sim.RaidKind]art.Material{sim.Pillage: art.Team, sim.Assault: art.Blood, sim.Relief: art.Plaster} {
 		w := cam.Render(art.Warband(seed+uint64(k), mat))
 		g.warbands[k] = sprite{ebiten.NewImageFromImage(w.Img), w.Anchor}
@@ -750,7 +749,12 @@ func (g *Game) Update() error {
 			g.selected = 0 // a click in the void clears the selection
 			g.dirty = true
 		}
+		if !hit {
+			// A press in the void grabs the view: dragging scrolls it.
+			g.dragging, g.dragX, g.dragY = true, x, y
+		}
 	}
+	g.drag()
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) && g.viewing != 0 && !g.renaming {
 		g.Observe(0)
 	}
@@ -841,6 +845,28 @@ func (g *Game) pixelScale() float64 {
 	return k
 }
 
+// drag scrolls the view while the mouse, pressed in the void, moves.
+func (g *Game) drag() {
+	if !g.dragging {
+		return
+	}
+	if !ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+		g.dragging = false
+		return
+	}
+	x, y := ebiten.CursorPosition()
+	if x == g.dragX && y == g.dragY {
+		return
+	}
+	k := g.pixelScale()
+	px, py := g.clampPan(g.panX+float64(x-g.dragX)/k, g.panY+float64(y-g.dragY)/k)
+	g.dragX, g.dragY = x, y
+	if px != g.panX || py != g.panY {
+		g.panX, g.panY = px, py
+		g.dirty = true
+	}
+}
+
 // panSpeed is the scrolling speed in screen pixels per tick.
 const panSpeed = 8
 
@@ -893,16 +919,24 @@ func (g *Game) clampPan(x, y float64) (float64, float64) {
 	}
 	k := g.pixelScale()
 	halfW, halfH := float64(g.outW)/2/k, float64(g.outH)/2/k
-	clamp := func(v float64, lo, hi int, half float64) float64 {
+	// The view may go past the scene by the width of the panels on its
+	// sides, so that an island under the chronicle or the pie can be
+	// brought out and clicked.
+	ui := g.uiScale()
+	sideX := float64(chronicleWidth+2*hudMargin) * ui / k
+	sideY := float64(panelTop+50) * ui / k
+	clamp := func(v float64, lo, hi int, half, side float64) float64 {
 		// Scrolling by +v moves the scene right: its left edge lo+v must stay
-		// at or left of -half, its right edge hi+v at or right of +half.
+		// at or left of -half+side, its right edge hi+v at or right of
+		// +half-side.
 		minV, maxV := half-float64(hi), -half-float64(lo)
-		if minV > maxV {
-			return 0
+		if minV > maxV { // the scene fits: it may only slide around its centre
+			minV = (minV + maxV) / 2
+			maxV = minV
 		}
-		return math.Min(math.Max(v, minV), maxV)
+		return math.Min(math.Max(v, minV-side), maxV+side)
 	}
-	return clamp(x, b.Min.X, b.Max.X, halfW), clamp(y, b.Min.Y, b.Max.Y, halfH)
+	return clamp(x, b.Min.X, b.Max.X, halfW, sideX), clamp(y, b.Min.Y, b.Max.Y, halfH, sideY)
 }
 
 // fallDuration matches the simulation's: the time the whirlpool takes to
@@ -1053,10 +1087,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			atScaled(sp.img, float64(p.X-sp.anchor.X), float64(p.Y-sp.anchor.Y), cs)
 			// Values from the wire are bounded before indexing: a corrupt
 			// state must not crash the client.
-			if is.Banner > 0 && int(is.Banner) < len(g.banners) && g.banners[is.Banner].img != nil && is.FallingMs == 0 {
-				b := g.banners[is.Banner]
-				top := p.Y - sp.anchor.Y + 6
-				at(b.img, float64(p.X+sp.anchor.X/3-b.anchor.X), float64(top-b.anchor.Y))
+			if is.Banner > 0 && is.FallingMs == 0 {
+				b := g.warBanner(is.Lineage, is.Banner)
+				fx, fy := float64(p.X+sp.anchor.X/3), float64(p.Y-sp.anchor.Y+6)
+				at(b.img, fx-float64(b.anchor.X), fy-float64(b.anchor.Y))
+				g.bannerEmblem(fx, fy, is.Lineage)
 			}
 		}
 		if p, ok := g.swarmPixel(islands, time.Now()); ok {
@@ -1476,6 +1511,39 @@ func (g *Game) Resume(src *Source) {
 	g.dirty = true
 }
 
+// warBanner returns the banner of a lineage's colour planted for an outer
+// intention, rendered once.
+func (g *Game) warBanner(l sim.Lineage, kind sim.Outer) sprite {
+	key := [2]int{int(l.Clean().Colour), 0}
+	if kind == sim.Annihilate {
+		key[1] = 1
+	}
+	if g.warBanners == nil {
+		g.warBanners = map[[2]int]sprite{}
+	}
+	if sp, ok := g.warBanners[key]; ok {
+		return sp
+	}
+	r := g.cam.Render(art.WarBanner(art.Livery(key[0]), key[1] == 1))
+	sp := sprite{ebiten.NewImageFromImage(r.Img), r.Anchor}
+	g.warBanners[key] = sp
+	return sp
+}
+
+// bannerEmblem paints a lineage's emblem on the cloth of a banner whose
+// foot stands at (x, y), in virtual pixels.
+func (g *Game) bannerEmblem(x, y float64, l sim.Lineage) {
+	dx, dy := art.BannerEmblemAt(g.cam)
+	e := int(l.Clean().Emblem)
+	for row, line := range art.Emblems[e] {
+		for col, ch := range line {
+			if ch == '#' {
+				g.atTinted(g.pixel, math.Round(x+dx)+float64(col), math.Round(y+dy)+float64(row), textColor)
+			}
+		}
+	}
+}
+
 // shown returns the people of the island in view.
 func (g *Game) shown() *life {
 	if g.viewing != 0 {
@@ -1506,6 +1574,8 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 		lamp *lamp
 		// shear leans a pine in the wind.
 		shear float64
+		// emblem is painted on a war banner's cloth.
+		emblem *sim.Lineage
 	}
 	people := g.shown().walkers
 	items := make([]item, 0, len(g.homeObjs)+len(people))
@@ -1605,9 +1675,8 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 			items = append(items, item{sp: sp, x: f.x, y: f.y, z: f.z, person: true})
 		}
 		for _, b := range g.troops.banners {
-			if int(b.kind) < len(g.banners) && g.banners[b.kind].img != nil {
-				items = append(items, item{sp: g.banners[b.kind], x: b.at.X, y: b.at.Y})
-			}
+			l := b.lineage
+			items = append(items, item{sp: g.warBanner(l, b.kind), x: b.at.X, y: b.at.Y, emblem: &l})
 		}
 	}
 	if b := g.shownBattle(); b.active() {
@@ -1646,6 +1715,11 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 		}
 		x, y := g.cam.Project(art.V(it.x, it.y, it.z))
 		px, py := math.Round(x), math.Round(y)-it.lift
+		if it.emblem != nil {
+			at(it.sp.img, px-float64(it.sp.anchor.X), py-float64(it.sp.anchor.Y))
+			g.bannerEmblem(px, py, *it.emblem)
+			continue
+		}
 		if it.shear != 0 && g.atSkew != nil {
 			g.atSkew(it.sp.img, px-float64(it.sp.anchor.X), py-float64(it.sp.anchor.Y), float64(it.sp.anchor.Y), it.shear)
 			continue

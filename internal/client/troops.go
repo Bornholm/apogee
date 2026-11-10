@@ -60,6 +60,8 @@ type troops struct {
 type bannerAt struct {
 	kind sim.Outer
 	at   geo.Vec2
+	// lineage is the coveting island's: its colour and emblem.
+	lineage sim.Lineage
 }
 
 // observe follows the raids of the sky that concern the player's island.
@@ -125,7 +127,7 @@ func (tr *troops) observe(st *proto.State, sum proto.IslandSummary, own *proto.O
 		if is.BannerTarget == st.You && is.Banner > 0 && is.ID != st.You && len(tr.banners) < 4 {
 			a := float64(is.ID) * 2.39996
 			edge := tr.edgeAt(a)
-			tr.banners = append(tr.banners, bannerAt{is.Banner, edge.Scale(0.9)})
+			tr.banners = append(tr.banners, bannerAt{is.Banner, edge.Scale(0.9), is.Lineage})
 		}
 	}
 	tr.primed = true
@@ -222,7 +224,8 @@ func (tr *troops) rehearse(name string) {
 			tr.allies = []allies{{raid: 9, n: 3}}
 		}
 	case "threat":
-		tr.banners = append(tr.banners[:0], bannerAt{sim.Covet, tr.edgeAt(1).Scale(0.9)}, bannerAt{sim.Annihilate, tr.edgeAt(4).Scale(0.9)})
+		tr.banners = append(tr.banners[:0], bannerAt{sim.Covet, tr.edgeAt(1).Scale(0.9), sim.Lineage{Colour: 5, Emblem: 3}},
+			bannerAt{sim.Annihilate, tr.edgeAt(4).Scale(0.9), sim.Lineage{Colour: 2, Emblem: 1}})
 	case "raiders":
 		tr.raiders = append(tr.raiders[:0], proto.RaidView{From: 5, Units: 5, Progress: 0.92})
 	}

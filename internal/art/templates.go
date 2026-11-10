@@ -350,6 +350,27 @@ func Banner(cloth Material) Mesh {
 	return m
 }
 
+// WarBanner is the banner an island plants on the shore of the one it
+// covets (GDD 7.2): a stout pole and a wide cloth in its lineage's colour,
+// where the client paints its emblem (BannerEmblemAt). A banner of
+// annihilation trails a blood-red tongue under its cloth.
+func WarBanner(cloth Material, annihilate bool) Mesh {
+	var m Mesh
+	box(&m, Wood, -0.6, -0.6, 0, 0.6, 0.6, 17)
+	box(&m, Self, -0.9, -0.9, 17, 0.9, 0.9, 18)
+	box(&m, cloth, 0.6, -0.2, 5, 9.8, 0.2, 16)
+	if annihilate {
+		box(&m, Blood, 0.6, -0.2, 2, 6, 0.2, 5)
+	}
+	return m
+}
+
+// BannerEmblemAt is where the emblem of a war banner starts, its top left
+// pixel, from the foot of the pole, in virtual pixels.
+func BannerEmblemAt(cam Camera) (x, y float64) {
+	return cam.Project(V(2, 0.2, 15.4))
+}
+
 // Warband is a group of units crossing the sky: assailants in the team's
 // colour, relief forces in plaster white.
 func Warband(seed uint64, mat Material) Mesh {
