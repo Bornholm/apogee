@@ -56,6 +56,10 @@ type App struct {
 	quit     bool
 	// failed is the error of the last launch, if it failed.
 	failed error
+	// target is the address of the sky in play; lost follows the attempts
+	// to reconnect to it after the connection dropped (connection.go).
+	target string
+	lost   reconnection
 
 	// OnFrame, when set, is called after each redraw of the home screen
 	// with the screen image. The screenshot mode uses it.
@@ -94,8 +98,10 @@ type launchResult struct {
 	conn *netclient.Conn
 	stop func()
 	err  error
-	// addr is the address of a sky joined over the network, to remember.
-	addr string
+	// target is the address dialed, to reconnect to; remember is set for
+	// a sky joined over the network, to offer it again from home.
+	target   string
+	remember bool
 }
 
 // field is a one-line text input.
@@ -194,7 +200,7 @@ func (a *App) dial(addr string, stop func()) launchResult {
 		var conn *netclient.Conn
 		conn, err = netclient.Dial(context.Background(), addr, a.settings.Name, key)
 		if err == nil {
-			return launchResult{conn: conn, stop: stop}
+			return launchResult{conn: conn, stop: stop, target: addr}
 		}
 	}
 	if stop != nil {
@@ -247,7 +253,7 @@ func (a *App) host() launchResult {
 
 func (a *App) join(addr string) launchResult {
 	r := a.dial(addr, nil)
-	r.addr = addr
+	r.remember = true
 	return r
 }
 
@@ -275,6 +281,10 @@ func (a *App) Update() error {
 	}
 	switch a.screen {
 	case playingScreen:
+		a.watchConnection()
+		if a.game == nil {
+			return nil // the player gave up
+		}
 		if err := a.game.Update(); err != nil {
 			// The sky is lost: back to the home screen, with the reason.
 			a.Close()
@@ -295,12 +305,14 @@ func (a *App) Update() error {
 			}
 			a.conn, a.stopServer = r.conn, r.stop
 			a.game = NewGame(Listen(r.conn), a.Options.Seed)
-			if r.addr != "" {
+			a.target, a.lost = r.target, reconnection{}
+			if r.remember {
 				// Remember the sky, to come back to it from the home screen.
-				a.settings.LastServer, a.settings.LastSky = r.addr, r.conn.Welcome.Sky
-				a.address.value = r.addr
+				a.settings.LastServer, a.settings.LastSky = r.target, r.conn.Welcome.Sky
+				a.address.value = r.target
 				a.settings.Save()
 			}
+			a.game.OnGiveUp = a.giveUp
 			a.game.Sound = a.Options.Sound
 			a.game.OnMute = func(m bool) {
 				a.settings.Muted = m

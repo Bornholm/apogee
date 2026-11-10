@@ -3,7 +3,6 @@
 package client
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"math"
@@ -114,6 +113,11 @@ type Game struct {
 	// atTinted draws an image in world coordinates with a colour, during a
 	// redraw.
 	atTinted func(img *ebiten.Image, x, y float64, c color.RGBA)
+
+	// connection is shown while the connection to the sky is lost;
+	// OnGiveUp, when set, takes the player back to the home screen.
+	connection string
+	OnGiveUp   func()
 
 	// Sound, when set, plays the effects and the music (GDD 12.7); mood
 	// is the last one told to the music. OnMute is called when the player
@@ -525,9 +529,8 @@ func (g *Game) homeIsland(st *proto.State) (sprite, bool) {
 // Update advances animations at a fixed rate and decides whether a redraw is
 // needed. Nothing is drawn when nothing visible changed.
 func (g *Game) Update() error {
-	if err := g.src.Err(); err != nil {
-		return fmt.Errorf("connection to the sky lost: %w", err)
-	}
+	// A lost connection does not stop the game: the app reconnects, and the
+	// island lives on meanwhile from the last state heard.
 	if st := g.src.State(); st != nil && st.Tick != g.lastTick {
 		g.lastTick = st.Tick
 		g.dirty = true
@@ -1134,6 +1137,26 @@ func (g *Game) drawStorm(atScaled func(*ebiten.Image, float64, float64, ebiten.C
 		cs.ScaleAlpha(float32(0.35 + 0.55*k))
 		atScaled(c, math.Round(x)-float64(b.Dx()/2), math.Round(y)-float64(b.Dy()/2), cs)
 	}
+}
+
+// SetConnection shows a message while the connection to the sky is lost,
+// or hides it when msg is empty.
+func (g *Game) SetConnection(msg string) {
+	if msg != g.connection {
+		g.connection = msg
+		g.dirty = true
+	}
+}
+
+// Resume carries on with a new connection to the same sky, after one was
+// lost: the island, its people and the view stay as they were.
+func (g *Game) Resume(src *Source) {
+	g.src = src
+	g.lastTick = 0
+	if g.viewing != 0 {
+		src.Look(g.viewing)
+	}
+	g.dirty = true
 }
 
 // shown returns the people of the island in view.

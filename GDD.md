@@ -602,6 +602,8 @@ Les clients découvrent les **serveurs** (10.3) par **mDNS** sur le réseau loca
 |---|---|
 | **Arrivée d'un joueur** | Snapshot complet de l'état du ciel, insertion progressive |
 | **Départ d'un joueur** | Son île continue de vivre sur le serveur, son peuple livré à lui-même (pilier 3) |
+| **Connexion perdue** | Le jeu reste affiché et l'île continue de s'animer depuis le dernier état reçu. Un bandeau indique que la connexion est perdue et quand aura lieu la prochaine tentative ; le client se reconnecte de lui-même, après 1, 2, 4… jusqu'à 30 secondes, et reprend la partie là où elle en était. Le joueur peut renoncer et revenir à l'accueil |
+| **Dernier ciel** | Le client retient l'adresse et le nom du dernier ciel rejoint par le réseau : l'accueil propose d'y revenir en un clic, et le champ d'adresse le reprend |
 | **Arrêt du serveur** | Le ciel se fige. Les clients se reconnectent automatiquement à son retour |
 | **Déconnexion brève** | Reconnexion transparente avec resynchronisation |
 

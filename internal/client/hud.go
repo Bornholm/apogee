@@ -100,6 +100,26 @@ func (g *Game) drawHUD(screen *ebiten.Image, st *proto.State) {
 	}
 	g.drawHelp(p)
 	g.drawTutorial(p)
+	g.drawConnection(p)
+}
+
+// drawConnection tells the player the connection to the sky is lost, while
+// the app tries again, and offers to go back home.
+func (g *Game) drawConnection(p painter) {
+	if g.connection == "" {
+		return
+	}
+	k := int(p.k)
+	bh := p.line() + 8*k
+	w := max(p.width(g.connection)+24*k, 320*k)
+	h := p.line() + bh + 24*k
+	top := p.line() + 24*k
+	r := image.Rect((g.outW-w)/2, top, (g.outW+w)/2, top+h)
+	in := p.panel(r)
+	p.text(g.connection, in.Min.X+(in.Dx()-p.width(g.connection))/2, in.Min.Y, alertColor)
+	y := in.Max.Y - bh
+	bw := p.width("Revenir à l'accueil") + 24*k
+	p.button(image.Rect(in.Min.X+(in.Dx()-bw)/2, y, in.Min.X+(in.Dx()+bw)/2, y+bh), "Revenir à l'accueil", g.OnGiveUp)
 }
 
 func (g *Game) drawHelp(p painter) {
