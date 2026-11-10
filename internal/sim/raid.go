@@ -304,13 +304,18 @@ func (s *Sky) clash(from, to *Island, r *Raid) {
 	if atk <= def {
 		lost := math.Min(r.Units, math.Ceil(r.Units*0.6))
 		r.Units -= lost
+		from.Civ.Deaths += lost
 		to.Civ.chronicleAs(VictoryNews, s.Tick, "Ton peuple a repoussé les guerriers de %s.", from.Name)
 		from.Civ.chronicle(s.Tick, "Les guerriers ont été repoussés par %s : %.0f sont tombés.", to.Name, lost)
 		return
 	}
 	// Victory: casualties on both sides follow the balance of forces.
-	r.Units -= math.Floor(r.Units * def / atk * 0.5)
+	fallen := math.Floor(r.Units * def / atk * 0.5)
+	r.Units -= fallen
+	from.Civ.Deaths += fallen
+	defenders := to.Civ.Defenders
 	to.Civ.Defenders = math.Max(0, to.Civ.Defenders-math.Ceil(to.Civ.Defenders*0.5))
+	to.Civ.Deaths += defenders - to.Civ.Defenders
 	if r.Kind == Assault {
 		harm := (atk - def) / atk * 0.5 / (1 + to.Civ.Tech.Mods().CoreArmor)
 		to.Civ.CoreHealth -= harm

@@ -220,6 +220,7 @@ func (s *Sky) attack(is *Island, factor float64, night bool, by string, foe Foe)
 	// Defenders fall in proportion to the strength they faced.
 	lost := math.Min(c.Defenders, strength*0.03/(1+m.DefenderStrength))
 	c.Defenders -= lost
+	c.Deaths += lost
 	if defense >= strength {
 		c.chronicleAs(VictoryNews, s.Tick, "%s", strings.TrimSpace("Ton peuple a repoussé "+by+". "+losses(lost)))
 		return

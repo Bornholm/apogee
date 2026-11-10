@@ -83,6 +83,8 @@ type walker struct {
 	// villager does.
 	child   bool
 	leisure leisure
+	// pace is the gait of a villager answering a gathering, or 0.
+	pace float64
 }
 
 // shore is the outline of the island in view, at its size.
@@ -292,7 +294,11 @@ func (l *life) step(dt float64, night bool) {
 		switch w.state {
 		case answering:
 			// Hurry to the gathering, then stay there.
-			if w.walk(dt*1.6) && w.via {
+			pace := 1.6
+			if w.pace > 0 {
+				pace = w.pace
+			}
+			if w.walk(dt*pace) && w.via {
 				w.via = false
 				w.tx, w.ty = w.fx, w.fy
 			}

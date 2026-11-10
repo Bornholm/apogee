@@ -26,10 +26,12 @@ const (
 	discoverySign                 // the scholars mastered a discovery
 	whisperSign                   // the god whispered
 	birthSign                     // the island rose from the clouds
+	cradleSign                    // a child was born (kin.go)
+	mournSign                     // one of the people died
 )
 
 // signLength is how long each brief sign lasts, in seconds.
-var signLength = [...]float64{finishedSign: 1.2, grownSign: 2.5, discoverySign: 3.5, whisperSign: 1.6, birthSign: 5}
+var signLength = [...]float64{finishedSign: 1.2, grownSign: 2.5, discoverySign: 3.5, whisperSign: 1.6, birthSign: 5, cradleSign: 3, mournSign: 6}
 
 type sign struct {
 	kind signKind
@@ -64,6 +66,11 @@ type signs struct {
 	lifts []string
 	// starving is set during a famine: the people drag their feet.
 	starving bool
+	// born and dead count the people's births and deaths already shown;
+	// graveyard is where the steles stand (kin.go).
+	born, dead int
+	graveyard  geo.Vec2
+	yard       bool
 }
 
 // observe compares a new state of the player's island with the last one and
@@ -123,6 +130,7 @@ func (s *signs) observe(sum proto.IslandSummary, own *proto.Own) {
 		}
 		s.heard = max(s.heard, e.Tick)
 	}
+	s.watchKin(own)
 	s.primed = true
 	s.starving = own.Starving
 	s.state = lasting{
@@ -296,6 +304,18 @@ func (s *signs) emit(g sign, dt float64, dust *particles) {
 			if geo.Inside(s.shore.outline, s.shore.size, p) {
 				dust.add(particle{x: p.X, y: p.Y, z: 1, vz: 1.5, life: 0.4, col: pick(r, goldColours)})
 			}
+		}
+	case cradleSign:
+		// Pink sparks float up over the house of the newborn.
+		if r.Float64() < 10*dt {
+			dust.add(particle{x: g.x + (r.Float64()*2-1)*2, y: g.y, z: 8 + r.Float64()*2,
+				vz: 1.2 + r.Float64(), sway: 0.6, phase: r.Float64() * 6, life: 1.6, col: pick(r, cradleColours)})
+		}
+	case mournSign:
+		// A pale wisp rises slowly from the new stele.
+		if r.Float64() < 4*dt {
+			dust.add(particle{x: g.x + (r.Float64()*2-1)*0.4, y: g.y, z: 2.5,
+				vz: 0.8, sway: 0.4, phase: r.Float64() * 6, life: 2.5, col: pick(r, mistColours)})
 		}
 	case birthSign:
 		// The clouds the island rose from part and drift away.

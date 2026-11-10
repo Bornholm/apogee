@@ -57,6 +57,17 @@ func Chimney(m Mesh) Vec3 {
 	return V(top.X*0.55, top.Y*0.55, top.Z-0.2)
 }
 
+// Stele is a grave: a rounded standing stone on a low plinth.
+func Stele(seed uint64) Mesh {
+	r := Rng(seed)
+	var m Mesh
+	h := between(r, 1.8, 2.4)
+	box(&m, Stone, -0.9, -0.5, 0, 0.9, 0.5, 0.3)
+	box(&m, Stone, -0.6, -0.25, 0.3, 0.6, 0.25, h)
+	box(&m, Stone, -0.4, -0.25, h, 0.4, 0.25, h+0.3)
+	return m
+}
+
 // Sheep is a woolly grazer of the fields: a white fleece and a dark head.
 func Sheep(seed uint64) Mesh {
 	r := Rng(seed)

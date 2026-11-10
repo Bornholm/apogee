@@ -110,6 +110,7 @@ type Game struct {
 	pixel     *ebiten.Image // one white pixel, tinted to draw particles
 	walkerArt [3]sprite     // villager, defender, child
 	dogArt    sprite
+	steleArt  sprite
 	sheepArt  [2]sprite // grazing, walking
 	// homeChimneys smoke over the island in view; birds wheel above it.
 	homeChimneys []art.Vec3
@@ -394,6 +395,8 @@ func NewGame(src *Source, seed uint64) *Game {
 	g.walkerArt[2] = sprite{ebiten.NewImageFromImage(ch.Img), ch.Anchor}
 	dog := cam.Render(art.Dog(seed))
 	g.dogArt = sprite{ebiten.NewImageFromImage(dog.Img), dog.Anchor}
+	st := cam.Render(art.Stele(seed))
+	g.steleArt = sprite{ebiten.NewImageFromImage(st.Img), st.Anchor}
 	for i := range g.sheepArt {
 		sh := cam.Render(art.Sheep(seed + uint64(i)))
 		g.sheepArt[i] = sprite{ebiten.NewImageFromImage(sh.Img), sh.Anchor}
@@ -1303,6 +1306,12 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 			it.lift = -1 // head down in the grass
 		}
 		items = append(items, it)
+	}
+	if g.viewing == 0 {
+		// The steles of the dead, in the graveyard.
+		for _, p := range g.signs.graves(g.signs.dead) {
+			items = append(items, item{sp: g.steleArt, x: p.X, y: p.Y})
+		}
 	}
 	if p := g.shown().pet; p != nil {
 		it := item{sp: g.dogArt, x: p.x, y: p.y, person: true}

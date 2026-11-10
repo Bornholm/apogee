@@ -127,6 +127,10 @@ type Civ struct {
 	// LastBattle is the last attack the island suffered, so that its god
 	// sees it fought on the island (GDD 13.1 bis).
 	LastBattle Battle `json:",omitempty"`
+	// Births and Deaths count the souls born and lost since the island
+	// rose, fractions included, so that the island shows each one.
+	Births float64 `json:",omitempty"`
+	Deaths float64 `json:",omitempty"`
 
 	Tech Tech
 	// Pending is the supplique waiting for the god's answer, if any.
@@ -449,6 +453,7 @@ func (c *Civ) feed(dt float64, tick uint64) {
 		c.Starving = false
 		if c.Stock[Food] > 0.3*c.Cap() && c.Population+1 <= float64(c.Housing()) {
 			c.Population += growthPerSecond * dt
+			c.Births += growthPerSecond * dt
 			// Each ten souls is told once: a people swaying around a
 			// milestone does not repeat itself.
 			if n := int(c.Population) / 10 * 10; n > c.Milestone {
@@ -459,7 +464,9 @@ func (c *Civ) feed(dt float64, tick uint64) {
 		return
 	}
 	c.Stock[Food] = 0
+	before := c.Population
 	c.Population = math.Max(1, c.Population-famineLoss*c.Population*dt)
+	c.Deaths += before - c.Population
 	if !c.Starving {
 		c.Starving = true
 		c.chronicle(tick, "La famine frappe : ton peuple dépérit.")

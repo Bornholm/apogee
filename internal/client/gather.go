@@ -31,8 +31,11 @@ type gathering struct {
 	// where: inPlace stops them where they stand; atHome sends each home.
 	inPlace, atHome bool
 	delay           float64 // seconds before it starts
-	left            float64 // seconds it lasts once started; 0 lasts until lifted
-	lifted          bool
+	// pace is how fast they walk there, 1.6 times their gait when unset:
+	// a funeral goes slowly.
+	pace   float64
+	left   float64 // seconds it lasts once started; 0 lasts until lifted
+	lifted bool
 }
 
 // call starts a gathering, or renews the one with the same key.
@@ -117,6 +120,7 @@ func (l *life) gather(dt float64) {
 // join sends a villager to a gathering, to the slot-th place of its ring.
 func (l *life) join(w *walker, g gathering, slot int) {
 	w.call, w.act, w.phase = g.key, g.act, l.r.Float64()*6
+	w.pace = g.pace
 	w.via = false
 	switch {
 	case g.inPlace:

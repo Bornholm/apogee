@@ -217,6 +217,10 @@ type Own struct {
 	// Battle is the last attack the island suffered, for the client to
 	// play it out.
 	Battle sim.Battle `json:"battle"`
+	// Births and Deaths count the souls born and lost on the island, for
+	// the client to show each one.
+	Births float64 `json:"births,omitempty"`
+	Deaths float64 `json:"deaths,omitempty"`
 	// Outer is the intention the god turned towards another island.
 	Outer       sim.Outer `json:"outer,omitempty"`
 	OuterTarget IslandID  `json:"outerTarget,omitempty"`
@@ -259,7 +263,7 @@ func Detail(sky *sim.Sky, is *sim.Island) *Own {
 		Axis:     int(c.Dominant()),
 		WaveInMs: -1,
 		Outer:    c.Outer.Kind, OuterTarget: c.Outer.Target,
-		Battle: c.LastBattle, Starving: c.Starving,
+		Battle: c.LastBattle, Starving: c.Starving, Births: c.Births, Deaths: c.Deaths,
 	}
 	for f := range sim.NumFamilies {
 		o.Tiers[f] = c.Tech.Tier(f)
