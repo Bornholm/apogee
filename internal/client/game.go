@@ -16,6 +16,7 @@ import (
 	"apogee/internal/art"
 	"apogee/internal/proto"
 	"apogee/internal/sim"
+	"apogee/internal/sound"
 )
 
 // Zoom levels are integer upscale factors, one per view (GDD 3.4 and 12.3):
@@ -97,6 +98,15 @@ type Game struct {
 	// redraw.
 	atTinted func(img *ebiten.Image, x, y float64, c color.RGBA)
 
+	// Sound, when set, plays the effects and the music (GDD 12.7); mood
+	// is the last one told to the music. OnMute is called when the player
+	// silences the game or brings the sound back, to remember it.
+	Sound  *sound.Engine
+	mood   sound.Mood
+	played bool               // an action of the last click played its own effect
+	onPlay func(sound.Effect) // tests listen here
+	OnMute func(muted bool)
+
 	// heard is the tick of the newest chronicle entry already considered.
 	heard  uint64
 	primed bool
@@ -175,16 +185,99 @@ func (g *Game) notifyNews(st *proto.State) {
 		return
 	}
 	newest := g.heard
+	loudest := -1
 	for _, e := range st.Own.Chronicle {
 		if e.Tick <= g.heard && g.primed {
 			continue
 		}
 		newest = max(newest, e.Tick)
-		if g.primed && g.Notify != nil && g.NotifyKinds[e.Kind] && !g.isFocused() {
+		if !g.primed {
+			continue
+		}
+		if g.Notify != nil && g.NotifyKinds[e.Kind] && !g.isFocused() {
 			g.Notify(e.Text)
+		}
+		if r := newsRank(e.Kind); r > loudest {
+			loudest = r
 		}
 	}
 	g.heard, g.primed = newest, true
+	// Several entries in one state make one sound: the weightiest.
+	if loudest >= 0 {
+		g.play(newsSounds[loudest].fx)
+	}
+}
+
+// newsSounds are the effects of the chronicle's entries, from the least to
+// the most important.
+var newsSounds = []struct {
+	kind sim.EntryKind
+	fx   sound.Effect
+}{
+	{sim.BuiltNews, sound.Built},
+	{sim.BirthNews, sound.Birth},
+	{sim.DiscoveryNews, sound.Discovery},
+	{sim.SuppliqueNews, sound.Supplique},
+	{sim.VictoryNews, sound.Victory},
+	{sim.DeclineNews, sound.Decline},
+	{sim.RaidNews, sound.Raid},
+	{sim.WaveNews, sound.Struck},
+	{sim.FallNews, sound.Fall},
+}
+
+// newsRank returns the index of an entry's sound in newsSounds, or -1 when
+// it makes none.
+func newsRank(k sim.EntryKind) int {
+	for i, n := range newsSounds {
+		if n.kind == k {
+			return i
+		}
+	}
+	return -1
+}
+
+// play starts an effect, if the game has sound.
+func (g *Game) play(fx sound.Effect) {
+	g.played = true
+	if g.onPlay != nil {
+		g.onPlay(fx)
+	}
+	if g.Sound != nil {
+		g.Sound.Play(fx)
+	}
+}
+
+// ToggleMute silences the game, or brings the sound back.
+func (g *Game) ToggleMute() {
+	if g.Sound == nil {
+		return
+	}
+	m := !g.Sound.Muted()
+	g.Sound.SetMuted(m)
+	if g.OnMute != nil {
+		g.OnMute(m)
+	}
+	g.dirty = true
+}
+
+// updateMood tells the music the time of day, and whether the island
+// declines.
+func (g *Game) updateMood(st *proto.State) {
+	if g.Sound == nil {
+		return
+	}
+	m := sound.Mood{Phase: g.phase}
+	if st != nil {
+		for _, is := range st.Islands {
+			if is.ID == st.You {
+				m.Decline = is.Declining
+			}
+		}
+	}
+	if m != g.mood {
+		g.mood = m
+		g.Sound.SetMood(m)
+	}
 }
 
 func (g *Game) isFocused() bool {
@@ -399,7 +492,11 @@ func (g *Game) Update() error {
 		hit := false
 		for i := len(g.buttons) - 1; i >= 0; i-- {
 			if b := g.buttons[i]; image.Pt(x, y).In(b.r) {
+				g.played = false
 				b.action()
+				if !g.played {
+					g.play(sound.Click)
+				}
 				g.dirty = true
 				hit = true
 				break
@@ -415,6 +512,9 @@ func (g *Game) Update() error {
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyH) {
 		g.OpenTutorial()
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyM) {
+		g.ToggleMute()
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyC) {
 		g.showCulture = !g.showCulture
@@ -482,6 +582,7 @@ func (g *Game) Update() error {
 			g.dirty = true // warbands are on the move
 		}
 	}
+	g.updateMood(g.src.State())
 	g.updatePan()
 	g.animate()
 	return nil
@@ -655,7 +756,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		op.GeoM.Scale(k, k)
 		op.GeoM.Translate(ox, oy)
 		op.ColorScale = cs
-		op.ColorScale.ScaleWithColorScale(light) // the time of day (GDD 12.5)
+		op.ColorScale.ScaleWithColorScale(light) // the time of day (GDD 12.7)
 		screen.DrawImage(img, &op)
 	}
 	at := func(img *ebiten.Image, x, y float64) { atScaled(img, x, y, ebiten.ColorScale{}) }

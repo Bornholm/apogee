@@ -23,7 +23,7 @@ var tutorialSteps = []tutorialStep{
 	{"Un peuple qui vit", "Regarde ton île : les villageois vont et viennent entre leurs maisons, les chantiers, les champs et les bosquets. Une île se bâtit en une journée environ. La molette rapproche ou éloigne la vue.", "", -1},
 	{"La chronique", "Ton peuple raconte ici ce qu'il fait, et pourquoi. En revenant de réunion, un coup d'œil suffit pour savoir ce qui s'est passé.", "chronicle", -1},
 	{"Les suppliques", "De temps en temps, ton peuple s'adresse à toi : une découverte à choisir, un manque de place, une famine. Si tu ne réponds pas, il décide seul, sans pénalité.", "", -1},
-	{"Ressources et peuple", "Bois, pierre, vivres et Aether, avec leur stock maximal, puis ton peuple et ses soldats. Le savoir et la culture s'ouvrent avec la touche C.", "stock", -1},
+	{"Ressources et peuple", "Bois, pierre, vivres et Aether, avec leur stock maximal, puis ton peuple et ses soldats. Le savoir et la culture s'ouvrent avec la touche C, et la touche M coupe le son.", "stock", -1},
 	{"Le ciel", "Toutes les îles tournent autour du portail, d'où surgissent les vagues de monstres. Avec l'âge et la puissance, ton île descend vers lui, et les vagues se font plus violentes. Ton île porte un repère doré.", "", 0},
 	{"Les autres îles", "Clique sur une île pour la convoiter, la punir, la secourir ou l'observer de près. Seule une île en déclin peut être anéantie.", "outer", 0},
 	{"Grandeur et chute", "Toute civilisation finit par tomber dans le tourbillon. Le talent d'un dieu, c'est de porter la sienne le plus haut et le plus longtemps possible. Ton peuple renaîtra à l'aube suivante, et les Annales (touche A) garderont son souvenir. Bonne partie !", "", 2},

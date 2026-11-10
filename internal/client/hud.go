@@ -5,12 +5,14 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"apogee/internal/proto"
 	"apogee/internal/sim"
+	"apogee/internal/sound"
 )
 
 // The HUD follows GDD 13.2: the pie of intentions, the pending supplique,
@@ -101,7 +103,10 @@ func (g *Game) drawHUD(screen *ebiten.Image, st *proto.State) {
 }
 
 func (g *Game) drawHelp(p painter) {
-	help := "Molette : zoom · Flèches : défiler · C : culture et savoir · A : Annales · H : tutoriel"
+	help := "Molette : zoom · Flèches : défiler · C : culture et savoir · A : Annales · H : tutoriel · M : son"
+	if g.Sound != nil && g.Sound.Muted() {
+		help = strings.Replace(help, "M : son", "M : son (coupé)", 1)
+	}
 	p.text(help, g.outW-p.width(help)-int(8*p.k), g.outH-p.line()-int(4*p.k), dimColor)
 }
 
@@ -134,6 +139,7 @@ func (g *Game) drawPie(p painter, r image.Rectangle, o *proto.Own) image.Rectang
 		whisper = func() {
 			g.src.Whisper(g.draft)
 			g.drafting = false
+			g.play(sound.Whisper)
 		}
 	}
 	half := (in.Dx() - 4*k) / 2
@@ -263,7 +269,10 @@ func (g *Game) drawOuter(p painter, st *proto.State, o *proto.Own, r image.Recta
 			if !ok {
 				return nil
 			}
-			return func() { g.src.Aim(kind, id) }
+			return func() {
+				g.src.Aim(kind, id)
+				g.play(sound.Whisper)
+			}
 		}
 		raidable := !target.Protected
 		// Punir leaves at once and Secourir lends spare defenders: both need
@@ -375,7 +384,10 @@ func (g *Game) drawSupplique(p painter, s *proto.Supplique) {
 	y += 4 * k
 	for i, opt := range s.Options {
 		id, option := s.ID, i
-		p.button(image.Rect(in.Min.X, y, in.Max.X, y+p.line()+6*k), opt, func() { g.src.Answer(id, option) })
+		p.button(image.Rect(in.Min.X, y, in.Max.X, y+p.line()+6*k), opt, func() {
+			g.src.Answer(id, option)
+			g.play(sound.Answer)
+		})
 		y += p.line() + 10*k
 	}
 }

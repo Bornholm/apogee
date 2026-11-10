@@ -1,6 +1,6 @@
 # 📘 GAME DESIGN DOCUMENT : *APOGÉE*
 
-> **Version** 0.27 · 9 novembre 2026
+> **Version** 0.28 · 10 novembre 2026
 > **Statut** : Phase 3 (bêta) en cours
 > **Auteur** : GameForge, avec le concepteur
 > **Cible** : développeur senior solo, Go + Ebitengine
@@ -774,11 +774,17 @@ Le ciel offre des ressources visuelles que les jeux au sol n'ont pas :
 
 ## 12.7 Audio
 
+Tout le son est **synthétisé par le jeu**, à la manière des consoles 8 bits : deux voix carrées (impulsions de 12,5, 25 et 50 %), un triangle en seize paliers et un générateur de bruit. Le jeu n'embarque aucun fichier audio, donc aucune licence à suivre.
+
 | Aspect | Choix |
 |---|---|
 | Style | Chiptune sobre, bruitages discrets |
-| Philosophie | **Muet par défaut**, sons activables, jamais envahissants |
-| Alertes | Un son bref et clair pour une attaque entrante |
+| Philosophie | **Actif à volume bas** au premier lancement, jamais envahissant. Trois niveaux (bas, moyen, fort) et la musique se règlent depuis l'accueil, la touche **M** coupe tout en jeu, et le choix est retenu entre les sessions |
+| Effets | Un son bref par événement de la chronique : bâtiment achevé ou île agrandie, découverte, supplique, raid annoncé ou subi, cœur frappé, attaque repoussée, entrée en déclin, chute, naissance d'une île. Plusieurs événements reçus ensemble ne font entendre que le plus grave. S'y ajoutent le souffle, la réponse à une supplique et le clic des boutons |
+| Musique | **Générative**, tirée d'une graine : basse au triangle, arpège discret, mélodie pentatonique en motifs de deux mesures variés. Elle suit l'heure du jour (aube et accueil calmes, jour enlevé et rythmé, crépuscule et nuit en mineur, plus lents et plus clairsemés) et s'assombrit quand l'île décline. L'humeur change entre deux phrases, jamais au milieu |
+| Pauses | La musique vient par **morceaux de deux minutes environ**, séparés d'une à deux minutes et demie de silence : un jeu qui tourne toute la journée sur un second écran ne doit pas lasser |
+| Alertes | Le cor du raid et le grondement du cœur frappé s'entendent même fenêtre cachée : le son complète les notifications (13.1) |
+| Coût | Environ 1 % d'un cœur de processeur |
 
 ---
 
@@ -1029,6 +1035,7 @@ Les décisions marquées ✅ sont tranchées et intégrées au corps du document
 | **17** | **Orientation de l'écran sur Android** | Paysage seulement / portrait seulement / les deux | 🟡 Paysage seulement au MVP : même mise en page que le desktop, une seule interface à concevoir. Le portrait, plus naturel pour un téléphone posé sur un support, viendra plus tard s'il est demandé |
 | **18** | ~~Pairs ou serveur ?~~ | ✅ **Tranché** : serveur autoritaire, dédié ou intégré au client desktop (10.3) | |
 | **19** | ~~Les absences longues : nuits, week-ends, vacances ?~~ | ✅ **Tranché** : aucun garde-fou, le peuple se débrouille (1.3 bis) | |
+| **20** | ~~Le son ?~~ | ✅ **Tranché** : effets et musique 8 bits synthétisés, actifs à volume bas par défaut, touche M pour couper (12.7) | |
 
 ---
 

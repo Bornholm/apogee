@@ -14,12 +14,14 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/audio"
 
 	"apogee/internal/client"
 	"apogee/internal/discovery"
 	"apogee/internal/notify"
 	"apogee/internal/proto"
 	"apogee/internal/sim"
+	"apogee/internal/sound"
 )
 
 var errDone = errors.New("done")
@@ -50,6 +52,7 @@ func main() {
 	quit := flag.Duration("quit", 0, "quit after this duration")
 	width := flag.Int("width", 1280, "initial window width")
 	height := flag.Int("height", 800, "initial window height")
+	soundOn := flag.Bool("sound", true, "play the sound effects and the music (never during a screenshot)")
 	flag.Parse()
 	if *shot != "" && *frames < 1 {
 		log.Fatal("-frames must be at least 1 with -shot")
@@ -66,7 +69,11 @@ func main() {
 	start := time.Now()
 	var done error
 	notifier := notify.New()
-	app := client.NewApp(client.AppOptions{Seed: *seed, Rivals: *rivals, Speed: *speed})
+	var engine *sound.Engine
+	if *soundOn && *shot == "" {
+		engine = startSound(*seed)
+	}
+	app := client.NewApp(client.AppOptions{Seed: *seed, Rivals: *rivals, Speed: *speed, Sound: engine})
 	defer app.Close() // the embedded sky is saved before the process ends
 
 	// A screenshot of the game needs a game: options about the view launch
@@ -144,8 +151,25 @@ func main() {
 		return done
 	}}
 	if err := ebiten.RunGame(wrapped); err != nil && !errors.Is(err, errDone) {
+		if engine != nil && strings.Contains(err.Error(), "audio") {
+			log.Fatalf("%v (without a sound device, play with -sound=false)", err)
+		}
 		log.Fatal(err)
 	}
+}
+
+// startSound opens the audio output and plays the engine into it.
+func startSound(seed uint64) *sound.Engine {
+	engine := sound.New(seed)
+	player, err := audio.NewContext(sound.SampleRate).NewPlayerF32(engine)
+	if err != nil {
+		log.Printf("no sound: %v", err)
+		return nil
+	}
+	// A short buffer, so that an effect follows its click closely.
+	player.SetBufferSize(80 * time.Millisecond)
+	player.Play()
+	return engine
 }
 
 // notifyKinds parses the -notify flag.

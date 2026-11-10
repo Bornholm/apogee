@@ -24,6 +24,7 @@ import (
 	"apogee/internal/netclient"
 	"apogee/internal/proto"
 	"apogee/internal/server"
+	"apogee/internal/sound"
 )
 
 // App is the whole client: the home screen, the connection, then the game.
@@ -76,6 +77,8 @@ type AppOptions struct {
 	Speed  int
 	// Configure is called on every new game, to apply command-line options.
 	Configure func(*Game)
+	// Sound, when set, plays the effects and the music.
+	Sound *sound.Engine
 }
 
 type appScreen int
@@ -106,6 +109,7 @@ func NewApp(opts AppOptions) *App {
 	a.name = field{value: a.settings.Name, max: 24}
 	a.address = field{value: fmt.Sprintf("127.0.0.1:%d", proto.DefaultPort), max: 64}
 	a.backdrop = newBackdrop(opts.Seed)
+	a.applySound()
 	return a
 }
 
@@ -282,6 +286,11 @@ func (a *App) Update() error {
 			}
 			a.conn, a.stopServer = r.conn, r.stop
 			a.game = NewGame(Listen(r.conn), a.Options.Seed)
+			a.game.Sound = a.Options.Sound
+			a.game.OnMute = func(m bool) {
+				a.settings.Muted = m
+				a.settings.Save()
+			}
 			a.game.tutorial = !a.settings.TutorialDone
 			a.game.onTutorialDone = func() {
 				a.settings.TutorialDone = true
@@ -294,6 +303,9 @@ func (a *App) Update() error {
 		default:
 		}
 	}
+	if s := a.Options.Sound; s != nil {
+		s.SetMood(sound.Mood{}) // the calm of the home screen
+	}
 	a.backdrop.update()
 	a.editFields()
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
@@ -301,6 +313,9 @@ func (a *App) Update() error {
 		a.name.focused, a.address.focused = false, false
 		for i := len(a.buttons) - 1; i >= 0; i-- {
 			if b := a.buttons[i]; image.Pt(x, y).In(b.r) {
+				if s := a.Options.Sound; s != nil {
+					s.Play(sound.Click)
+				}
 				b.action()
 				break
 			}
@@ -404,7 +419,7 @@ func (a *App) drawHome(p painter, r image.Rectangle, k int) {
 	bh := p.line() + 10*k
 	gap := 8 * k
 	_, hasSolo := SoloSave()
-	rows := 5
+	rows := 7
 	if hasSolo {
 		rows++
 	}
@@ -430,7 +445,52 @@ func (a *App) drawHome(p painter, r image.Rectangle, k int) {
 		a.browse()
 	})
 	btn("Revoir le tutoriel au prochain lancement", a.resetTutorial())
+	level := "coupé"
+	if !a.settings.Muted {
+		level = volumeNames[a.settings.Volume]
+	}
+	var cycle, music func()
+	if a.Options.Sound != nil {
+		cycle, music = a.cycleVolume, a.toggleMusic
+	}
+	btn("Son : "+level, cycle)
+	if a.settings.Music {
+		btn("Musique : oui", music)
+	} else {
+		btn("Musique : non", music)
+	}
 	btn("Quitter", func() { a.quit = true })
+}
+
+// applySound gives the sound engine the player's settings.
+func (a *App) applySound() {
+	s := a.Options.Sound
+	if s == nil {
+		return
+	}
+	s.SetVolume(volumes[a.settings.Volume])
+	s.SetMuted(a.settings.Muted)
+	s.SetMusic(a.settings.Music)
+}
+
+// cycleVolume goes from low to loud, then silent, then low again.
+func (a *App) cycleVolume() {
+	switch {
+	case a.settings.Muted:
+		a.settings.Muted, a.settings.Volume = false, 1
+	case a.settings.Volume == len(volumes)-1:
+		a.settings.Muted = true
+	default:
+		a.settings.Volume++
+	}
+	a.settings.Save()
+	a.applySound()
+}
+
+func (a *App) toggleMusic() {
+	a.settings.Music = !a.settings.Music
+	a.settings.Save()
+	a.applySound()
 }
 
 func (a *App) resetTutorial() func() {

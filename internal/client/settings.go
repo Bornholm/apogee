@@ -12,7 +12,18 @@ import (
 type Settings struct {
 	Name         string `json:"name"`
 	TutorialDone bool   `json:"tutorialDone"`
+	// Volume is the sound level, from 1 (low) to 3 (loud); Muted silences
+	// everything, and Music turns the music on or off (GDD 12.7).
+	Volume int  `json:"volume"`
+	Muted  bool `json:"muted"`
+	Music  bool `json:"music"`
 }
+
+// Sound levels: the game plays on a second screen, low by default.
+var volumes = [...]float64{1: 0.3, 2: 0.6, 3: 1}
+
+// volumeNames name the sound levels on the home screen.
+var volumeNames = [...]string{1: "bas", 2: "moyen", 3: "fort"}
 
 // Dir returns the directory where Apogée keeps its files.
 func Dir() (string, error) {
@@ -33,7 +44,7 @@ func settingsPath() (string, error) {
 
 // LoadSettings reads the settings, or returns the defaults.
 func LoadSettings() Settings {
-	s := Settings{Name: "Dieu"}
+	s := Settings{Name: "Dieu", Volume: 1, Music: true}
 	path, err := settingsPath()
 	if err != nil {
 		return s
@@ -44,6 +55,9 @@ func LoadSettings() Settings {
 	}
 	if json.Unmarshal(data, &s) != nil || s.Name == "" {
 		s.Name = "Dieu"
+	}
+	if s.Volume < 1 || s.Volume >= len(volumes) {
+		s.Volume = 1
 	}
 	return s
 }

@@ -5,6 +5,7 @@ import (
 
 	"apogee/internal/proto"
 	"apogee/internal/sim"
+	"apogee/internal/sound"
 )
 
 func TestAdjustKeepsThePieWhole(t *testing.T) {
@@ -83,5 +84,29 @@ func TestNotificationsOnlyForNewChosenNewsWhileAway(t *testing.T) {
 	g.notifyNews(state(old, raid, info, sim.Entry{Tick: 12, Text: "encore", Kind: sim.RaidNews}))
 	if len(got) != 1 {
 		t.Fatalf("notified while the player looks at the game: %v", got)
+	}
+}
+
+func TestNewsMakeOneSoundTheWeightiest(t *testing.T) {
+	var heard []sound.Effect
+	g := &Game{onPlay: func(fx sound.Effect) { heard = append(heard, fx) }}
+	state := func(entries ...sim.Entry) *proto.State {
+		return &proto.State{Own: &proto.Own{Chronicle: entries}}
+	}
+	old := sim.Entry{Tick: 5, Text: "un vieux raid", Kind: sim.RaidNews}
+	g.notifyNews(state(old))
+	if len(heard) != 0 {
+		t.Fatalf("history played %v at start", heard)
+	}
+	built := sim.Entry{Tick: 9, Text: "une maison", Kind: sim.BuiltNews}
+	struck := sim.Entry{Tick: 9, Text: "la vague frappe", Kind: sim.WaveNews}
+	info := sim.Entry{Tick: 9, Text: "rien", Kind: sim.Info}
+	g.notifyNews(state(old, built, struck, info))
+	if len(heard) != 1 || heard[0] != sound.Struck {
+		t.Fatalf("played %v, want only the blow of the wave", heard)
+	}
+	g.notifyNews(state(old, built, struck, info, sim.Entry{Tick: 11, Text: "rien", Kind: sim.Info}))
+	if len(heard) != 1 {
+		t.Fatalf("an entry without sound played %v", heard[1:])
 	}
 }
