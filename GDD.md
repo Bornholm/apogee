@@ -1,6 +1,6 @@
 # 📘 GAME DESIGN DOCUMENT : *APOGÉE*
 
-> **Version** 0.28 · 10 novembre 2026
+> **Version** 0.29 · 10 novembre 2026
 > **Statut** : Phase 3 (bêta) en cours
 > **Auteur** : GameForge, avec le concepteur
 > **Cible** : développeur senior solo, Go + Ebitengine
@@ -820,6 +820,7 @@ Tout le son est **synthétisé par le jeu**, à la manière des consoles 8 bits 
 | **Réactions du peuple** | Les villageois quittent leur travail pour réagir : ils fêtent un bâtiment achevé ou une découverte (en sautant de joie autour), prient en cercle autour du cœur tant qu'une supplique attend, s'arrêtent et bondissent quand leur dieu souffle, se réfugient chez eux à l'approche d'une vague ou quand le cœur est frappé, et fêtent la victoire une fois la vague repoussée. Pendant une famine, ils traînent les pieds et les champs se flétrissent |
 | **Troupes** | Les guerriers de l'île marchent du cœur jusqu'au rivage puis s'envolent pour un raid, et reviennent de même. Les renforts d'un voisin descendent du ciel et patrouillent autour du cœur. Les pillards en approche apparaissent dans le ciel au-dessus de l'île avant le combat. Les bannières des îles qui convoitent celle du joueur sont plantées sur son rivage |
 | **Atmosphère** | Une vague annoncée amasse des nuées violettes au-dessus de l'île, plus nombreuses à mesure qu'elle approche, et les défenseurs se regroupent au cœur. Un cœur blessé fume. Une découverte fait jaillir une colonne de lumière d'Aether de la bibliothèque. Une île qui s'agrandit soulève de la poussière sur tout son rivage. Une île en déclin pâlit et s'effrite par ses falaises. Une île qui chute tremble, s'enfonce et s'efface |
+| **Lumières de la nuit** | Dans la seconde moitié du crépuscule, l'île s'allume : les fenêtres des maisons, des casernes, des cabanes et de la bibliothèque, un brasero qui vacille en haut de chaque tour, la lueur d'Aether du cœur, des extracteurs et du dôme de la bibliothèque, et les lanternes des villageois et des gardes encore dehors. Au cœur de la nuit, quelques fenêtres s'éteignent et d'autres s'allument. Les lumières échappent à la teinte nocturne et s'ajoutent à la scène, en halos de pixels concentriques |
 | **Le peuple vit sans témoin** | Les villageois du joueur poursuivent leur journée en vue du ciel ou pendant qu'il observe une autre île |
 | **Décor seulement** | Ces animations sont calculées par le client : la simulation ne connaît que les effectifs et les bâtiments |
 

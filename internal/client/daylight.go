@@ -15,7 +15,7 @@ type rgb struct{ r, g, b float32 }
 var (
 	dayTint   = rgb{1, 1, 1}
 	duskTint  = rgb{1.0, 0.82, 0.70}
-	nightTint = rgb{0.52, 0.58, 0.82}
+	nightTint = rgb{0.42, 0.48, 0.76}
 )
 
 // phaseLength is the duration of each phase of the cycle (GDD 3.6).
@@ -50,17 +50,38 @@ func tintAt(phase string, left time.Duration) rgb {
 }
 
 func mix(a, b rgb, t float32) rgb {
+	if t >= 1 {
+		return b // exactly, for the turn of the phases
+	}
 	return rgb{a.r + (b.r-a.r)*t, a.g + (b.g-a.g)*t, a.b + (b.b-a.b)*t}
 }
 
 // daylight returns the colour scale of the current moment.
 func (g *Game) daylight() ebiten.ColorScale {
 	var cs ebiten.ColorScale
-	phase, left, ok := g.src.Phase(time.Now())
+	phase, left, ok := g.moment()
 	if !ok {
 		return cs
 	}
 	t := tintAt(phase, left)
 	cs.Scale(t.r, t.g, t.b, 1)
 	return cs
+}
+
+// moment returns the time of day and the time left in it, or the forced
+// phase, half gone.
+func (g *Game) moment() (string, time.Duration, bool) {
+	if g.ForcePhase != "" {
+		return g.ForcePhase, phaseLength[g.ForcePhase] / 2, true
+	}
+	return g.src.Phase(time.Now())
+}
+
+// dark tells how dark it is now, from 0 to 1 (see darkness).
+func (g *Game) dark() float64 {
+	phase, left, ok := g.moment()
+	if !ok {
+		return 0
+	}
+	return darkness(phase, left)
 }

@@ -184,3 +184,20 @@ func TestFlattenKeepsObjectsOverflowingSideways(t *testing.T) {
 		t.Fatalf("flattened sprite has %d opaque pixels, want %d", got, want)
 	}
 }
+
+func TestWindowsFaceTheViewer(t *testing.T) {
+	for seed := range uint64(8) {
+		ws := Windows(House(seed), 0.45, Plaster)
+		if len(ws) < 1 || len(ws) > 3 {
+			t.Fatalf("seed %d: %d windows on a house", seed, len(ws))
+		}
+		for _, w := range ws {
+			if w.Y <= 0 || w.Z < 1 || w.Z > 4 {
+				t.Fatalf("seed %d: window at %+v, not on the front wall", seed, w)
+			}
+		}
+	}
+	if ws := Windows(Field(1), 0.45, Plaster); len(ws) != 0 {
+		t.Fatalf("a field has %d windows", len(ws))
+	}
+}

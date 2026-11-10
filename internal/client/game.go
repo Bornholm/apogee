@@ -113,6 +113,14 @@ type Game struct {
 	// atTinted draws an image in world coordinates with a colour, during a
 	// redraw.
 	atTinted func(img *ebiten.Image, x, y float64, c color.RGBA)
+	// Lights of the night (lights.go): the halos, the lamps of the island
+	// in view, and glowAt, which draws one during a redraw untouched by
+	// the time of day, added to the scene when add is set.
+	halos     [len(haloRadii)]*ebiten.Image
+	homeLamps []lamp
+	glowAt    func(img *ebiten.Image, x, y float64, c color.RGBA, strength float64, add bool)
+	// ForcePhase, when set, stands for the time of day, for screenshots.
+	ForcePhase string
 
 	// connection is shown while the connection to the sky is lost;
 	// OnGiveUp, when set, takes the player back to the home screen.
@@ -392,6 +400,9 @@ func NewGame(src *Source, seed uint64) *Game {
 	g.allyArt = sprite{ebiten.NewImageFromImage(ally.Img), ally.Anchor}
 	g.pixel = ebiten.NewImage(1, 1)
 	g.pixel.Fill(color.White)
+	for i, r := range haloRadii {
+		g.halos[i] = haloImage(r)
+	}
 	sw := cam.Render(art.Swarm(seed))
 	g.swarm = sprite{ebiten.NewImageFromImage(sw.Img), sw.Anchor}
 	for k, mat := range map[sim.Outer]art.Material{sim.Covet: art.Roof, sim.Annihilate: art.Blood} {
@@ -521,6 +532,7 @@ func (g *Game) homeIsland(st *proto.State) (sprite, bool) {
 				x:      o.Pos.X, y: o.Pos.Y,
 			})
 		}
+		g.homeLamps = islandLamps(sum, view)
 		g.homeSig = sig
 	}
 	return g.home, true
@@ -813,6 +825,18 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		cs.ScaleWithColor(c)
 		atScaled(img, x, y, cs)
 	}
+	g.glowAt = func(img *ebiten.Image, x, y float64, c color.RGBA, f float64, add bool) {
+		var op ebiten.DrawImageOptions
+		op.GeoM.Translate(x, y)
+		op.GeoM.Scale(k, k)
+		op.GeoM.Translate(ox, oy)
+		op.ColorScale.ScaleWithColor(c)
+		op.ColorScale.ScaleAlpha(float32(f))
+		if add {
+			op.Blend = ebiten.BlendLighter
+		}
+		screen.DrawImage(img, &op)
+	}
 
 	// Clouds drift below the islands, so they are drawn first.
 	for i := range g.clouds {
@@ -973,7 +997,8 @@ func (g *Game) animate() {
 		return
 	}
 	dt := 1.0 / float64(ebiten.TPS())
-	night := st.Phase == "night"
+	phase, _, _ := g.moment()
+	night := phase == "night"
 	if st.Own != nil {
 		for _, is := range st.Islands {
 			if is.ID == st.You {
@@ -1037,7 +1062,7 @@ func (g *Game) animate() {
 	}
 	g.dust.step(dt)
 	g.animTick++
-	if g.animTick%4 == 0 && (len(l.walkers) > 0 || len(g.dust.ps) > 0) {
+	if g.animTick%4 == 0 && (len(l.walkers) > 0 || len(g.dust.ps) > 0 || g.dark() > 0) {
 		g.dirty = true
 	}
 }
@@ -1184,6 +1209,8 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 		z      float64 // island units above the ground, for an assailant
 		person bool
 		tint   *color.RGBA
+		// lamp is a light, drawn at the depth of what holds it.
+		lamp *lamp
 	}
 	people := g.shown().walkers
 	items := make([]item, 0, len(g.homeObjs)+len(people))
@@ -1259,6 +1286,15 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 	}
 	// Stable: objects keep their order among themselves; at equal depth a
 	// person stands in front of the object it works at.
+	dark, clock := g.dark(), float64(g.animTick)/60
+	if dark > 0 {
+		lamps := append(append([]lamp(nil), g.homeLamps...), lanterns(people)...)
+		for i := range lamps {
+			l := &lamps[i]
+			// A lamp sorts just after what holds it.
+			items = append(items, item{x: l.x, y: l.by + 0.001, z: l.z, person: true, lamp: l})
+		}
+	}
 	sort.SliceStable(items, func(i, j int) bool {
 		if items[i].y != items[j].y {
 			return items[i].y < items[j].y
@@ -1266,6 +1302,11 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 		return !items[i].person && items[j].person
 	})
 	for _, it := range items {
+		if it.lamp != nil {
+			x, y := g.cam.Project(art.V(it.lamp.x, it.lamp.y, it.lamp.z))
+			g.drawLamp(*it.lamp, math.Round(x), math.Round(y), dark, clock)
+			continue
+		}
 		x, y := g.cam.Project(art.V(it.x, it.y, it.z))
 		px, py := math.Round(x), math.Round(y)-it.lift
 		if it.tint != nil {
