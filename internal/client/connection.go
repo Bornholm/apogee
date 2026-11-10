@@ -78,9 +78,17 @@ func (a *App) giveUp() {
 			}
 		}()
 	}
+	a.leave()
+	a.status = "La connexion au ciel est perdue."
+}
+
+// leave ends the game and goes back to the home screen. A sky the game
+// hosted stops, and saves itself; a solo game goes on where it was left at
+// the next "Continuer".
+func (a *App) leave() {
 	a.lost = reconnection{}
 	a.Close()
 	a.game, a.conn = nil, nil
 	a.screen = homeScreen
-	a.status = "La connexion au ciel est perdue."
+	a.status = ""
 }

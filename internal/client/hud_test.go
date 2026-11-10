@@ -148,3 +148,23 @@ func TestEventSoundsAreSpacedOut(t *testing.T) {
 		t.Fatal("a click waited")
 	}
 }
+
+func TestThePieShowsOnDemand(t *testing.T) {
+	g := &Game{}
+	if !g.pieShown() {
+		t.Fatal("the pie is hidden in the sky view")
+	}
+	g.shortcut('s')
+	if g.pieShown() {
+		t.Fatal("s did not put the pie away")
+	}
+	g.level = 2
+	if g.pieShown() {
+		t.Fatal("the pie shows in the island view")
+	}
+	g.togglePanel(true)
+	g.shortcut('S')
+	if !g.pieShown() || g.showCulture {
+		t.Fatalf("S should open the pie over the culture: %v %v", g.pieShown(), g.showCulture)
+	}
+}

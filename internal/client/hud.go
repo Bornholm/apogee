@@ -64,7 +64,7 @@ func (g *Game) drawHUD(screen *ebiten.Image, st *proto.State) {
 	sky := g.level == 0
 	book := g.showCulture || g.showAnnals // it takes the left side
 	left := top
-	if (sky || g.pieOpen) && !book {
+	if g.pieShown() && !book {
 		pie := g.drawPie(p, image.Rect(m, top, m+p.px(pieWidth), top), o)
 		g.areas["pie"] = pie
 		left = pie.Max.Y + p.px(8)
@@ -202,9 +202,13 @@ func (g *Game) drawTopBar(p painter, st *proto.State) {
 	if g.Sound != nil {
 		mute = g.ToggleMute
 	}
+	if g.OnHome != nil {
+		square("Accueil", false, g.OnHome)
+	}
 	square(sound, false, mute)
 	square("A", g.showAnnals, func() { g.togglePanel(false) })
 	square("C", g.showCulture, func() { g.togglePanel(true) })
+	square("S", g.pieShown() && !g.showCulture && !g.showAnnals, g.togglePie)
 	if g.level > 0 && g.viewing == 0 {
 		square("‹ Ciel", false, func() { g.SetZoom(0) })
 	}
@@ -258,13 +262,36 @@ func (g *Game) pieGlimpse(p painter, o *proto.Own, h int) part {
 				cx += dw
 			}
 		}
-		*p.buttons = append(*p.buttons, button{r: image.Rect(x, y, x+w, y+h), action: func() { g.pieOpen = !g.pieOpen }})
+		*p.buttons = append(*p.buttons, button{r: image.Rect(x, y, x+w, y+h), action: g.togglePie})
 	}}
 }
 
 // intentionColor tells the intentions apart in the glimpse of the pie.
 var intentionColor = [sim.NumIntentions]color.Color{
 	goldColor, aetherColor, color.RGBA{0xb9, 0xb4, 0xd6, 0xff}, alertColor, color.RGBA{0xb4, 0x8c, 0xff, 0xff},
+}
+
+// pieShown reports whether the pie is on screen: by default in the sky
+// view, on demand in the island view.
+func (g *Game) pieShown() bool {
+	if g.level == 0 {
+		return !g.pieHidden
+	}
+	return g.pieOpen
+}
+
+// togglePie shows or hides the pie, in the view at hand; it closes the
+// book panel, which takes the same place.
+func (g *Game) togglePie() {
+	if g.level == 0 {
+		g.pieHidden = !g.pieHidden
+	} else {
+		g.pieOpen = !g.pieOpen
+	}
+	if g.pieShown() {
+		g.showCulture, g.showAnnals = false, false
+	}
+	g.dirty = true
 }
 
 // togglePanel opens or closes culture and knowledge, or the Annals, which

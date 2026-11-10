@@ -18,7 +18,7 @@ type tutorialStep struct {
 
 var tutorialSteps = []tutorialStep{
 	{"Bienvenue, dieu d'Apogée", "Ton île flotte dans un ciel partagé. Tu ne commandes pas ton peuple : tu lui souffles des intentions, et il décide lui-même comment les réaliser.", "", 2},
-	{"Les souffles", "Répartis ton attention entre trois intentions au plus, avec les boutons + et −, puis clique sur Souffler. Prospérer bâtit fermes et maisons, Se fortifier élève des tours, S'armer forme des guerriers, Étudier fait progresser le savoir, S'étendre agrandit l'île.", "pie", -1},
+	{"Les souffles", "Répartis ton attention entre trois intentions au plus, avec les boutons + et −, puis clique sur Souffler ; la touche S les affiche ou les masque. Prospérer bâtit fermes et maisons, Se fortifier élève des tours, S'armer forme des guerriers, Étudier fait progresser le savoir, S'étendre agrandit l'île.", "pie", -1},
 	{"La conviction", "La barre dorée sous chaque intention montre ce que ton peuple en a vraiment retenu. Elle suit tes souffles lentement : un peuple ne change pas d'avis d'un coup.", "pie", -1},
 	{"Un peuple qui vit", "Regarde ton île : les villageois vont et viennent entre leurs maisons, les chantiers, les champs et les bosquets. Une île se bâtit en une journée environ. La molette rapproche ou éloigne la vue.", "", -1},
 	{"La chronique", "Ton peuple raconte ici ce qu'il fait, et pourquoi. En revenant de réunion, un coup d'œil suffit pour savoir ce qui s'est passé.", "chronicle", -1},

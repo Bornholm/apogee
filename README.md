@@ -32,6 +32,7 @@ Lance `apogee`. L'écran d'accueil permet de jouer seul contre des dieux rivaux 
 |---|---|
 | Molette, + et − | Zoom |
 | Flèches | Faire défiler la vue |
+| S | Afficher ou masquer les souffles |
 | C | Culture et savoir |
 | A | Annales des civilisations tombées |
 | H | Tutoriel |

@@ -85,6 +85,9 @@ type Game struct {
 	// in the island view, and the whole chronicle.
 	showCulture, showAnnals bool
 	pieOpen, chronicleAll   bool
+	// pieHidden puts the pie away in the sky view, where it shows by
+	// default; pieOpen shows it in the island view, where it does not.
+	pieHidden bool
 	// targetAt is where the island selected in the sky view stands on
 	// screen, for its card.
 	targetAt image.Rectangle
@@ -151,6 +154,8 @@ type Game struct {
 	// OnGiveUp, when set, takes the player back to the home screen.
 	connection string
 	OnGiveUp   func()
+	// OnHome, when set, ends the game and goes back to the home screen.
+	OnHome func()
 
 	// Sound, when set, plays the effects and the music (GDD 12.7); mood
 	// is the last one told to the music. OnMute is called when the player
@@ -337,6 +342,8 @@ func (g *Game) shortcut(r rune) {
 		g.OpenTutorial()
 	case 'm':
 		g.ToggleMute()
+	case 's':
+		g.togglePie()
 	case 'c':
 		g.togglePanel(true)
 	case 'a':

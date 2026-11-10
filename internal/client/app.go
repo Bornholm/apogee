@@ -335,6 +335,7 @@ func (a *App) Update() error {
 				a.settings.Save()
 			}
 			a.game.OnGiveUp = a.giveUp
+			a.game.OnHome = a.leave
 			a.game.Sound = a.Options.Sound
 			a.game.OnMute = func(m bool) {
 				a.settings.Muted = m

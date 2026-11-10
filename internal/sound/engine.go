@@ -142,7 +142,7 @@ func (e *Engine) dropBus(b bus) {
 
 // Bus levels, under the master volume: the music stays in the background.
 const (
-	musicLevel   = 0.45
+	musicLevel   = 0.2
 	effectsLevel = 0.55
 )
 
