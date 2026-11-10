@@ -303,7 +303,7 @@ func (a *App) Update() error {
 		default:
 		}
 	}
-	if s := a.Options.Sound; s != nil {
+	if s := a.Options.Sound; s != nil && a.screen != playingScreen {
 		s.SetMood(sound.Mood{}) // the calm of the home screen
 	}
 	a.backdrop.update()
@@ -445,20 +445,22 @@ func (a *App) drawHome(p painter, r image.Rectangle, k int) {
 		a.browse()
 	})
 	btn("Revoir le tutoriel au prochain lancement", a.resetTutorial())
-	level := "coupé"
+	level, tune := "coupé", "non"
 	if !a.settings.Muted {
 		level = volumeNames[a.settings.Volume]
+	}
+	if a.settings.Music {
+		tune = "oui"
 	}
 	var cycle, music func()
 	if a.Options.Sound != nil {
 		cycle, music = a.cycleVolume, a.toggleMusic
+	} else {
+		// No sound device, or -sound=false: say so rather than a level.
+		level, tune = "indisponible", "indisponible"
 	}
 	btn("Son : "+level, cycle)
-	if a.settings.Music {
-		btn("Musique : oui", music)
-	} else {
-		btn("Musique : non", music)
-	}
+	btn("Musique : "+tune, music)
 	btn("Quitter", func() { a.quit = true })
 }
 

@@ -159,8 +159,8 @@ func main() {
 		return done
 	}}
 	if err := ebiten.RunGame(wrapped); err != nil && !errors.Is(err, errDone) {
-		if engine != nil && strings.Contains(err.Error(), "audio") {
-			log.Fatalf("%v (without a sound device, play with -sound=false)", err)
+		if engine != nil {
+			log.Fatalf("%v (if the sound device is the cause, play with -sound=false)", err)
 		}
 		log.Fatal(err)
 	}

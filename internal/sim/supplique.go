@@ -136,6 +136,7 @@ func (c *Civ) resolve(option int, byGod bool, tick uint64) {
 
 func (c *Civ) offerDiscovery(axis Family, tier int, tick uint64) {
 	d := Discoveries[axis][tier]
+	// Plain news: the supplique that follows sounds for both.
 	c.chronicle(tick, "Les savants ont percé un secret %s.", axis.Of())
 	c.ask(Supplique{
 		Kind:     AskDiscovery,

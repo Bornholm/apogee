@@ -765,7 +765,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		op.GeoM.Scale(k, k)
 		op.GeoM.Translate(ox, oy)
 		op.ColorScale = cs
-		op.ColorScale.ScaleWithColorScale(light) // the time of day (GDD 12.7)
+		op.ColorScale.ScaleWithColorScale(light) // the time of day (GDD 12.5)
 		screen.DrawImage(img, &op)
 	}
 	at := func(img *ebiten.Image, x, y float64) { atScaled(img, x, y, ebiten.ColorScale{}) }
