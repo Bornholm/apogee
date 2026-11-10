@@ -122,7 +122,7 @@ release-check: ## Validate the GoReleaser configuration
 ## Deploy
 
 .PHONY: dokku-setup
-dokku-setup: ## Create the Dokku app once: raw TCP on 47110, sky in storage
+dokku-setup: ## Create the Dokku app once: no proxy, TCP 47110 published, sky in storage
 	ssh root@$(DOKKU_HOST) '\
 		set -e; \
 		dokku apps:exists $(DOKKU_APP) 2>/dev/null || dokku apps:create $(DOKKU_APP); \
@@ -131,7 +131,7 @@ dokku-setup: ## Create the Dokku app once: raw TCP on 47110, sky in storage
 		dokku checks:disable $(DOKKU_APP); \
 		dokku storage:ensure-directory $(DOKKU_APP); \
 		dokku storage:report $(DOKKU_APP) | grep -q /data || dokku storage:mount $(DOKKU_APP) /var/lib/dokku/data/storage/$(DOKKU_APP):/data; \
-		dokku ports:set $(DOKKU_APP) tcp:47110:47110; \
+		dokku docker-options:report $(DOKKU_APP) | grep -q "47110:47110" || dokku docker-options:add $(DOKKU_APP) deploy "-p 47110:47110"; \
 		dokku docker-options:report $(DOKKU_APP) | grep -q stop-timeout || dokku docker-options:add $(DOKKU_APP) deploy "--stop-timeout 30"'
 
 .PHONY: dokku-deploy
