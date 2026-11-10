@@ -19,10 +19,65 @@ const ambienceLevel = 0.4
 // slice is the stretch of time each draw of the ambience covers.
 const slice = 0.25
 
-// ambient schedules the ambience slice by slice.
+// ambient schedules the ambience slice by slice: the chirps, trills, drops
+// and knocks as notes, and the steady beds of rain, water and wind as
+// filtered noise that runs on without ever starting over.
 type ambient struct {
 	next int64 // frame of the next slice
 	r    *rand.Rand
+	beds beds
+}
+
+// beds are the continuous noises of the ambience. Each is white noise
+// through a low-pass filter, at a level that glides towards its target, so
+// that the weather comes and goes without a step.
+type beds struct {
+	seed  uint64     // a xorshift generator: never the same stretch twice
+	rain  [2]float64 // filter state, per channel
+	water [2]float64
+	wind  [2]float64
+	level [3]float64 // rain, water, wind, as heard
+	t     float64    // seconds, for the gusts
+}
+
+// Bed levels at full strength, and how fast the levels glide.
+const (
+	rainBed  = 0.07
+	waterBed = 0.05
+	windBed  = 0.09
+	glide    = 1.0 / (SampleRate * 2) // two seconds to reach a new level
+)
+
+// white returns the next sample of white noise, in [-1, 1].
+func (b *beds) white() float64 {
+	if b.seed == 0 {
+		b.seed = 0x9e3779b97f4a7c15
+	}
+	b.seed ^= b.seed << 13
+	b.seed ^= b.seed >> 7
+	b.seed ^= b.seed << 17
+	return float64(b.seed>>11)/float64(1<<53)*2 - 1
+}
+
+// sample returns the beds' next stereo frame for an ambience.
+func (b *beds) sample(m Ambience) [2]float64 {
+	target := [3]float64{m.Rain * rainBed, m.Water * waterBed, m.Wind * windBed}
+	for i := range b.level {
+		b.level[i] += (target[i] - b.level[i]) * glide * 8
+	}
+	// The gusts: two slow swells out of step, so that the wind rises and
+	// falls without a pattern one can follow.
+	b.t += 1.0 / SampleRate
+	gust := 0.25 + 0.75*math.Max(0, math.Sin(b.t*0.41)*0.6+math.Sin(b.t*0.173+1)*0.4)
+	var out [2]float64
+	for c := range 2 {
+		n := b.white()
+		b.rain[c] += (n - b.rain[c]) * 0.35   // a soft patter, about 3 kHz
+		b.water[c] += (n - b.water[c]) * 0.06 // a low murmur, about 400 Hz
+		b.wind[c] += (n - b.wind[c]) * 0.02   // a deep rush
+		out[c] = b.rain[c]*b.level[0] + b.water[c]*b.level[1]*2 + b.wind[c]*b.level[2]*3*gust
+	}
+	return out
 }
 
 // SetAmbience tells the engine what the god's view sounds like.
@@ -55,21 +110,11 @@ func (a *ambient) slice(m Ambience) []Note {
 			out = append(out, Note{At: t + float64(i)*0.045, Dur: 0.022, Freq: f, Wave: Triangle, Vol: 0.07, Attack: 0.004, Pan: p})
 		}
 	}
-	// Rain: a muffled patter, and drops now and then.
+	// Rain: drops now and then over its patter (a bed).
 	if m.Rain > 0.02 {
-		out = append(out, Note{Dur: slice + 0.06, Freq: 5000, Wave: Noise, Vol: 0.05 * m.Rain, Attack: 0.05})
 		for range int(m.Rain * 2) {
 			out = append(out, Note{At: at(), Dur: 0.03, Freq: 2500 + r.Float64()*1500, Wave: Noise, Vol: 0.06, Attack: 0.004, Decay: 0.01, Pan: pan()})
 		}
-	}
-	// Running water: a low murmur.
-	if m.Water > 0.02 {
-		out = append(out, Note{Dur: slice + 0.06, Freq: 1400, Wave: Noise, Vol: 0.04 * m.Water, Attack: 0.05})
-	}
-	// Wind: a gust rises and falls, now and then.
-	if r.Float64() < m.Wind*0.04 {
-		out = append(out, Note{At: at(), Dur: 2.5, Freq: 3000, Wave: Noise, Vol: 0.05 * m.Wind,
-			Attack: 1, Decay: 0.6, Sustain: 0, Pan: pan()})
 	}
 	// Hammers on the building sites: a knock, sometimes two.
 	if r.Float64() < m.Work*0.2 {

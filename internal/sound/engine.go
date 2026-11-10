@@ -27,8 +27,9 @@ type Engine struct {
 	mood    Mood
 	compose composer
 	// ambience is the background of the god's view (ambience.go).
-	ambience Ambience
-	ambient  ambient
+	ambience  Ambience
+	ambient   ambient
+	noiseSeed uint32
 
 	// One-pole filters on the mix: a high-pass removes the offset of thin
 	// pulses, a low-pass takes the edge off the squares.
@@ -109,7 +110,14 @@ func (e *Engine) add(n Note, b bus, base int64) {
 		}
 	}
 	start := base + int64(n.At*SampleRate)
-	e.voices = append(e.voices, voice{n: n, bus: b, start: start, end: start + int64(n.Dur*SampleRate)})
+	v := voice{n: n, bus: b, start: start, end: start + int64(n.Dur*SampleRate)}
+	if n.Wave == Noise {
+		// Each noise starts somewhere else in the sequence: two knocks
+		// never sound exactly alike.
+		e.noiseSeed = e.noiseSeed*1103515245 + 12345
+		v.lfsr = uint16(e.noiseSeed>>16)&0x7fff | 1
+	}
+	e.voices = append(e.voices, v)
 }
 
 func (e *Engine) count(b bus) int {
@@ -189,6 +197,11 @@ func (e *Engine) Read(p []byte) (int, error) {
 			}
 			mix[0] += s * math.Min(1, 1-v.n.Pan)
 			mix[1] += s * math.Min(1, 1+v.n.Pan)
+		}
+		if !e.muted {
+			bed := e.ambient.beds.sample(e.ambience)
+			mix[0] += bed[0] * ambienceLevel
+			mix[1] += bed[1] * ambienceLevel
 		}
 		for c := range 2 {
 			x := mix[c] * gain

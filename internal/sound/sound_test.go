@@ -179,3 +179,27 @@ func TestAmbienceSoundsOnlyWhenAsked(t *testing.T) {
 		}
 	}
 }
+
+// The rain must not repeat itself: a stretch and the one a slice later
+// are unrelated.
+func TestTheRainNeverLoops(t *testing.T) {
+	var b beds
+	m := Ambience{Rain: 1}
+	for range SampleRate { // let the level settle
+		b.sample(m)
+	}
+	n := int(slice * SampleRate)
+	s := make([]float64, 2*n)
+	for i := range s {
+		s[i] = b.sample(m)[0]
+	}
+	var xy, xx, yy float64
+	for i := range n {
+		xy += s[i] * s[i+n]
+		xx += s[i] * s[i]
+		yy += s[i+n] * s[i+n]
+	}
+	if c := xy / math.Sqrt(xx*yy); math.Abs(c) > 0.1 {
+		t.Fatalf("the rain repeats every slice: correlation %.2f", c)
+	}
+}
