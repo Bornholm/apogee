@@ -6,6 +6,7 @@ import (
 	"apogee/internal/geo"
 	"apogee/internal/proto"
 	"apogee/internal/sim"
+	"apogee/internal/sound"
 )
 
 func playBattle(t *testing.T, bt sim.Battle) (*battle, *particles) {
@@ -118,5 +119,26 @@ func TestThePeopleAnswerTheBattle(t *testing.T) {
 		if len(got) != 1 || got[0] != want {
 			t.Errorf("repelled=%v: reactions %v, want [%s]", repelled, got, want)
 		}
+	}
+}
+
+// The outcome of an attack is told when its battle ends, not when the
+// simulation resolved it.
+func TestTheOutcomeWaitsForTheEndOfTheBattle(t *testing.T) {
+	var heard []sound.Effect
+	g := &Game{onPlay: func(fx sound.Effect) { heard = append(heard, fx) }, primed: true, heard: 5}
+	victory := sim.Entry{Tick: 10, Kind: sim.VictoryNews, Text: "Ton peuple a repoussé une vague."}
+	g.battle.start(sim.Battle{Tick: 10, By: sim.WaveFoe, Foes: 3, Repelled: true}, shore{}, &proto.Own{})
+	g.notifyNews(&proto.State{Tick: 10, Own: &proto.Own{Chronicle: []sim.Entry{victory}}})
+	if len(heard) != 0 || !g.isHeld(victory) {
+		t.Fatalf("told before the battle: sounds %v, held %v", heard, g.isHeld(victory))
+	}
+	var dust particles
+	for g.battle.active() {
+		g.battle.step(1.0/60, &dust, false, nil)
+	}
+	g.releaseOutcomes()
+	if g.isHeld(victory) || len(heard) != 1 || heard[0] != sound.Victory {
+		t.Fatalf("after the battle: held %v, sounds %v", g.isHeld(victory), heard)
 	}
 }

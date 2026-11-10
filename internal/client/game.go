@@ -170,8 +170,10 @@ type Game struct {
 	chars   []rune             // characters typed this tick
 	OnMute  func(muted bool)
 
-	// heard is the tick of the newest chronicle entry already considered.
+	// heard is the tick of the newest chronicle entry already considered;
+	// held are the outcomes of battles still played out (outcomePending).
 	heard  uint64
+	held   []sim.Entry
 	primed bool
 	// focused reports whether the window has the focus; tests replace it.
 	focused func() bool
@@ -257,6 +259,10 @@ func (g *Game) notifyNews(st *proto.State) {
 		if !g.primed {
 			continue
 		}
+		if g.outcomePending(e) {
+			g.held = append(g.held, e) // told when the battle ends
+			continue
+		}
 		if g.Notify != nil && g.NotifyKinds[e.Kind] && !g.isFocused() {
 			g.Notify(e.Text)
 		}
@@ -269,6 +275,57 @@ func (g *Game) notifyNews(st *proto.State) {
 	if loudest >= 0 {
 		g.play(newsSounds[loudest].fx)
 	}
+}
+
+// outcomeKinds are the entries that tell how an attack on the island ended.
+func outcomeKind(k sim.EntryKind) bool {
+	return k == sim.VictoryNews || k == sim.WaveNews || k == sim.RaidNews
+}
+
+// outcomePending reports whether an entry tells the outcome of a battle
+// still being played out, or waiting its turn: the simulation resolves an
+// attack at once, but the player must not read how it ended before seeing
+// it (GDD 13.1 bis).
+func (g *Game) outcomePending(e sim.Entry) bool {
+	if !outcomeKind(e.Kind) {
+		return false
+	}
+	return (g.battle.active() && g.battle.b.Tick == e.Tick) || (g.nextBattle != nil && g.nextBattle.Tick == e.Tick)
+}
+
+// releaseOutcomes tells the outcomes held back, once their battle is over:
+// the chronicle shows them, the sound plays, the notification goes.
+func (g *Game) releaseOutcomes() {
+	if len(g.held) == 0 {
+		return
+	}
+	kept := g.held[:0]
+	loudest := -1
+	for _, e := range g.held {
+		if g.outcomePending(e) {
+			kept = append(kept, e)
+			continue
+		}
+		if g.Notify != nil && g.NotifyKinds[e.Kind] && !g.isFocused() {
+			g.Notify(e.Text)
+		}
+		loudest = max(loudest, newsRank(e.Kind))
+	}
+	g.held = kept
+	if loudest >= 0 {
+		g.play(newsSounds[loudest].fx)
+	}
+	g.dirty = true
+}
+
+// isHeld reports whether an entry waits for the end of its battle.
+func (g *Game) isHeld(e sim.Entry) bool {
+	for _, h := range g.held {
+		if h.Tick == e.Tick && h.Text == e.Text {
+			return true
+		}
+	}
+	return false
 }
 
 // newsSounds are the effects of the chronicle's entries, from the least to
@@ -618,8 +675,9 @@ func (g *Game) Update() error {
 		// Free the miniatures of islands that fell or grew, whatever the
 		// zoom level.
 		g.purgeMiniatures(st.Islands)
-		g.notifyNews(st)
+		// The battle first: the news of its outcome waits for its end.
 		g.watchBattle(st)
+		g.notifyNews(st)
 		g.watchSigns(st)
 		if g.viewing != 0 && g.viewing == st.You {
 			g.Observe(0) // asked to observe one's own island before knowing it
@@ -1119,6 +1177,9 @@ func (g *Game) animate() {
 			}
 		}
 		g.battle.step(dt, &g.dust, home, guards)
+		if !g.battle.active() {
+			defer g.releaseOutcomes()
+		}
 		if c, ok := g.battle.reaction(); ok {
 			g.life.call(c)
 		}

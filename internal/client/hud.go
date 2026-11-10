@@ -632,6 +632,9 @@ func (g *Game) drawChronicle(p painter, st *proto.State, r image.Rectangle, o *p
 		if !g.chronicleAll && len(entries) == chronicleShort {
 			break
 		}
+		if g.isHeld(o.Chronicle[i]) {
+			continue // the battle is still being fought
+		}
 		lines := p.wrap(o.Chronicle[i].Text+" · "+ago(st, o.Chronicle[i]), textW)
 		eh := len(lines)*p.line() + p.px(4)
 		if h+eh > limit {
@@ -669,10 +672,14 @@ func (g *Game) drawChronicle(p painter, st *proto.State, r image.Rectangle, o *p
 
 // drawNews shows, in the island view, the latest entry of the chronicle.
 func (g *Game) drawNews(p painter, st *proto.State, r image.Rectangle, o *proto.Own) image.Rectangle {
-	if len(o.Chronicle) == 0 {
+	i := len(o.Chronicle) - 1
+	for i >= 0 && g.isHeld(o.Chronicle[i]) {
+		i-- // the battle is still being fought
+	}
+	if i < 0 {
 		return image.Rectangle{}
 	}
-	e := o.Chronicle[len(o.Chronicle)-1]
+	e := o.Chronicle[i]
 	lines := p.wrap(e.Text, r.Dx()-p.px(32))
 	if len(lines) > 3 {
 		lines = lines[:3]
