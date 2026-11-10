@@ -100,7 +100,8 @@ func (v *voice) sample(t float64) float64 {
 		s *= 0.5 // squares are loud: bring them level with the triangle
 	case Triangle:
 		s = 1 - 4*math.Abs(v.phase-0.5)
-		s = math.Round(s*7.5) / 7.5 // sixteen steps
+		s = (min(math.Floor((s+1)*8), 15) - 7.5) / 7.5 // sixteen steps
+
 	case Noise:
 		if wrapped || v.lfsr == 0 {
 			if v.lfsr == 0 {

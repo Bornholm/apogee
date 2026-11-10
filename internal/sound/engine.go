@@ -6,10 +6,11 @@ import (
 	"sync"
 )
 
-// maxEffects bounds the effect voices waiting or playing: a burst of
-// effects never costs more than this, and the oldest effect gives way. The
-// music needs no bound: it is written half a second ahead, no more.
-const maxEffects = 32
+// maxEffectNotes bounds the notes of effects waiting or playing: a burst
+// of effects never costs more than this, and the oldest notes give way.
+// Effects have up to fifteen notes, so three or four can overlap. The music
+// needs no bound: it is written half a second ahead, no more.
+const maxEffectNotes = 48
 
 // Engine mixes the effects and the music into a stream of 32-bit float
 // stereo frames, the format Ebitengine's NewPlayerF32 reads. It is safe for
@@ -92,7 +93,7 @@ func (e *Engine) add(n Note, b bus, base int64) {
 	if n.Dur <= 0 || n.Vol <= 0 {
 		return
 	}
-	if b == effectsBus && e.count(effectsBus) >= maxEffects {
+	if b == effectsBus && e.count(effectsBus) >= maxEffectNotes {
 		for i, v := range e.voices {
 			if v.bus == effectsBus {
 				e.voices = append(e.voices[:i], e.voices[i+1:]...)

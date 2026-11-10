@@ -105,8 +105,8 @@ func TestVoicesAreBounded(t *testing.T) {
 	for range 100 {
 		e.Play(Discovery)
 	}
-	if n := e.count(effectsBus); n > maxEffects {
-		t.Fatalf("%d effect voices, more than %d", n, maxEffects)
+	if n := e.count(effectsBus); n > maxEffectNotes {
+		t.Fatalf("%d effect voices, more than %d", n, maxEffectNotes)
 	}
 }
 
@@ -127,5 +127,24 @@ func TestMusicKeepsItsNotes(t *testing.T) {
 	}
 	if e.count(musicBus) != before {
 		t.Fatalf("effects pushed out music: %d music voices, then %d", before, e.count(musicBus))
+	}
+}
+
+// The triangle has sixteen levels, within ±1.
+func TestTriangleHasSixteenSteps(t *testing.T) {
+	v := voice{n: Note{Dur: 1, Freq: 441, Wave: Triangle, Vol: 1}}
+	levels := map[float64]bool{}
+	for i := range SampleRate / 10 {
+		s := v.sample(float64(i)/SampleRate) / v.envelope(float64(i)/SampleRate)
+		if v.envelope(float64(i)/SampleRate) == 0 {
+			continue
+		}
+		if math.Abs(s) > 1+1e-9 {
+			t.Fatalf("triangle sample %.4f beyond ±1", s)
+		}
+		levels[math.Round(s*1e6)] = true
+	}
+	if len(levels) != 16 {
+		t.Fatalf("%d levels, want 16", len(levels))
 	}
 }
