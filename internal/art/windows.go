@@ -43,3 +43,30 @@ func hasMat(mats []Material, m Material) bool {
 	}
 	return false
 }
+
+// Chimney returns where smoke leaves a roof: on the ridge, towards one end.
+func Chimney(m Mesh) Vec3 {
+	top := V(0, 0, math.Inf(-1))
+	for _, f := range m.Faces {
+		for _, v := range f.V {
+			if v.Z > top.Z+1e-9 || (math.Abs(v.Z-top.Z) < 1e-9 && v.X+v.Y > top.X+top.Y) {
+				top = v
+			}
+		}
+	}
+	return V(top.X*0.55, top.Y*0.55, top.Z-0.2)
+}
+
+// Sheep is a woolly grazer of the fields: a white fleece and a dark head.
+func Sheep(seed uint64) Mesh {
+	r := Rng(seed)
+	var m Mesh
+	l := between(r, 1.1, 1.4)
+	box(&m, Wood, -l+0.3, -0.5, 0, l-0.3, 0.5, 0.5)    // legs
+	box(&m, Plaster, -l, -0.75, 0.5, l, 0.75, 1.6)     // fleece
+	box(&m, Wood, l-0.1, -0.35, 0.9, l+0.7, 0.35, 1.7) // head
+	if r.IntN(2) == 0 {
+		m.RotZ(math.Pi)
+	}
+	return m
+}

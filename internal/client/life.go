@@ -122,8 +122,10 @@ type life struct {
 	calls []gathering
 	// slow makes the villagers drag their feet, during a famine.
 	slow bool
-	// pet is the island's dog, once it has a few homes.
-	pet *pet
+	// pet is the island's dog, once it has a few homes; flock the sheep
+	// by the fields (fauna.go).
+	pet   *pet
+	flock []grazer
 }
 
 // featureJob returns what villagers do at a natural site. Kinds come from
@@ -193,6 +195,7 @@ func (l *life) sync(sum proto.IslandSummary, own *proto.Own, sig uint64) {
 		l.sig = sig
 		l.shore = shore{geo.Outline(sum.Seed), sum.Size}
 		l.sites, l.works, l.homes = l.places(own)
+		l.keepFlock(own)
 	}
 	homes := l.homes
 	if len(homes) == 0 {
@@ -257,6 +260,7 @@ func (l *life) patrol(post geo.Vec2, radius float64) float64 {
 func (l *life) step(dt float64, night bool) {
 	l.gather(dt)
 	defer l.stepPet(dt)
+	defer l.stepFlock(dt)
 	sites, works := l.sites, l.works
 	pace := 1.0
 	if l.slow {

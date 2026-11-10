@@ -110,7 +110,11 @@ type Game struct {
 	pixel     *ebiten.Image // one white pixel, tinted to draw particles
 	walkerArt [3]sprite     // villager, defender, child
 	dogArt    sprite
-	animTick  int
+	sheepArt  [2]sprite // grazing, walking
+	// homeChimneys smoke over the island in view; birds wheel above it.
+	homeChimneys []art.Vec3
+	birds        birds
+	animTick     int
 	// atTinted draws an image in world coordinates with a colour, during a
 	// redraw.
 	atTinted func(img *ebiten.Image, x, y float64, c color.RGBA)
@@ -388,6 +392,10 @@ func NewGame(src *Source, seed uint64) *Game {
 	g.walkerArt[2] = sprite{ebiten.NewImageFromImage(ch.Img), ch.Anchor}
 	dog := cam.Render(art.Dog(seed))
 	g.dogArt = sprite{ebiten.NewImageFromImage(dog.Img), dog.Anchor}
+	for i := range g.sheepArt {
+		sh := cam.Render(art.Sheep(seed + uint64(i)))
+		g.sheepArt[i] = sprite{ebiten.NewImageFromImage(sh.Img), sh.Anchor}
+	}
 	for i := range foeArts {
 		var m art.Mesh
 		switch i {
@@ -538,6 +546,8 @@ func (g *Game) homeIsland(st *proto.State) (sprite, bool) {
 			})
 		}
 		g.homeLamps = islandLamps(sum, view)
+		g.homeChimneys = islandChimneys(sum, view)
+		g.birds.keep(sum.Size, sum.Seed)
 		g.homeSig = sig
 	}
 	return g.home, true
@@ -1065,6 +1075,10 @@ func (g *Game) animate() {
 			g.dust.emit(w, dt)
 		}
 	}
+	g.dust.smoke(g.homeChimneys, dt)
+	// The birds flee the night, a wave on its way and a battle.
+	threat := g.viewing == 0 && (g.battle.active() || (g.signs.state.waveIn >= 0 && g.signs.state.waveIn < 45))
+	g.birds.step(dt, threat || g.dark() > 0.6)
 	g.dust.step(dt)
 	g.animTick++
 	if g.animTick%4 == 0 && (len(l.walkers) > 0 || len(g.dust.ps) > 0 || g.dark() > 0) {
@@ -1274,6 +1288,14 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 		}
 		items = append(items, it)
 	}
+	for i, s := range g.shown().flock {
+		sp := g.sheepArt[i%2]
+		it := item{sp: sp, x: s.x, y: s.y, person: true}
+		if s.head && (g.animTick/20+i)%3 == 0 {
+			it.lift = -1 // head down in the grass
+		}
+		items = append(items, it)
+	}
 	if p := g.shown().pet; p != nil {
 		it := item{sp: g.dogArt, x: p.x, y: p.y, person: true}
 		if p.x != p.tx || p.y != p.ty {
@@ -1342,5 +1364,20 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 	for _, q := range g.dust.ps {
 		x, y := g.cam.Project(art.V(q.x, q.y, q.z))
 		g.atTinted(g.pixel, math.Round(x), math.Round(y), q.col)
+	}
+	// The birds, higher still: a body and two wings, beating.
+	if g.birds.visible() {
+		for i := range g.birds.flock {
+			bx, by, bz, up := g.birds.at(i, float64(g.animTick)/60)
+			x, y := g.cam.Project(art.V(bx, by, bz))
+			px, py := math.Round(x), math.Round(y)
+			wing := 0.0
+			if up {
+				wing = -1
+			}
+			g.atTinted(g.pixel, px, py, birdColour)
+			g.atTinted(g.pixel, px-1, py+wing, birdColour)
+			g.atTinted(g.pixel, px+1, py+wing, birdColour)
+		}
 	}
 }
