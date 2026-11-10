@@ -45,6 +45,7 @@ archives:
         dst: icons
       - src: packaging/INSTALL.md
         strip_parent: true
+      - LICENSE
   - id: apogee-server
     ids: [apogee-server]
     formats: [tar.gz]
@@ -56,6 +57,7 @@ archives:
         strip_parent: true
       - src: packaging/INSTALL.md
         strip_parent: true
+      - LICENSE
 
 checksum:
   name_template: checksums.txt
@@ -69,6 +71,7 @@ nfpms:
     formats: [archlinux]
     homepage: https://github.com/Bornholm/apogee
     maintainer: Bornholm
+    license: AGPL-3.0-or-later
     description: |-
       Jeu de stratégie passive pour second écran : un dieu distant souffle
       ses intentions à un peuple qui bâtit, rayonne puis chute.
@@ -86,6 +89,8 @@ nfpms:
     # nfpm writes no optdepends for Arch: notify-send (libnotify), for the
     # desktop notifications, is installed on most desktops anyway.
     contents:
+      - src: LICENSE
+        dst: /usr/share/licenses/apogee/LICENSE
       - src: packaging/apogee.desktop
         dst: /usr/share/applications/apogee.desktop
       - src: packaging/icons/64.png
@@ -104,10 +109,13 @@ nfpms:
     formats: [archlinux]
     homepage: https://github.com/Bornholm/apogee
     maintainer: Bornholm
+    license: AGPL-3.0-or-later
     description: |-
       Serveur dédié d'Apogée : fait vivre un ciel partagé sur le réseau
       local, en service systemd.
     contents:
+      - src: LICENSE
+        dst: /usr/share/licenses/apogee-server/LICENSE
       - src: packaging/apogee-server.service
         dst: /usr/lib/systemd/system/apogee-server.service
       - src: packaging/server.env
