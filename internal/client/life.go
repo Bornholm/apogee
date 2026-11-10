@@ -31,6 +31,7 @@ const (
 	working
 	returning
 	answering // called to a gathering, walking there or gathered
+	idling    // at leisure (leisure.go)
 )
 
 // job tells what a villager does where it works, which decides the
@@ -78,6 +79,10 @@ type walker struct {
 	call  string
 	act   act
 	phase float64
+	// child walkers play rather than work; leisure is what an idling
+	// villager does.
+	child   bool
+	leisure leisure
 }
 
 // shore is the outline of the island in view, at its size.
@@ -117,6 +122,8 @@ type life struct {
 	calls []gathering
 	// slow makes the villagers drag their feet, during a famine.
 	slow bool
+	// pet is the island's dog, once it has a few homes.
+	pet *pet
 }
 
 // featureJob returns what villagers do at a natural site. Kinds come from
@@ -212,7 +219,8 @@ func (l *life) sync(sum proto.IslandSummary, own *proto.Own, sig uint64) {
 	}
 	for len(people) < wantPeople {
 		h := homes[l.r.IntN(len(homes))]
-		people = append(people, walker{x: h.X, y: h.Y, home: h, wait: l.r.Float64() * 5})
+		people = append(people, walker{x: h.X, y: h.Y, home: h, wait: l.r.Float64() * 5,
+			child: len(people)%childEvery == childEvery-1})
 	}
 	for len(guards) < wantGuards {
 		p := posts[l.r.IntN(len(posts))]
@@ -222,6 +230,7 @@ func (l *life) sync(sum proto.IslandSummary, own *proto.Own, sig uint64) {
 		guards = append(guards, g)
 	}
 	l.walkers = append(people, guards...)
+	l.keepPet()
 }
 
 // patrol shrinks a round around a post until the whole circle stays on the
@@ -247,6 +256,7 @@ func (l *life) patrol(post geo.Vec2, radius float64) float64 {
 // step moves everyone by dt seconds. At night, villagers linger at home.
 func (l *life) step(dt float64, night bool) {
 	l.gather(dt)
+	defer l.stepPet(dt)
 	sites, works := l.sites, l.works
 	pace := 1.0
 	if l.slow {
@@ -283,18 +293,33 @@ func (l *life) step(dt float64, night bool) {
 				w.tx, w.ty = w.fx, w.fy
 			}
 			continue
+		case idling:
+			l.idle(w, dt*pace)
+			continue
 		case resting:
 			if w.wait -= dt; w.wait > 0 {
 				continue
 			}
+			if night {
+				// Nobody goes out for nothing at night, and children
+				// sleep.
+				if w.child {
+					w.wait = 20 + l.r.Float64()*20
+					continue
+				}
+			} else if l.unwind(i) {
+				continue
+			}
 			// Off to work: building sites draw the most hands.
 			switch {
-			case len(sites) > 0 && l.r.Float64() < 0.6:
+			case len(sites) > 0 && (len(works) == 0 || l.r.Float64() < 0.6):
 				w.work = sites[l.r.IntN(len(sites))]
 			case len(works) > 0:
 				w.work = works[l.r.IntN(len(works))]
 			default:
-				w.work = spot{p: geo.Vec2{X: w.home.X + (l.r.Float64()*2-1)*10, Y: w.home.Y + (l.r.Float64()*2-1)*10}}
+				// Nothing to work at: some leisure instead.
+				l.leisureOnly(i)
+				continue
 			}
 			// Spread along the front, never into the footprint nor off the
 			// island.

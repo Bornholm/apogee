@@ -7,9 +7,13 @@ import (
 	"flag"
 	"fmt"
 	"image"
+	"image/color"
+	"image/draw"
+	"image/gif"
 	"image/png"
 	"log"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -43,6 +47,8 @@ func main() {
 	tutoStep := flag.Int("tutostep", 0, "open the tutorial at this step (1-based), for screenshots")
 	shot := flag.String("shot", "", "save a screenshot to this PNG file after -frames redraws, then quit")
 	frames := flag.Int("frames", 30, "redraws before the screenshot")
+	gifFrames := flag.Int("gifframes", 90, "with a -shot ending in .gif, the redraws it records (about 15 a second)")
+	crop := flag.String("crop", "", "with -shot, keep only a centred area of this size, e.g. 1200x800")
 	after := flag.Duration("after", 0, "with -shot, wait at least this long before the screenshot")
 	onWave := flag.Bool("onwave", false, "with -shot, wait for a wave to fly across the sky")
 	onPhase := flag.String("onphase", "", "with -shot, wait for this time of day (dawn, day, dusk, night)")
@@ -99,6 +105,7 @@ func main() {
 		*solo, launched = true, true
 	}
 	n := 0
+	var movie []*image.RGBA
 	onFrame := func(screen *ebiten.Image) {
 		g := app.Game()
 		if launched && g == nil {
@@ -110,7 +117,15 @@ func main() {
 			ready = ready && (!*onWave || g.WaveVisible()) && (*onPhase == "" || g.Phase() == *onPhase)
 		}
 		if *shot != "" && ready {
-			if err := savePNG(*shot, screen); err != nil {
+			img := grab(screen, *crop)
+			if strings.HasSuffix(*shot, ".gif") {
+				if movie = append(movie, img); len(movie) < *gifFrames {
+					return
+				}
+				if err := saveGIF(*shot, movie); err != nil {
+					log.Print(err)
+				}
+			} else if err := savePNG(*shot, img); err != nil {
 				log.Print(err)
 			}
 			done = errDone
@@ -224,16 +239,61 @@ func (q *quitter) Update() error {
 	return q.App.Update()
 }
 
-func savePNG(path string, screen *ebiten.Image) error {
+// grab copies the screen, or a centred area of it ("WxH").
+func grab(screen *ebiten.Image, area string) *image.RGBA {
 	b := screen.Bounds()
-	img := image.NewRGBA(b)
-	screen.ReadPixels(img.Pix)
+	full := image.NewRGBA(b)
+	screen.ReadPixels(full.Pix)
+	var w, h int
+	if _, err := fmt.Sscanf(area, "%dx%d", &w, &h); err != nil || w <= 0 || h <= 0 {
+		return full
+	}
+	r := image.Rect(0, 0, w, h).Add(image.Pt((b.Dx()-w)/2, (b.Dy()-h)/2)).Intersect(b)
+	out := image.NewRGBA(image.Rect(0, 0, r.Dx(), r.Dy()))
+	draw.Draw(out, out.Bounds(), full, r.Min, draw.Src)
+	return out
+}
+
+func savePNG(path string, img *image.RGBA) error {
 	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 	return png.Encode(f, img)
+}
+
+// saveGIF writes redraws as an animated GIF, at about fifteen a second, in
+// the 256 colours they use most.
+func saveGIF(path string, frames []*image.RGBA) error {
+	count := map[color.RGBA]int{}
+	for _, fr := range frames {
+		for i := 0; i < len(fr.Pix); i += 4 {
+			count[color.RGBA{fr.Pix[i], fr.Pix[i+1], fr.Pix[i+2], 255}]++
+		}
+	}
+	cols := make([]color.RGBA, 0, len(count))
+	for c := range count {
+		cols = append(cols, c)
+	}
+	sort.Slice(cols, func(i, j int) bool { return count[cols[i]] > count[cols[j]] })
+	pal := make(color.Palette, 0, 256)
+	for _, c := range cols[:min(len(cols), 256)] {
+		pal = append(pal, c)
+	}
+	anim := &gif.GIF{}
+	for _, fr := range frames {
+		p := image.NewPaletted(fr.Bounds(), pal)
+		draw.Draw(p, p.Bounds(), fr, image.Point{}, draw.Src)
+		anim.Image = append(anim.Image, p)
+		anim.Delay = append(anim.Delay, 7)
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return gif.EncodeAll(f, anim)
 }
 
 // logCPU prints the share of one core used by the process over each interval.

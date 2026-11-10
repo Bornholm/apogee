@@ -201,6 +201,33 @@ func Person(seed uint64, tunic Material) Mesh {
 	return m
 }
 
+// Child is a small villager, a head shorter, in a bright tunic.
+func Child(seed uint64, tunic Material) Mesh {
+	r := Rng(seed)
+	var m Mesh
+	h := between(r, 2.2, 2.5)
+	box(&m, Wood, -0.45, -0.45, 0, 0.45, 0.45, h*0.3)
+	box(&m, tunic, -0.6, -0.55, h*0.3, 0.6, 0.55, h*0.72)
+	box(&m, Plaster, -0.5, -0.5, h*0.72, 0.5, 0.5, h)
+	return m
+}
+
+// Dog is a small four-legged companion: a body, a head held up, a tail.
+func Dog(seed uint64) Mesh {
+	r := Rng(seed)
+	var m Mesh
+	coat := Wood
+	if r.IntN(2) == 0 {
+		coat = Earth
+	}
+	box(&m, coat, -1.1, -0.45, 0.6, 0.9, 0.45, 1.4)  // body
+	box(&m, coat, 0.7, -0.4, 1.1, 1.6, 0.4, 2.0)     // head
+	box(&m, Wood, -1.0, -0.4, 0, -0.6, 0.4, 0.6)     // hind legs
+	box(&m, Wood, 0.4, -0.4, 0, 0.8, 0.4, 0.6)       // fore legs
+	box(&m, coat, -1.6, -0.15, 1.2, -1.1, 0.15, 1.9) // tail
+	return m
+}
+
 // Island is a floating island (GDD 3.2 and 12.6): a flat grassy top with an
 // irregular outline, a band of faceted earth cliffs and a rocky cone beneath.
 // It returns the mesh and the outline of its top, in world coordinates.

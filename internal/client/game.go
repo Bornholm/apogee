@@ -108,7 +108,8 @@ type Game struct {
 	foeArt    [foeArts]sprite
 	dust      particles
 	pixel     *ebiten.Image // one white pixel, tinted to draw particles
-	walkerArt [2]sprite
+	walkerArt [3]sprite // villager, defender, child
+	dogArt    sprite
 	animTick  int
 	// atTinted draws an image in world coordinates with a colour, during a
 	// redraw.
@@ -383,6 +384,10 @@ func NewGame(src *Source, seed uint64) *Game {
 		v := cam.Render(art.Person(seed+uint64(i), mat))
 		g.walkerArt[i] = sprite{ebiten.NewImageFromImage(v.Img), v.Anchor}
 	}
+	ch := cam.Render(art.Child(seed+5, art.Crop))
+	g.walkerArt[2] = sprite{ebiten.NewImageFromImage(ch.Img), ch.Anchor}
+	dog := cam.Render(art.Dog(seed))
+	g.dogArt = sprite{ebiten.NewImageFromImage(dog.Img), dog.Anchor}
 	for i := range foeArts {
 		var m art.Mesh
 		switch i {
@@ -1238,10 +1243,21 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 		sp := g.walkerArt[0]
 		if w.guard {
 			sp = g.walkerArt[1]
+		} else if w.child {
+			sp = g.walkerArt[2]
 		}
 		it := item{sp: sp, x: w.x, y: w.y, person: true}
 		if w.busy() && bob == 1 {
 			it.lift = 1 // hammering, harvesting
+		}
+		t := float64(g.animTick) / 60
+		switch {
+		case w.at(chat) && math.Sin(t*5+w.phase) > 0.5:
+			it.lift = 1 // speaking, in turn
+		case w.at(sit):
+			it.lift = -1 // seated by the door
+		case w.state == idling && w.leisure == play && math.Sin(t*14+w.phase) > 0:
+			it.lift = 1 // running, skipping
 		}
 		if w.gathered() {
 			t := float64(g.animTick) / 60
@@ -1255,6 +1271,13 @@ func (g *Game) drawWalkers(at func(*ebiten.Image, float64, float64)) {
 					it.lift = -1 // bowing
 				}
 			}
+		}
+		items = append(items, it)
+	}
+	if p := g.shown().pet; p != nil {
+		it := item{sp: g.dogArt, x: p.x, y: p.y, person: true}
+		if p.x != p.tx || p.y != p.ty {
+			it.lift = float64((g.animTick / 6) % 2) // trotting
 		}
 		items = append(items, it)
 	}
