@@ -150,7 +150,7 @@ func TestTriangleHasSixteenSteps(t *testing.T) {
 }
 
 func TestAmbienceSoundsOnlyWhenAsked(t *testing.T) {
-	energy := func(a Ambience, muted bool) float64 {
+	energy := func(a Ambience, muted bool, seconds int) float64 {
 		e := New(3)
 		e.SetMusic(false)
 		e.SetVolume(1)
@@ -158,7 +158,7 @@ func TestAmbienceSoundsOnlyWhenAsked(t *testing.T) {
 		e.SetAmbience(a)
 		buf := make([]byte, SampleRate/10*8)
 		sum := 0.0
-		for range 40 {
+		for range seconds * 10 {
 			e.Read(buf)
 			for i := 0; i < len(buf); i += 4 {
 				v := float64(math.Float32frombits(binary.LittleEndian.Uint32(buf[i:])))
@@ -167,14 +167,15 @@ func TestAmbienceSoundsOnlyWhenAsked(t *testing.T) {
 		}
 		return sum
 	}
-	if q := energy(Ambience{}, false); q != 0 {
+	if q := energy(Ambience{}, false, 4); q != 0 {
 		t.Fatalf("a quiet view makes noise: %v", q)
 	}
-	if m := energy(Ambience{Rain: 1, Birds: 1}, true); m != 0 {
+	if m := energy(Ambience{Rain: 1, Birds: 1}, true, 4); m != 0 {
 		t.Fatalf("muted, the ambience still sounds: %v", m)
 	}
 	for name, a := range map[string]Ambience{"birds": {Birds: 1}, "crickets": {Crickets: 1}, "rain": {Rain: 1}, "work": {Work: 1}, "water": {Water: 1}} {
-		if energy(a, false) == 0 {
+		// A stream gurgles only now and then: listen longer.
+		if energy(a, false, 40) == 0 {
 			t.Errorf("no sound from %s", name)
 		}
 	}
