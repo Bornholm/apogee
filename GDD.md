@@ -860,7 +860,7 @@ Tout le son est **synthétisé par le jeu**, à la manière des consoles 8 bits 
 | Langage | **Go** |
 | Moteur de rendu | **Ebitengine** |
 | Découverte | `hashicorp/mdns` ou `grandcat/zeroconf` |
-| Distribution desktop | Binaire unique. **Linux d'abord**, Windows et macOS en phase 5 par compilation croisée |
+| Distribution desktop | Binaire unique, sans cgo (Ebitengine charge OpenGL, X11 et ALSA à l'exécution). **Linux d'abord** (amd64 et arm64), Windows et macOS en phase 5 par compilation croisée. Un tag `v*` poussé sur GitHub lance GoReleaser : archives et paquets Arch Linux `apogee` (avec entrée de menu et icône) et `apogee-server` (avec service systemd), publiés dans la release |
 | Notifications | Sous Linux, notifications du bureau via le standard freedesktop (D-Bus). Les autres plateformes en phase 5 |
 | Distribution Android (phase 5) | `ebitenmobile bind` produit une bibliothèque `.aar` (vue `EbitenView`) intégrée à un petit projet Android Studio |
 

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Apogée
+GenericName=Jeu de stratégie passive
+Comment=Souffle tes intentions à ton peuple. Porte-le au plus haut, avant sa chute.
+Exec=apogee
+Icon=apogee
+Terminal=false
+Categories=Game;StrategyGame;
+Keywords=jeu;stratégie;île;dieu;

@@ -1,0 +1,24 @@
+[Unit]
+Description=Apogée, ciel dédié sur le réseau local
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+Environment=APOGEE_NAME=Apogée
+EnvironmentFile=-/etc/apogee/server.env
+# ${APOGEE_NAME} is one argument, spaces included; $APOGEE_ARGS is split.
+ExecStart=/usr/bin/apogee-server -data /var/lib/apogee/sky.json -name ${APOGEE_NAME} $APOGEE_ARGS
+# The sky is saved one last time on SIGTERM.
+KillSignal=SIGTERM
+TimeoutStopSec=30
+Restart=on-failure
+DynamicUser=yes
+StateDirectory=apogee
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

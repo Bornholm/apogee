@@ -1,0 +1,113 @@
+# GoReleaser builds Apogée's releases: archives and Arch Linux packages of the
+# client and the dedicated server, published on GitHub when a v* tag is
+# pushed (.github/workflows/release.yml). Try it locally with:
+#   goreleaser release --snapshot --clean
+version: 2
+
+project_name: apogee
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+# Ebitengine loads OpenGL, X11 and ALSA at run time on Linux: no cgo, so
+# every architecture builds from the same runner.
+builds:
+  - id: apogee
+    main: ./cmd/apogee
+    binary: apogee
+    env: [CGO_ENABLED=0]
+    goos: [linux]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags: ["-s -w -X main.version={{ .Version }}"]
+  - id: apogee-server
+    main: ./cmd/apogee-server
+    binary: apogee-server
+    env: [CGO_ENABLED=0]
+    goos: [linux]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags: ["-s -w -X main.version={{ .Version }}"]
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - packaging/*
+
+checksum:
+  name_template: checksums.txt
+
+nfpms:
+  - id: apogee
+    package_name: apogee
+    ids: [apogee]
+    formats: [archlinux]
+    homepage: https://github.com/Bornholm/apogee
+    maintainer: Bornholm
+    description: |-
+      Jeu de stratégie passive pour second écran : un dieu distant souffle
+      ses intentions à un peuple qui bâtit, rayonne puis chute.
+    # Loaded with dlopen by Ebitengine and its audio library.
+    dependencies:
+      - libglvnd
+      - libx11
+      - libxcursor
+      - libxext
+      - libxi
+      - libxinerama
+      - libxrandr
+      - libxrender
+      - alsa-lib
+    # nfpm writes no optdepends for Arch: notify-send (libnotify), for the
+    # desktop notifications, is installed on most desktops anyway.
+    contents:
+      - src: packaging/apogee.desktop
+        dst: /usr/share/applications/apogee.desktop
+      - src: packaging/apogee.png
+        dst: /usr/share/icons/hicolor/256x256/apps/apogee.png
+    archlinux:
+      packager: Bornholm
+
+  - id: apogee-server
+    package_name: apogee-server
+    ids: [apogee-server]
+    formats: [archlinux]
+    homepage: https://github.com/Bornholm/apogee
+    maintainer: Bornholm
+    description: |-
+      Serveur dédié d'Apogée : fait vivre un ciel partagé sur le réseau
+      local, en service systemd.
+    contents:
+      - src: packaging/apogee-server.service
+        dst: /usr/lib/systemd/system/apogee-server.service
+      - src: packaging/server.env
+        dst: /etc/apogee/server.env
+        type: config|noreplace
+    archlinux:
+      packager: Bornholm
+
+changelog:
+  use: github
+  sort: asc
+  groups:
+    - title: Nouveautés
+      regexp: '^.*?feat(\(.+\))??!?:.+$'
+      order: 0
+    - title: Corrections
+      regexp: '^.*?fix(\(.+\))??!?:.+$'
+      order: 1
+    - title: Autres
+      order: 999
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+release:
+  github:
+    owner: Bornholm
+    name: apogee
